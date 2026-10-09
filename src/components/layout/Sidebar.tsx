@@ -1,6 +1,7 @@
 import { NavLink } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../../hooks/useAuth'
+import { isSchoolAdmin } from '../../lib/roles'
 import { navItemsForRole } from './nav'
 
 const linkClass = ({ isActive }: { isActive: boolean }) =>
@@ -22,7 +23,7 @@ export function Sidebar() {
       <nav aria-label={t('nav.label')} className="flex flex-1 flex-col gap-1 px-3 pb-6">
         {navItemsForRole(role).map((item) => {
           const to =
-            role === 'admin' && item.adminTo
+            isSchoolAdmin(role) && item.adminTo
               ? item.adminTo
               : role === 'teacher' && item.teacherTo
                 ? item.teacherTo

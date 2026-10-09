@@ -1,6 +1,6 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 
-export const appRoles = ['admin', 'teacher', 'student'] as const
+export const appRoles = ['superadmin', 'admin', 'teacher', 'student'] as const
 
 export type AppRole = (typeof appRoles)[number]
 
@@ -22,6 +22,11 @@ export interface Database {
           role: AppRole
           full_name: string | null
           language: string | null
+          date_of_birth: string | null
+          passport: string | null
+          national_id: string | null
+          photo_url: string | null
+          phone: string | null
           created_at: string | null
         },
         {
@@ -29,6 +34,11 @@ export interface Database {
           role?: AppRole
           full_name?: string | null
           language?: string | null
+          date_of_birth?: string | null
+          passport?: string | null
+          national_id?: string | null
+          photo_url?: string | null
+          phone?: string | null
         }
       >
       programs: Table<
@@ -160,7 +170,7 @@ export const supabase: SupabaseClient<Database> | null =
 export const isSupabaseConfigured = supabase !== null
 
 export function isAppRole(value: string | null | undefined): value is AppRole {
-  return value === 'admin' || value === 'teacher' || value === 'student'
+  return value === 'superadmin' || value === 'admin' || value === 'teacher' || value === 'student'
 }
 
 export async function fetchProfileRole(userId: string): Promise<AppRole | null> {

@@ -1,4 +1,4 @@
-import { BookOpen, ClipboardCheck, GraduationCap, LayoutDashboard, NotebookPen, Users, type LucideIcon } from 'lucide-react'
+import { BookOpen, ClipboardCheck, GraduationCap, LayoutDashboard, NotebookPen, UserCog, Users, type LucideIcon } from 'lucide-react'
 import type { AppRole } from '../../lib/supabase'
 
 export type NavItem = {
@@ -16,7 +16,7 @@ export type NavItem = {
 }
 
 export const navItems: NavItem[] = [
-  { to: '/', labelKey: 'nav.dashboard', icon: LayoutDashboard, roles: ['admin', 'teacher', 'student'], end: true, teacherTo: '/teacher' },
+  { to: '/', labelKey: 'nav.dashboard', icon: LayoutDashboard, roles: ['superadmin', 'admin', 'teacher', 'student'], end: true, teacherTo: '/teacher' },
   {
     to: '/learners',
     labelKey: 'nav.learners',
@@ -30,13 +30,14 @@ export const navItems: NavItem[] = [
     to: '/courses',
     labelKey: 'nav.courses',
     icon: BookOpen,
-    roles: ['admin', 'student'],
+    roles: ['superadmin', 'admin', 'student'],
     adminTo: '/programs',
     studentTo: '/student',
     studentLabelKey: 'nav.learning',
   },
-  { to: '/classes', labelKey: 'nav.classes', icon: GraduationCap, roles: ['admin'] },
-  { to: '/lessons', labelKey: 'nav.lessons', icon: NotebookPen, roles: ['admin', 'teacher'] },
+  { to: '/classes', labelKey: 'nav.classes', icon: GraduationCap, roles: ['superadmin', 'admin'] },
+  { to: '/accounts', labelKey: 'nav.accounts', icon: UserCog, roles: ['superadmin', 'admin'] },
+  { to: '/lessons', labelKey: 'nav.lessons', icon: NotebookPen, roles: ['superadmin', 'admin', 'teacher'] },
 ]
 
 export function navItemsForRole(role: AppRole | null) {

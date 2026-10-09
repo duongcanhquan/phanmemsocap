@@ -20,6 +20,7 @@ const ProgramDetail = lazy(() =>
 const ClassManager = lazy(() =>
   import('./pages/admin/ClassManager').then((module) => ({ default: module.ClassManager })),
 )
+const Accounts = lazy(() => import('./pages/admin/Accounts').then((module) => ({ default: module.Accounts })))
 const TeacherDashboard = lazy(() =>
   import('./pages/teacher/Dashboard').then((module) => ({ default: module.TeacherDashboard })),
 )
@@ -31,9 +32,9 @@ const LearningSpace = lazy(() =>
   import('./pages/student/LearningSpace').then((module) => ({ default: module.LearningSpace })),
 )
 
-const staffRoles = ['admin', 'teacher'] as const
-const allRoles = ['admin', 'teacher', 'student'] as const
-const adminRoles = ['admin'] as const
+const staffRoles = ['superadmin', 'admin', 'teacher'] as const
+const allRoles = ['superadmin', 'admin', 'teacher', 'student'] as const
+const adminRoles = ['superadmin', 'admin'] as const
 const teacherRoles = ['teacher'] as const
 const studentRoles = ['student'] as const
 
@@ -144,6 +145,14 @@ export default function App() {
                   element={
                     <Suspense fallback={<PageFallback />}>
                       <ClassManager />
+                    </Suspense>
+                  }
+                />
+                <Route
+                  path="accounts"
+                  element={
+                    <Suspense fallback={<PageFallback />}>
+                      <Accounts />
                     </Suspense>
                   }
                 />

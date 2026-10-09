@@ -1,6 +1,7 @@
 import { NavLink } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../../hooks/useAuth'
+import { isSchoolAdmin } from '../../lib/roles'
 import { navItemsForRole } from './nav'
 
 export function BottomNav() {
@@ -17,7 +18,7 @@ export function BottomNav() {
       <ul className="grid" style={{ gridTemplateColumns: `repeat(${Math.max(items.length, 1)}, minmax(0, 1fr))` }}>
         {items.map((item) => {
           const to =
-            role === 'admin' && item.adminTo
+            isSchoolAdmin(role) && item.adminTo
               ? item.adminTo
               : role === 'teacher' && item.teacherTo
                 ? item.teacherTo
