@@ -59,7 +59,7 @@ export function AdvancedEditor({ mode = 'teacher', content, onChange, editorRef 
   const editorProps = useMemo(
     () => ({
       attributes: {
-        class: 'lesson-prose min-h-64 px-4 py-4 focus:outline-none sm:px-5',
+        class: 'lesson-prose min-h-[70dvh] px-5 py-6 focus:outline-none lg:min-h-[calc(100dvh-16rem)] sm:px-8',
         'aria-label': t('editor.surface'),
       },
       handleDrop(view: { posAtCoords: (coords: { left: number; top: number }) => { pos: number } | null }, event: DragEvent) {
@@ -224,7 +224,7 @@ export function AdvancedEditor({ mode = 'teacher', content, onChange, editorRef 
   if (!editor || !active) return null
 
   return (
-    <div className="lesson-editor overflow-hidden rounded-2xl bg-surface shadow-sm">
+    <div className="lesson-editor flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-white/80 bg-white/80 shadow-[0_12px_40px_rgb(15_23_42/0.06)] backdrop-blur-xl">
       {mode === 'teacher' ? (
         <EditorToolbar
           editor={editor}
@@ -346,7 +346,7 @@ export function AdvancedEditor({ mode = 'teacher', content, onChange, editorRef 
         </form>
       ) : null}
 
-      <EditorContent editor={editor} />
+      <EditorContent editor={editor} className="min-h-0 flex-1 overflow-y-auto" />
       <input
         ref={imageInputRef}
         type="file"

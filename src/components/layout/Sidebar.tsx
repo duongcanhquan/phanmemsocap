@@ -7,7 +7,7 @@ import { navItemsForRole } from './nav'
 const linkClass = ({ isActive }: { isActive: boolean }) =>
   [
     'flex min-h-11 items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-colors duration-200',
-    isActive ? 'bg-ink text-white' : 'text-ink hover:bg-canvas',
+    isActive ? 'bg-accent text-white' : 'text-ink hover:bg-white/70',
   ].join(' ')
 
 export function Sidebar() {
@@ -15,7 +15,7 @@ export function Sidebar() {
   const { role } = useAuth()
 
   return (
-    <aside className="hidden border-r border-line bg-surface lg:flex lg:min-h-dvh lg:flex-col">
+    <aside className="hidden border-r border-white/70 bg-white/60 backdrop-blur-xl lg:flex lg:min-h-dvh lg:flex-col">
       <div className="px-5 py-6">
         <p className="text-xs font-medium tracking-wide text-muted uppercase">phanmemsocap</p>
         <p className="mt-1 text-lg leading-snug font-semibold text-ink">{t('appName')}</p>

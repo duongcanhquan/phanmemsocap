@@ -11,7 +11,8 @@
     "classes": "Lớp học",
     "lessons": "Bài giảng",
     "accounts": "Tài khoản",
-    "ai": "Mô hình AI"
+    "ai": "Mô hình AI",
+    "review": "Kiểm tra & tổng kết"
   },
   "header": {
     "language": "Ngôn ngữ",
@@ -270,6 +271,8 @@
     "continue": "Tiếp tục"
   },
   "teacher": {
+    "schoolTitle": "Kiểm tra, kiểm soát và tổng kết",
+    "schoolLead": "Xem tiến độ toàn trường, chấm bài tự luận và xuất bảng điểm.",
     "dashboardTitle": "Lớp của tôi",
     "dashboardLead": "Sinh viên đang học các chương trình bạn phụ trách.",
     "openGrading": "Chấm tự luận",

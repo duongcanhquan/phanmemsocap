@@ -8,7 +8,7 @@ export function AppLayout() {
   const { t } = useTranslation()
 
   return (
-    <div className="min-h-dvh bg-canvas text-ink">
+    <div className="min-h-dvh text-ink">
       <a
         href="#main-content"
         className="sr-only focus:not-sr-only focus:absolute focus:top-3 focus:left-3 focus:z-50 focus:rounded-xl focus:bg-white focus:px-4 focus:py-3 focus:shadow-sm"

@@ -4,13 +4,14 @@ import { Link } from 'react-router-dom'
 import { ReportExport } from '../../components/ReportExport'
 import { PageHeader } from '../../components/ui/PageHeader'
 import { useAuth } from '../../hooks/useAuth'
+import { isSchoolAdmin } from '../../lib/roles'
 import { localizedLabel } from '../../lib/localized'
 import { isSupabaseConfigured } from '../../lib/supabase'
 import { listTeacherRoster, type RosterRow } from '../../lib/teacher'
 
 export function TeacherDashboard() {
   const { t, i18n } = useTranslation()
-  const { user } = useAuth()
+  const { user, role } = useAuth()
   const [rows, setRows] = useState<RosterRow[]>([])
   const [loading, setLoading] = useState(isSupabaseConfigured)
   const [error, setError] = useState('')
@@ -19,7 +20,7 @@ export function TeacherDashboard() {
   useEffect(() => {
     if (!user || !isSupabaseConfigured) return
     let active = true
-    void listTeacherRoster(user.id)
+    void listTeacherRoster(isSchoolAdmin(role) ? undefined : user.id)
       .then((next) => {
         if (active) setRows(next)
       })
@@ -32,7 +33,7 @@ export function TeacherDashboard() {
     return () => {
       active = false
     }
-  }, [t, user])
+  }, [t, user, role])
 
   const reportPrograms = [...new Map(rows.map((row) => [row.programId, row.programTitle])).entries()].map(
     ([id, title]) => ({ id, title }),
@@ -44,8 +45,8 @@ export function TeacherDashboard() {
   return (
     <div className="ui-page">
       <PageHeader
-        title={t('teacher.dashboardTitle')}
-        description={t('teacher.dashboardLead')}
+        title={t(isSchoolAdmin(role) ? 'teacher.schoolTitle' : 'teacher.dashboardTitle')}
+        description={t(isSchoolAdmin(role) ? 'teacher.schoolLead' : 'teacher.dashboardLead')}
         action={
           <Link to="/teacher/grading" className="ui-btn ui-btn-primary">
             {t('teacher.openGrading')}
@@ -64,7 +65,7 @@ export function TeacherDashboard() {
         </p>
       ) : null}
       {!loading && rows.length === 0 && isSupabaseConfigured ? <p className="text-muted">{t('teacher.emptyRoster')}</p> : null}
-      <div className="overflow-x-auto rounded-2xl bg-white shadow-sm">
+      <div className="overflow-x-auto rounded-2xl border border-white/80 bg-white/75 shadow-[0_12px_40px_rgb(15_23_42/0.06)] backdrop-blur-xl">
         <table className="w-full min-w-[40rem] text-left text-sm">
           <thead className="border-b border-line text-muted">
             <tr>

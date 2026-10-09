@@ -77,7 +77,7 @@ export function Grading() {
         </p>
       ) : null}
       {!loading && rows.length === 0 && isSupabaseConfigured ? <p className="text-muted">{t('teacher.emptyGrading')}</p> : null}
-      <ul className="overflow-hidden rounded-2xl bg-white shadow-sm">
+      <ul className="ui-card overflow-hidden p-0">
         {rows.map((row) => (
           <li key={row.id} className="border-b border-line last:border-0">
             <button
@@ -102,7 +102,7 @@ export function Grading() {
             role="dialog"
             aria-modal="true"
             aria-labelledby="grade-title"
-            className="flex h-full w-full max-w-md flex-col gap-4 overflow-y-auto bg-white p-5 shadow-xl"
+            className="ui-card flex h-full w-full max-w-md flex-col gap-4 overflow-y-auto"
             onSubmit={(event) => void onSave(event)}
           >
             <div className="flex items-start justify-between gap-3">

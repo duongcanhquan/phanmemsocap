@@ -8,12 +8,12 @@ export function BottomNav() {
   const { t } = useTranslation()
   const { role } = useAuth()
 
-  const items = navItemsForRole(role)
+  const items = navItemsForRole(role).filter((item) => item.mobile)
 
   return (
     <nav
       aria-label={t('nav.label')}
-      className="fixed inset-x-0 bottom-0 z-20 border-t border-line bg-surface pb-[env(safe-area-inset-bottom)] lg:hidden"
+      className="fixed inset-x-0 bottom-0 z-20 border-t border-white/70 bg-white/75 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl lg:hidden"
     >
       <ul className="grid" style={{ gridTemplateColumns: `repeat(${Math.max(items.length, 1)}, minmax(0, 1fr))` }}>
         {items.map((item) => {

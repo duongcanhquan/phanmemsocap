@@ -36,7 +36,6 @@ const LearningSpace = lazy(() =>
 const staffRoles = ['superadmin', 'admin', 'teacher'] as const
 const allRoles = ['superadmin', 'admin', 'teacher', 'student'] as const
 const adminRoles = ['superadmin', 'admin'] as const
-const teacherRoles = ['teacher'] as const
 const studentRoles = ['student'] as const
 
 function PageFallback() {
@@ -57,10 +56,9 @@ export default function App() {
                 <Route
                   path="learners"
                   element={
-                    <PlaceholderPage
-                      titleKey="pages.learners.title"
-                      descriptionKey="pages.learners.description"
-                    />
+                    <Suspense fallback={<PageFallback />}>
+                      <TeacherDashboard />
+                    </Suspense>
                   }
                 />
                 <Route
@@ -71,8 +69,6 @@ export default function App() {
                     </Suspense>
                   }
                 />
-              </Route>
-              <Route element={<ProtectedRoute allowedRoles={[...teacherRoles]} />}>
                 <Route
                   path="teacher"
                   element={

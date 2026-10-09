@@ -92,7 +92,7 @@ export function LessonEditorPage() {
   }
 
   return (
-    <div className="ui-page">
+    <div className="flex min-h-0 w-full flex-1 flex-col gap-3">
       <PageHeader
         title={t('editor.title')}
         description={t('editor.subtitle')}
@@ -162,7 +162,7 @@ export function LessonEditorPage() {
           {error}
         </p>
       ) : null}
-      <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_22rem]">
+      <div className="grid min-h-0 flex-1 items-stretch gap-3 lg:grid-cols-[minmax(0,1fr)_22rem]">
         <AdvancedEditor
           key={`${selectedLessonId}-${mode}`}
           mode={mode}

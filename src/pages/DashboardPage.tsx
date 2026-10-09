@@ -65,6 +65,14 @@ export function DashboardPage() {
           )
         })}
       </div>
+      {linked ? (
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Link to="/teacher" className="ui-card text-base font-semibold text-ink">{t('nav.review')}</Link>
+          <Link to="/lessons" className="ui-card text-base font-semibold text-ink">{t('nav.lessons')}</Link>
+          <Link to="/accounts" className="ui-card text-base font-semibold text-ink">{t('nav.accounts')}</Link>
+          <Link to="/ai" className="ui-card text-base font-semibold text-ink">{t('nav.ai')}</Link>
+        </div>
+      ) : null}
     </div>
   )
 }

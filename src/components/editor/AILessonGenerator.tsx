@@ -65,7 +65,7 @@ export function AILessonGenerator({ getContent, onInsert }: AILessonGeneratorPro
   }
 
   return (
-    <aside className="grid gap-3 rounded-2xl bg-white p-4 shadow-sm lg:sticky lg:top-4 lg:max-h-[calc(100dvh-7rem)] lg:overflow-y-auto">
+    <aside className="ui-card grid content-start gap-3 lg:max-h-[calc(100dvh-8rem)] lg:overflow-y-auto">
       <div className="flex items-center gap-2">
         <Sparkles aria-hidden="true" className="size-5 text-accent" />
         <h2 className="text-lg font-semibold text-ink">{t('ai.title')}</h2>

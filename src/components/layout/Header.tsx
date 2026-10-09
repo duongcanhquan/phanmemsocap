@@ -32,7 +32,7 @@ export function Header() {
   }
 
   return (
-    <header className="sticky top-0 z-10 border-b border-line bg-surface/95 pt-[env(safe-area-inset-top)] backdrop-blur">
+    <header className="sticky top-0 z-10 border-b border-white/70 bg-white/70 pt-[env(safe-area-inset-top)] backdrop-blur-xl">
       <div className="flex items-center gap-2 px-4 py-3 sm:px-6">
         <p className="min-w-0 flex-1 truncate text-base font-semibold text-ink lg:sr-only">
           {t('appName')}
@@ -57,7 +57,7 @@ export function Header() {
             ))}
           </select>
           <span
-            className="inline-flex size-11 items-center justify-center rounded-full bg-ink text-sm font-semibold text-white"
+            className="inline-flex size-11 items-center justify-center rounded-full bg-accent text-sm font-semibold text-white"
             aria-label={`${t('header.account')}: ${displayName}`}
             title={displayName}
           >

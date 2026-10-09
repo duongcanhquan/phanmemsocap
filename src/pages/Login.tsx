@@ -56,7 +56,7 @@ export function Login() {
           <LanguageMenu />
         </div>
         <form
-          className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl sm:p-8"
+          className="ui-card w-full max-w-md sm:p-8"
           onSubmit={handleSubmit(onSubmit)}
           noValidate
         >

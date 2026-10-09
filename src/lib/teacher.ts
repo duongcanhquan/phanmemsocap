@@ -37,9 +37,11 @@ function asScore(value: number | null): number | null {
   return typeof value === 'number' && Number.isFinite(value) ? value : null
 }
 
-export async function listTeacherRoster(teacherId: string): Promise<RosterRow[]> {
+export async function listTeacherRoster(teacherId?: string): Promise<RosterRow[]> {
   const db = client()
-  const programs = await db.from('programs').select('id, title').eq('teacher_id', teacherId)
+  const programs = teacherId
+    ? await db.from('programs').select('id, title').eq('teacher_id', teacherId)
+    : await db.from('programs').select('id, title')
   if (programs.error) throw programs.error
   const programRows = programs.data ?? []
   if (programRows.length === 0) return []
