@@ -1,22 +1,23 @@
 import { Plus } from 'lucide-react'
 import { useEffect, useState, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { LocalizedFields } from '../../components/admin/LocalizedFields'
 import { ExportButtons } from '../../components/ExportButtons'
 import { DataTable, FilterBar, SelectFilter } from '../../components/ui/DataSheet'
+import { Dialog } from '../../components/ui/Dialog'
 import { PageHeader } from '../../components/ui/PageHeader'
 import { emptyLocalized, hasLocalizedText, localizedLabel, type LocalizedText } from '../../lib/localized'
-import { createProgram, listPrograms, type ProgramRecord } from '../../lib/programs'
+import { createProgram, listPrograms, updateProgram, type ProgramRecord } from '../../lib/programs'
 import { isSupabaseConfigured } from '../../lib/supabase'
 
 export function ProgramManager() {
   const { t, i18n } = useTranslation()
-  const navigate = useNavigate()
   const [programs, setPrograms] = useState<ProgramRecord[]>([])
   const [loading, setLoading] = useState(isSupabaseConfigured)
   const [error, setError] = useState('')
   const [creating, setCreating] = useState(false)
+  const [editing, setEditing] = useState<ProgramRecord | null>(null)
   const [query, setQuery] = useState('')
   const [status, setStatus] = useState('all')
   const [category, setCategory] = useState('all')
@@ -121,12 +122,12 @@ export function ProgramManager() {
             {visiblePrograms.map((program) => {
               const title = localizedLabel(program.title, i18n.language) || t('programs.untitled')
               return (
-                <tr key={program.id}>
+                <tr key={program.id} className="ui-row" onClick={() => setEditing(program)}>
                   <td className="font-semibold text-ink">{title}</td>
                   <td>{program.category || '—'}</td>
                   <td>{program.isActive ? t('programs.active') : t('programs.inactive')}</td>
                   <td>
-                    <Link to={`/programs/${program.id}`} className="ui-inline ui-btn-primary">
+                    <Link to={`/programs/${program.id}`} className="ui-inline ui-btn-primary" onClick={(event) => event.stopPropagation()}>
                       {t('classesPage.manage')}
                     </Link>
                   </td>
@@ -137,22 +138,45 @@ export function ProgramManager() {
         </DataTable>
       </div>
       {creating ? (
-        <CreateProgramDialog
+        <ProgramDialog
+          program={null}
           onClose={() => setCreating(false)}
-          onCreated={(id) => navigate(`/programs/${id}`)}
+          onSaved={(saved) => {
+            setPrograms((current) => [saved, ...current])
+            setCreating(false)
+          }}
+        />
+      ) : null}
+      {editing ? (
+        <ProgramDialog
+          key={editing.id}
+          program={editing}
+          onClose={() => setEditing(null)}
+          onSaved={(saved) => {
+            setPrograms((current) => current.map((item) => (item.id === saved.id ? saved : item)))
+            setEditing(null)
+          }}
         />
       ) : null}
     </div>
   )
 }
 
-function CreateProgramDialog({ onClose, onCreated }: { onClose: () => void; onCreated: (id: string) => void }) {
+function ProgramDialog({
+  program,
+  onClose,
+  onSaved,
+}: {
+  program: ProgramRecord | null
+  onClose: () => void
+  onSaved: (program: ProgramRecord) => void
+}) {
   const { t } = useTranslation()
-  const [title, setTitle] = useState<LocalizedText>(emptyLocalized())
-  const [description, setDescription] = useState<LocalizedText>(emptyLocalized())
-  const [category, setCategory] = useState('')
-  const [coverImageUrl, setCoverImageUrl] = useState('')
-  const [isActive, setIsActive] = useState(true)
+  const [title, setTitle] = useState<LocalizedText>(program?.title ?? emptyLocalized())
+  const [description, setDescription] = useState<LocalizedText>(program?.description ?? emptyLocalized())
+  const [category, setCategory] = useState(program?.category ?? '')
+  const [coverImageUrl, setCoverImageUrl] = useState(program?.coverImageUrl ?? '')
+  const [isActive, setIsActive] = useState(program?.isActive ?? true)
   const [error, setError] = useState('')
   const [pending, setPending] = useState(false)
 
@@ -163,9 +187,15 @@ function CreateProgramDialog({ onClose, onCreated }: { onClose: () => void; onCr
       return
     }
     setPending(true)
+    const input = { title, description, category, coverImageUrl, isActive }
     try {
-      const id = await createProgram({ title, description, category, coverImageUrl, isActive })
-      onCreated(id)
+      if (program) {
+        await updateProgram(program.id, input)
+        onSaved({ ...program, ...input })
+      } else {
+        const id = await createProgram(input)
+        onSaved({ id, ...input })
+      }
     } catch {
       setError(t('programs.saveError'))
       setPending(false)
@@ -173,18 +203,8 @@ function CreateProgramDialog({ onClose, onCreated }: { onClose: () => void; onCr
   }
 
   return (
-    <div className="fixed inset-0 z-40 flex items-end justify-center bg-ink/40 p-4 sm:items-center">
-      <form
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="create-program-title"
-        className="ui-card max-h-[90dvh] w-full max-w-xl overflow-y-auto"
-        onSubmit={(event) => void onSubmit(event)}
-      >
-        <h2 id="create-program-title" className="text-lg font-semibold">
-          {t('programs.create')}
-        </h2>
-        <div className="mt-4 grid gap-4">
+    <Dialog title={program ? t('programs.editProgram') : t('programs.create')} onClose={onClose}>
+      <form className="grid gap-5 lg:grid-cols-2" onSubmit={(event) => void onSubmit(event)}>
           <LocalizedFields id="new-title" label={t('programs.name')} value={title} onChange={setTitle} />
           <LocalizedFields
             id="new-description"
@@ -210,21 +230,23 @@ function CreateProgramDialog({ onClose, onCreated }: { onClose: () => void; onCr
             <input type="checkbox" checked={isActive} onChange={(event) => setIsActive(event.target.checked)} />
             {t('programs.active')}
           </label>
+          {coverImageUrl ? (
+            <img src={coverImageUrl} alt="" className="aspect-video w-full rounded-xl object-cover lg:col-span-2" />
+          ) : null}
           {error ? (
-            <p role="alert" className="text-sm text-danger">
+            <p role="alert" className="text-sm text-danger lg:col-span-2">
               {error}
             </p>
           ) : null}
-        </div>
-        <div className="mt-5 flex justify-end gap-2">
-          <button type="button" className="ui-btn ui-btn-ghost border border-line" onClick={onClose}>
-            {t('programs.cancel')}
-          </button>
-          <button type="submit" className="ui-btn ui-btn-primary" disabled={pending}>
-            {pending ? t('programs.saving') : t('programs.save')}
-          </button>
-        </div>
+          <div className="ui-dialog-foot lg:col-span-2">
+            <button type="button" className="ui-btn ui-btn-ghost border border-line" onClick={onClose}>
+              {t('programs.cancel')}
+            </button>
+            <button type="submit" className="ui-btn ui-btn-primary" disabled={pending}>
+              {pending ? t('programs.saving') : t('programs.save')}
+            </button>
+          </div>
       </form>
-    </div>
+    </Dialog>
   )
 }

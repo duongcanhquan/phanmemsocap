@@ -18,11 +18,11 @@ export function TeacherDashboard() {
   const [rows, setRows] = useState<RosterRow[]>([])
   const [loading, setLoading] = useState(isSupabaseConfigured)
   const [error, setError] = useState('')
-  const [reportProgramId, setReportProgramId] = useState('')
-  const [tab, setTab] = useState('roster')
+  const [tab, setTab] = useState<'class' | 'course'>('class')
   const [query, setQuery] = useState('')
-  const [programFilter, setProgramFilter] = useState('all')
-  const [scoreFilter, setScoreFilter] = useState('all')
+  const [courseFilter, setCourseFilter] = useState('all')
+  const [selectedClass, setSelectedClass] = useState('')
+  const [selectedCourse, setSelectedCourse] = useState<string | null>(null)
 
   useEffect(() => {
     if (!user || !isSupabaseConfigured) return
@@ -42,23 +42,39 @@ export function TeacherDashboard() {
     }
   }, [t, user, role])
 
-  const reportPrograms = [...new Map(rows.map((row) => [row.programId, row.programTitle])).entries()].map(
-    ([id, title]) => ({ id, title }),
-  )
-  const activeReportId = reportPrograms.some((program) => program.id === reportProgramId)
-    ? reportProgramId
-    : (reportPrograms[0]?.id ?? '')
-  const visibleRows = rows.filter((row) => {
-    const title = localizedLabel(row.programTitle, i18n.language).toLowerCase()
-    const matchesQuery = `${row.studentName} ${title}`.toLowerCase().includes(query.trim().toLowerCase())
-    const matchesProgram = programFilter === 'all' || row.programId === programFilter
-    const matchesScore =
-      scoreFilter === 'all' ||
-      (scoreFilter === 'scored' && row.averageScore !== null) ||
-      (scoreFilter === 'unscored' && row.averageScore === null) ||
-      (scoreFilter === 'done' && row.progress >= 100)
-    return matchesQuery && matchesProgram && matchesScore
+  const classes = [...new Map(rows.map((row) => [row.programId, row])).values()].map((sample) => {
+    const members = rows.filter((row) => row.programId === sample.programId)
+    const scores = members.map((row) => row.averageScore).filter((score): score is number => score !== null)
+    const progress = members.length === 0 ? 0 : Math.round(members.reduce((sum, row) => sum + row.progress, 0) / members.length)
+    return {
+      id: sample.programId,
+      title: sample.programTitle,
+      category: sample.category,
+      students: members.length,
+      progress,
+      average: scores.length === 0 ? null : scores.reduce((sum, score) => sum + score, 0) / scores.length,
+    }
   })
+  const courses = [...new Set(classes.map((item) => item.category))].map((category) => {
+    const members = classes.filter((item) => item.category === category)
+    const scores = members.map((item) => item.average).filter((score): score is number => score !== null)
+    return {
+      name: category,
+      classes: members.length,
+      students: members.reduce((sum, item) => sum + item.students, 0),
+      average: scores.length === 0 ? null : scores.reduce((sum, score) => sum + score, 0) / scores.length,
+    }
+  })
+  const needle = query.trim().toLowerCase()
+  const visibleClasses = classes.filter((item) => {
+    const title = localizedLabel(item.title, i18n.language).toLowerCase()
+    const course = (item.category || t('teacher.uncategorized')).toLowerCase()
+    const matchesCourse = courseFilter === 'all' || item.category === courseFilter
+    return matchesCourse && `${title} ${course}`.includes(needle)
+  })
+  const visibleCourses = courses.filter((item) => (item.name || t('teacher.uncategorized')).toLowerCase().includes(needle))
+  const classRows = rows.filter((row) => row.programId === selectedClass && row.studentName.toLowerCase().includes(needle))
+  const openClass = classes.find((item) => item.id === selectedClass)
 
   return (
     <div className="ui-page">
@@ -85,98 +101,177 @@ export function TeacherDashboard() {
       <Tabs
         label={t('panels.label')}
         value={tab}
-        onChange={setTab}
+        onChange={(id) => {
+          setTab(id as 'class' | 'course')
+          setQuery('')
+          setSelectedClass('')
+          setSelectedCourse(null)
+          setCourseFilter('all')
+        }}
         tabs={[
-          { id: 'roster', label: t('panels.roster') },
-          { id: 'report', label: t('panels.report') },
+          { id: 'class', label: t('panels.byClass') },
+          { id: 'course', label: t('panels.byCourse') },
         ]}
       />
       <div className="ui-fill">
-      {tab === 'roster' ? (
-      <>
       {!loading && rows.length === 0 && isSupabaseConfigured ? <p className="text-muted">{t('teacher.emptyRoster')}</p> : null}
-      <FilterBar query={query} onQuery={setQuery} count={visibleRows.length}>
-        <SelectFilter
-          id="roster-program"
-          label={t('filters.program')}
-          value={programFilter}
-          onChange={setProgramFilter}
-          options={[{ value: 'all', label: t('filters.all') }, ...reportPrograms.map((program) => ({ value: program.id, label: localizedLabel(program.title, i18n.language) || t('programs.untitled') }))]}
-        />
-        <SelectFilter
-          id="roster-score"
-          label={t('filters.score')}
-          value={scoreFilter}
-          onChange={setScoreFilter}
-          options={[
-            { value: 'all', label: t('filters.all') },
-            { value: 'scored', label: t('filters.hasScore') },
-            { value: 'unscored', label: t('filters.noScore') },
-            { value: 'done', label: t('filters.done') },
-          ]}
-        />
-      </FilterBar>
-      {rows.length > 0 && visibleRows.length === 0 ? <p className="text-muted">{t('filters.noMatch')}</p> : null}
-      <div className="mb-3 flex justify-end">
-        <ExportButtons
-          filename="si-so"
-          title={t(isSchoolAdmin(role) ? 'teacher.schoolTitle' : 'teacher.dashboardTitle')}
-          headers={[t('teacher.student'), t('teacher.program'), t('teacher.progress'), t('teacher.average')]}
-          rows={visibleRows.map((row) => [
-            row.studentName || t('enrollment.unnamed'),
-            localizedLabel(row.programTitle, i18n.language) || t('programs.untitled'),
-            `${row.progress}%`,
-            row.averageScore === null ? t('teacher.noScore') : row.averageScore.toFixed(1),
-          ])}
-        />
-      </div>
-      <DataTable>
-          <thead>
-            <tr>
-              <th>{t('teacher.student')}</th>
-              <th>{t('teacher.program')}</th>
-              <th>{t('teacher.progress')}</th>
-              <th>{t('teacher.average')}</th>
-              <th>{t('teacher.action')}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {visibleRows.map((row) => (
-              <tr key={`${row.studentId}-${row.programId}`}>
-                <td className="font-medium text-ink">{row.studentName || t('enrollment.unnamed')}</td>
-                <td>{localizedLabel(row.programTitle, i18n.language) || t('programs.untitled')}</td>
-                <td className="tabular-nums">{row.progress}%</td>
-                <td className="tabular-nums">{row.averageScore === null ? t('teacher.noScore') : row.averageScore.toFixed(1)}</td>
-                <td>
-                  <Link to={`/teacher/students/${row.studentId}/${row.programId}`} className="ui-inline ui-btn-ghost">
-                    {t('teacher.viewLog')}
-                  </Link>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-      </DataTable>
-      </>
-      ) : null}
-      {tab === 'report' && reportPrograms.length > 0 ? (
+      {selectedClass && openClass ? (
         <div className="grid gap-3">
-          <label className="flex items-center gap-3 text-sm font-medium text-ink" htmlFor="report-program">
-            {t('reports.className')}
-            <select
-              id="report-program"
-              className="ui-field min-w-0 flex-1"
-              value={activeReportId}
-              onChange={(event) => setReportProgramId(event.target.value)}
-            >
-              {reportPrograms.map((program) => (
-                <option key={program.id} value={program.id}>
-                  {localizedLabel(program.title, i18n.language) || t('programs.untitled')}
-                </option>
+          <button type="button" className="ui-inline ui-btn-ghost w-fit" onClick={() => { setSelectedClass(''); setQuery('') }}>
+            {t('teacher.back')}
+          </button>
+          <p className="text-lg font-semibold text-ink">
+            {localizedLabel(openClass.title, i18n.language) || t('programs.untitled')}
+            <span className="ml-2 text-sm font-medium text-muted">{openClass.category || t('teacher.uncategorized')}</span>
+          </p>
+          <FilterBar query={query} onQuery={setQuery} count={classRows.length} />
+          <DataTable>
+            <thead>
+              <tr>
+                <th>{t('teacher.student')}</th>
+                <th>{t('teacher.progress')}</th>
+                <th>{t('teacher.average')}</th>
+                <th>{t('teacher.action')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {classRows.map((row) => (
+                <tr key={row.studentId}>
+                  <td className="font-medium text-ink">{row.studentName || t('enrollment.unnamed')}</td>
+                  <td className="tabular-nums">{row.progress}%</td>
+                  <td className="tabular-nums">{row.averageScore === null ? t('teacher.noScore') : row.averageScore.toFixed(1)}</td>
+                  <td>
+                    <Link to={`/teacher/students/${row.studentId}/${row.programId}`} className="ui-inline ui-btn-ghost">
+                      {t('teacher.viewLog')}
+                    </Link>
+                  </td>
+                </tr>
               ))}
-            </select>
-          </label>
-          <ReportExport key={activeReportId} programId={activeReportId} />
+            </tbody>
+          </DataTable>
+          <ReportExport key={selectedClass} programId={selectedClass} />
         </div>
+      ) : null}
+      {!selectedClass && tab === 'class' ? (
+        <>
+          <FilterBar query={query} onQuery={setQuery} count={visibleClasses.length}>
+            <SelectFilter
+              id="review-course"
+              label={t('teacher.course')}
+              value={courseFilter}
+              onChange={setCourseFilter}
+              options={[
+                { value: 'all', label: t('filters.all') },
+                ...courses.map((item) => ({ value: item.name, label: item.name || t('teacher.uncategorized') })),
+              ]}
+            />
+          </FilterBar>
+          {classes.length > 0 && visibleClasses.length === 0 ? <p className="text-muted">{t('filters.noMatch')}</p> : null}
+          <div className="mb-3 flex justify-end">
+            <ExportButtons
+              filename="tong-ket-lop"
+              title={t('panels.byClass')}
+              headers={[t('reports.className'), t('teacher.course'), t('teacher.headcount'), t('teacher.progress'), t('teacher.average')]}
+              rows={visibleClasses.map((item) => [
+                localizedLabel(item.title, i18n.language) || t('programs.untitled'),
+                item.category || t('teacher.uncategorized'),
+                item.students,
+                `${item.progress}%`,
+                item.average === null ? t('teacher.noScore') : item.average.toFixed(1),
+              ])}
+            />
+          </div>
+          <DataTable>
+            <thead>
+              <tr>
+                <th>{t('reports.className')}</th>
+                <th>{t('teacher.course')}</th>
+                <th>{t('teacher.headcount')}</th>
+                <th>{t('teacher.progress')}</th>
+                <th>{t('teacher.average')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {visibleClasses.map((item) => (
+                <tr key={item.id} className="ui-row" onClick={() => { setSelectedClass(item.id); setQuery('') }}>
+                  <td className="font-semibold text-ink">{localizedLabel(item.title, i18n.language) || t('programs.untitled')}</td>
+                  <td>{item.category || t('teacher.uncategorized')}</td>
+                  <td className="tabular-nums">{item.students}</td>
+                  <td className="tabular-nums">{item.progress}%</td>
+                  <td className="tabular-nums">{item.average === null ? t('teacher.noScore') : item.average.toFixed(1)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </DataTable>
+        </>
+      ) : null}
+      {!selectedClass && tab === 'course' && selectedCourse === null ? (
+        <>
+          <FilterBar query={query} onQuery={setQuery} count={visibleCourses.length} />
+          {courses.length > 0 && visibleCourses.length === 0 ? <p className="text-muted">{t('filters.noMatch')}</p> : null}
+          <div className="mb-3 flex justify-end">
+            <ExportButtons
+              filename="tong-ket-khoa"
+              title={t('panels.byCourse')}
+              headers={[t('teacher.course'), t('teacher.classCount'), t('teacher.headcount'), t('teacher.average')]}
+              rows={visibleCourses.map((item) => [
+                item.name || t('teacher.uncategorized'),
+                item.classes,
+                item.students,
+                item.average === null ? t('teacher.noScore') : item.average.toFixed(1),
+              ])}
+            />
+          </div>
+          <DataTable>
+            <thead>
+              <tr>
+                <th>{t('teacher.course')}</th>
+                <th>{t('teacher.classCount')}</th>
+                <th>{t('teacher.headcount')}</th>
+                <th>{t('teacher.average')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {visibleCourses.map((item) => (
+                <tr key={item.name || 'none'} className="ui-row" onClick={() => { setSelectedCourse(item.name); setQuery('') }}>
+                  <td className="font-semibold text-ink">{item.name || t('teacher.uncategorized')}</td>
+                  <td className="tabular-nums">{item.classes}</td>
+                  <td className="tabular-nums">{item.students}</td>
+                  <td className="tabular-nums">{item.average === null ? t('teacher.noScore') : item.average.toFixed(1)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </DataTable>
+        </>
+      ) : null}
+      {!selectedClass && selectedCourse !== null && tab === 'course' ? (
+        <>
+          <button type="button" className="ui-inline ui-btn-ghost mb-3 w-fit" onClick={() => { setSelectedCourse(null); setQuery('') }}>
+            {t('teacher.backCourses')}
+          </button>
+          <p className="mb-3 text-lg font-semibold text-ink">{selectedCourse || t('teacher.uncategorized')}</p>
+          <FilterBar query={query} onQuery={setQuery} count={visibleClasses.filter((item) => item.category === selectedCourse).length} />
+          <DataTable>
+            <thead>
+              <tr>
+                <th>{t('reports.className')}</th>
+                <th>{t('teacher.headcount')}</th>
+                <th>{t('teacher.progress')}</th>
+                <th>{t('teacher.average')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {visibleClasses.filter((item) => item.category === selectedCourse).map((item) => (
+                <tr key={item.id} className="ui-row" onClick={() => { setSelectedClass(item.id); setQuery('') }}>
+                  <td className="font-semibold text-ink">{localizedLabel(item.title, i18n.language) || t('programs.untitled')}</td>
+                  <td className="tabular-nums">{item.students}</td>
+                  <td className="tabular-nums">{item.progress}%</td>
+                  <td className="tabular-nums">{item.average === null ? t('teacher.noScore') : item.average.toFixed(1)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </DataTable>
+        </>
       ) : null}
       </div>
     </div>

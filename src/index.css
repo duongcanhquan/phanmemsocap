@@ -81,6 +81,44 @@
     backdrop-filter: blur(22px);
   }
 
+  .ui-dialog-backdrop {
+    @apply fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6;
+    background: rgb(15 23 42 / 0.46);
+    backdrop-filter: blur(8px);
+  }
+
+  .ui-dialog {
+    @apply flex w-full flex-col overflow-hidden p-0 text-ink;
+    width: min(1120px, 100%);
+    height: min(920px, calc(100dvh - 1.5rem));
+    border-radius: 1.5rem;
+    border: 1px solid rgb(255 255 255 / 0.8);
+    background: linear-gradient(180deg, #ffffff 0%, #f4fbff 100%);
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.95),
+      0 28px 70px rgb(15 23 42 / 0.28);
+  }
+
+  .ui-dialog-head {
+    @apply flex shrink-0 items-center justify-between gap-4 px-6 py-4;
+    border-bottom: 1px solid #dbe7f1;
+    background: linear-gradient(90deg, #e0f2fe 0%, #ffffff 42%);
+  }
+
+  .ui-dialog-body {
+    @apply min-h-0 flex-1 overflow-y-auto px-6 py-5;
+  }
+
+  .ui-dialog-foot {
+    @apply sticky bottom-0 z-10 -mx-6 mt-6 flex flex-wrap justify-end gap-2 px-6 py-4;
+    border-top: 1px solid #dbe7f1;
+    background: rgb(255 255 255 / 0.94);
+  }
+
+  .ui-grid tbody tr.ui-row {
+    cursor: pointer;
+  }
+
   .ui-btn {
     @apply inline-flex h-11 cursor-pointer items-center justify-center gap-2 rounded-xl px-4 text-sm font-medium transition duration-200 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50;
   }

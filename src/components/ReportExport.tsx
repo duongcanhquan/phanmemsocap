@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { localizedLabel } from '../lib/localized'
 import { loadScoreReport, type ScoreCell, type ScoreReport } from '../lib/reports'
 import { isSupabaseConfigured } from '../lib/supabase'
-import { DataTable } from './ui/DataSheet'
+import { DataTable, FilterBar } from './ui/DataSheet'
 import { ExportButtons } from './ExportButtons'
 
 type ReportExportProps = {
@@ -15,6 +15,7 @@ export function ReportExport({ programId }: ReportExportProps) {
   const [report, setReport] = useState<ScoreReport | null>(null)
   const [loading, setLoading] = useState(isSupabaseConfigured)
   const [error, setError] = useState('')
+  const [query, setQuery] = useState('')
   useEffect(() => {
     if (!isSupabaseConfigured) return
     let active = true
@@ -42,8 +43,11 @@ export function ReportExport({ programId }: ReportExportProps) {
     return score === null ? t('reports.emptyScore') : score.toFixed(1)
   }
 
+  const students = (report?.students ?? []).filter((student) =>
+    (student.name || '').toLowerCase().includes(query.trim().toLowerCase()),
+  )
   const exportRows = report
-    ? report.students.map((student) => [
+    ? students.map((student) => [
         student.name || t('enrollment.unnamed'),
         ...student.scores.map(cellText),
         cellText(student.average),
@@ -78,6 +82,9 @@ export function ReportExport({ programId }: ReportExportProps) {
       ) : null}
       {report && report.students.length === 0 ? <p className="text-sm text-muted">{t('reports.empty')}</p> : null}
       {report && report.students.length > 0 ? (
+        <>
+        <FilterBar query={query} onQuery={setQuery} count={students.length} />
+        {students.length === 0 ? <p className="text-sm text-muted">{t('filters.noMatch')}</p> : null}
         <DataTable>
           <thead>
             <tr>
@@ -89,7 +96,7 @@ export function ReportExport({ programId }: ReportExportProps) {
             </tr>
           </thead>
           <tbody>
-            {report.students.map((student) => (
+            {students.map((student) => (
               <tr key={student.id}>
                 <td className="font-medium text-ink">{student.name || t('enrollment.unnamed')}</td>
                 {student.scores.map((score, index) => (
@@ -102,6 +109,7 @@ export function ReportExport({ programId }: ReportExportProps) {
             ))}
           </tbody>
         </DataTable>
+        </>
       ) : null}
     </section>
   )

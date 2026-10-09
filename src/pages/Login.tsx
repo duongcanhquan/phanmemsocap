@@ -64,7 +64,6 @@ export function Login() {
             <LanguageMenu />
           </div>
           <h1 className="ui-title">{t('auth.loginTitle')}</h1>
-          <p className="ui-lead">{t('auth.loginLead')}</p>
           <div className="mt-6 grid gap-4">
             <label className="grid gap-1 text-sm font-medium text-ink" htmlFor="email">
               {t('auth.email')}

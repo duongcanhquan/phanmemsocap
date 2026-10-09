@@ -127,7 +127,12 @@ function SortableLesson({ lesson, onEdit }: { lesson: LessonRecord; onEdit: (les
   const title = localizedLabel(lesson.title, i18n.language) || t('programs.untitled')
 
   return (
-    <tr ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition }}>
+    <tr
+      ref={setNodeRef}
+      className="ui-row"
+      style={{ transform: CSS.Transform.toString(transform), transition }}
+      onClick={() => onEdit(lesson)}
+    >
       <td>
         <button
           type="button"
@@ -135,6 +140,7 @@ function SortableLesson({ lesson, onEdit }: { lesson: LessonRecord; onEdit: (les
           aria-label={t('programs.reorder')}
           {...attributes}
           {...listeners}
+          onClick={(event) => event.stopPropagation()}
         >
           <GripVertical aria-hidden="true" className="size-4" />
         </button>
@@ -148,7 +154,7 @@ function SortableLesson({ lesson, onEdit }: { lesson: LessonRecord; onEdit: (les
       <td>{t(`programs.types.${lesson.contentType}`)}</td>
       <td>{lesson.isPublished ? t('programs.published') : t('programs.draft')}</td>
       <td>
-        <button type="button" className="ui-inline ui-btn-ghost" onClick={() => onEdit(lesson)}>
+        <button type="button" className="ui-inline ui-btn-ghost" onClick={(event) => { event.stopPropagation(); onEdit(lesson) }}>
           <Pencil aria-hidden="true" className="size-4" />
           {t('programs.edit')}
         </button>

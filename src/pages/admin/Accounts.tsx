@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ExportButtons } from '../../components/ExportButtons'
 import { DataTable, FilterBar } from '../../components/ui/DataSheet'
+import { Dialog } from '../../components/ui/Dialog'
 import { PageHeader } from '../../components/ui/PageHeader'
 import { Tabs } from '../../components/ui/Tabs'
 import { useAuth } from '../../hooks/useAuth'
@@ -150,7 +151,13 @@ export function Accounts() {
           </thead>
           <tbody>
             {visible.map((person) => (
-              <tr key={person.id} className="border-b border-line last:border-0">
+              <tr
+                key={person.id}
+                className={canEditPerson(role, person, user?.id) ? 'ui-row' : undefined}
+                onClick={() => {
+                  if (canEditPerson(role, person, user?.id)) setEditing(person)
+                }}
+              >
                 <td className="px-3 py-2 font-medium text-ink">
                   <span className="inline-flex items-center gap-2">
                     <Photo photoUrl={person.photoUrl} name={person.fullName} />
@@ -165,7 +172,7 @@ export function Accounts() {
                 <td className="px-3 py-2 text-ink">{person.passport}</td>
                 <td className="px-3 py-2">
                   {canEditPerson(role, person, user?.id) ? (
-                    <span className="inline-flex gap-2">
+                    <span className="inline-flex gap-2" onClick={(event) => event.stopPropagation()}>
                       <button type="button" className="ui-inline ui-btn-ghost" onClick={() => setEditing(person)}>
                         {t('accounts.edit')}
                       </button>
@@ -200,80 +207,70 @@ export function Accounts() {
       </DataTable>
       </div>
       {creating ? (
-        <div className="fixed inset-0 z-40 flex items-end justify-center bg-ink/40 p-4 sm:items-center">
-          <div className="ui-card max-h-[90dvh] w-full max-w-3xl overflow-y-auto">
-            <PersonForm
-              title={t('accounts.createTitle')}
-              person={emptyPerson(tabRole)}
-              allowed={[tabRole]}
-              requirePassword
-              submitLabel={t('accounts.create')}
-              onSubmit={async (person) => {
-                const rows = await createAccount(person)
-                applyPeople(rows, t('accounts.created'))
-                setCreating(false)
-              }}
-              onError={setError}
-              onCancel={() => setCreating(false)}
-            />
-          </div>
-        </div>
+        <Dialog title={t('accounts.createTitle')} onClose={() => setCreating(false)}>
+          <PersonForm
+            title={t('accounts.createTitle')}
+            person={emptyPerson(tabRole)}
+            allowed={[tabRole]}
+            requirePassword
+            submitLabel={t('accounts.create')}
+            onSubmit={async (person) => {
+              const rows = await createAccount(person)
+              applyPeople(rows, t('accounts.created'))
+              setCreating(false)
+            }}
+            onError={setError}
+            onCancel={() => setCreating(false)}
+          />
+        </Dialog>
       ) : null}
       {importing ? (
-        <div className="fixed inset-0 z-40 flex items-end justify-center bg-ink/40 p-4 sm:items-center">
-          <div className="ui-card max-h-[90dvh] w-full max-w-3xl overflow-y-auto">
-            <ImportPeople
-              allowed={[tabRole]}
-              onDone={(rows, failed) => {
-                setPeople(rows)
-                setError('')
-                setNotice(failed.length > 0 ? t('accounts.importedPartial', { count: failed.length }) : t('accounts.imported'))
-                setImporting(false)
-              }}
-              onError={setError}
-            />
-            <button type="button" className="ui-btn ui-btn-ghost mt-3" onClick={() => setImporting(false)}>{t('accounts.cancel')}</button>
-          </div>
-        </div>
+        <Dialog title={t('accounts.importTitle')} onClose={() => setImporting(false)}>
+          <ImportPeople
+            allowed={[tabRole]}
+            onDone={(rows, failed) => {
+              setPeople(rows)
+              setError('')
+              setNotice(failed.length > 0 ? t('accounts.importedPartial', { count: failed.length }) : t('accounts.imported'))
+              setImporting(false)
+            }}
+            onError={setError}
+          />
+        </Dialog>
       ) : null}
       {passwordOpen ? (
-        <div className="fixed inset-0 z-40 flex items-end justify-center bg-ink/40 p-4 sm:items-center">
-          <div className="ui-card w-full max-w-lg">
-            <OwnPassword email={user?.email ?? ''} onSaved={() => { setNotice(t('accounts.passwordSaved')); setPasswordOpen(false) }} onError={setError} />
-            <button type="button" className="ui-btn ui-btn-ghost mt-3" onClick={() => setPasswordOpen(false)}>{t('accounts.cancel')}</button>
-          </div>
-        </div>
+        <Dialog title={t('accounts.ownTitle')} onClose={() => setPasswordOpen(false)}>
+          <OwnPassword email={user?.email ?? ''} onSaved={() => { setNotice(t('accounts.passwordSaved')); setPasswordOpen(false) }} onError={setError} />
+        </Dialog>
       ) : null}
       {editing ? (
-        <div className="fixed inset-0 z-40 flex items-end justify-center bg-ink/40 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:items-center">
-          <div key={editing.id} className="ui-card max-h-[90dvh] w-full max-w-3xl overflow-y-auto">
-            <PersonForm
-              title={editing.email}
-              person={{
-                email: editing.email,
-                password: '',
-                fullName: editing.fullName,
-                role: editing.role,
-                language: editing.language,
-                dateOfBirth: editing.dateOfBirth,
-                passport: editing.passport,
-                nationalId: editing.nationalId,
-                phone: editing.phone,
-                photoUrl: editing.photoUrl,
-              }}
-              allowed={editing.id === user?.id ? [editing.role] : allowed}
-              emailLocked
-              submitLabel={t('accounts.save')}
-              onSubmit={async (person) => {
-                const rows = await updateAccount(editing.id, person)
-                applyPeople(rows, t('accounts.saved'))
-                setEditing(null)
-              }}
-              onError={setError}
-              onCancel={() => setEditing(null)}
-            />
-          </div>
-        </div>
+        <Dialog key={editing.id} title={editing.fullName || editing.email} onClose={() => setEditing(null)}>
+          <PersonForm
+            title={editing.email}
+            person={{
+              email: editing.email,
+              password: '',
+              fullName: editing.fullName,
+              role: editing.role,
+              language: editing.language,
+              dateOfBirth: editing.dateOfBirth,
+              passport: editing.passport,
+              nationalId: editing.nationalId,
+              phone: editing.phone,
+              photoUrl: editing.photoUrl,
+            }}
+            allowed={editing.id === user?.id ? [editing.role] : allowed}
+            emailLocked
+            submitLabel={t('accounts.save')}
+            onSubmit={async (person) => {
+              const rows = await updateAccount(editing.id, person)
+              applyPeople(rows, t('accounts.saved'))
+              setEditing(null)
+            }}
+            onError={setError}
+            onCancel={() => setEditing(null)}
+          />
+        </Dialog>
       ) : null}
     </div>
   )
@@ -322,9 +319,10 @@ function PersonForm({
   }
 
   return (
-    <form className="ui-card grid gap-3" onSubmit={(event) => void onFormSubmit(event)}>
-      <h2 className="text-lg font-semibold text-ink">{title}</h2>
-      <PhotoField photoUrl={draft.photoUrl} onChange={(photoUrl) => setField('photoUrl', photoUrl)} onError={onError} />
+    <form className="grid gap-5 lg:grid-cols-2" onSubmit={(event) => void onFormSubmit(event)}>
+      <div className="lg:col-span-2">
+        <PhotoField photoUrl={draft.photoUrl} onChange={(photoUrl) => setField('photoUrl', photoUrl)} onError={onError} />
+      </div>
       <TextField id={`${title}-name`} label={t('accounts.name')} value={draft.fullName} onChange={(value) => setField('fullName', value)} />
       <TextField id={`${title}-email`} label={t('accounts.email')} type="email" value={draft.email} disabled={emailLocked} required onChange={(value) => setField('email', value)} />
       <TextField
@@ -335,25 +333,23 @@ function PersonForm({
         required={requirePassword}
         onChange={(value) => setField('password', value)}
       />
-      <div className="grid gap-3 lg:grid-cols-3">
-        <label className="grid gap-1 text-sm font-medium text-ink" htmlFor={`${title}-role`}>
-          {t('accounts.role')}
-          <select id={`${title}-role`} className="ui-field" value={draft.role} onChange={(event) => setField('role', event.target.value)}>
-            {allowed.map((item) => (
-              <option key={item} value={item}>{t(`accounts.roles.${item}`)}</option>
-            ))}
-          </select>
-        </label>
-        <TextField id={`${title}-dob`} label={t('accounts.dateOfBirth')} type="date" value={draft.dateOfBirth} onChange={(value) => setField('dateOfBirth', value)} />
-        <TextField id={`${title}-phone`} label={t('accounts.phone')} value={draft.phone} onChange={(value) => setField('phone', value)} />
-        <TextField id={`${title}-id`} label={t('accounts.nationalId')} value={draft.nationalId} onChange={(value) => setField('nationalId', value)} />
-        <TextField id={`${title}-passport`} label={t('accounts.passport')} value={draft.passport} onChange={(value) => setField('passport', value)} />
-      </div>
-      <div className="grid grid-cols-2 gap-2">
+      <label className="grid gap-1 text-sm font-medium text-ink" htmlFor={`${title}-role`}>
+        {t('accounts.role')}
+        <select id={`${title}-role`} className="ui-field" value={draft.role} onChange={(event) => setField('role', event.target.value)}>
+          {allowed.map((item) => (
+            <option key={item} value={item}>{t(`accounts.roles.${item}`)}</option>
+          ))}
+        </select>
+      </label>
+      <TextField id={`${title}-dob`} label={t('accounts.dateOfBirth')} type="date" value={draft.dateOfBirth} onChange={(value) => setField('dateOfBirth', value)} />
+      <TextField id={`${title}-phone`} label={t('accounts.phone')} value={draft.phone} onChange={(value) => setField('phone', value)} />
+      <TextField id={`${title}-id`} label={t('accounts.nationalId')} value={draft.nationalId} onChange={(value) => setField('nationalId', value)} />
+      <TextField id={`${title}-passport`} label={t('accounts.passport')} value={draft.passport} onChange={(value) => setField('passport', value)} />
+      <div className="ui-dialog-foot lg:col-span-2">
         {onCancel ? (
           <button type="button" className="ui-btn ui-btn-ghost border border-line" onClick={onCancel}>{t('accounts.cancel')}</button>
         ) : null}
-        <button type="submit" className={`ui-btn ui-btn-primary ${onCancel ? '' : 'col-span-2 sm:col-span-1 sm:w-fit'}`} disabled={pending}>
+        <button type="submit" className="ui-btn ui-btn-primary" disabled={pending}>
           {pending ? t('accounts.saving') : submitLabel}
         </button>
       </div>
@@ -400,9 +396,8 @@ function ImportPeople({
   }
 
   return (
-    <section className="ui-card grid gap-3">
-      <h2 className="text-lg font-semibold text-ink">{t('accounts.importTitle')}</h2>
-      <p className="text-sm text-muted">{t('accounts.importLead')}</p>
+    <section className="grid max-w-xl gap-4">
+      <p className="text-base text-muted">{t('accounts.importLead')}</p>
       <label className="grid gap-1 text-sm font-medium text-ink" htmlFor="import-role">
         {t('accounts.role')}
         <select id="import-role" className="ui-field" value={role} onChange={(event) => setRole(event.target.value as AppRole)}>
@@ -537,14 +532,15 @@ function OwnPassword({ email, onSaved, onError }: { email: string; onSaved: () =
   }
 
   return (
-    <form className="ui-card grid gap-3" onSubmit={(event) => void onSubmit(event)}>
-      <h2 className="text-lg font-semibold text-ink">{t('accounts.ownTitle')}</h2>
-      <p className="text-sm text-muted">{email}</p>
+    <form className="grid max-w-xl gap-5" onSubmit={(event) => void onSubmit(event)}>
+      <p className="text-base text-muted">{email}</p>
       <TextField id="own-password" label={t('accounts.newPassword')} type="password" value={password} required onChange={setPassword} />
       <TextField id="own-confirm" label={t('accounts.confirmPassword')} type="password" value={confirm} required onChange={setConfirm} />
-      <button type="submit" className="ui-btn ui-btn-primary w-full sm:w-fit" disabled={pending}>
-        {pending ? t('accounts.saving') : t('accounts.savePassword')}
-      </button>
+      <div className="ui-dialog-foot">
+        <button type="submit" className="ui-btn ui-btn-primary" disabled={pending}>
+          {pending ? t('accounts.saving') : t('accounts.savePassword')}
+        </button>
+      </div>
     </form>
   )
 }

@@ -11,6 +11,7 @@ import {
   type LessonType,
   type QuizRecord,
 } from '../../lib/programs'
+import { Dialog } from '../ui/Dialog'
 import { LocalizedFields } from './LocalizedFields'
 
 type LessonModalProps = {
@@ -101,18 +102,9 @@ export function LessonModal({ programId, lesson, nextOrder, onClose, onSaved }: 
   }
 
   return (
-    <div className="fixed inset-0 z-40 flex items-end justify-center bg-ink/40 p-4 sm:items-center">
-      <form
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="lesson-dialog-title"
-        className="ui-card max-h-[90dvh] w-full max-w-2xl overflow-y-auto"
-        onSubmit={(event) => void onSubmit(event)}
-      >
-        <h2 id="lesson-dialog-title" className="text-lg font-semibold text-ink">
-          {lesson ? t('programs.editLesson') : t('programs.addLesson')}
-        </h2>
-        <div className="mt-4 grid gap-4">
+    <Dialog title={lesson ? t('programs.editLesson') : t('programs.addLesson')} onClose={onClose}>
+      <form className="grid gap-6" onSubmit={(event) => void onSubmit(event)}>
+        <div className="grid gap-4 lg:grid-cols-2">
           <LocalizedFields id="lesson-title" label={t('programs.name')} value={title} onChange={setTitle} />
           <LocalizedFields id="lesson-module" label={t('programs.module')} value={moduleName} onChange={setModuleName} />
           <label className="grid gap-1 text-sm font-medium text-ink" htmlFor="lesson-type">
@@ -163,6 +155,8 @@ export function LessonModal({ programId, lesson, nextOrder, onClose, onSaved }: 
             />
             {t('programs.published')}
           </label>
+        </div>
+        <div className="grid gap-4 lg:grid-cols-2">
           {quizzes.map((quiz, index) => (
                 <QuizFields
                   key={quiz.id}
@@ -181,7 +175,7 @@ export function LessonModal({ programId, lesson, nextOrder, onClose, onSaved }: 
             </p>
           ) : null}
         </div>
-        <div className="mt-5 flex flex-wrap justify-end gap-2">
+        <div className="ui-dialog-foot">
           {lesson ? (
             <button type="button" className="ui-btn text-danger" disabled={pending} onClick={() => void onDelete()}>
               {t('programs.remove')}
@@ -195,7 +189,7 @@ export function LessonModal({ programId, lesson, nextOrder, onClose, onSaved }: 
           </button>
         </div>
       </form>
-    </div>
+    </Dialog>
   )
 }
 

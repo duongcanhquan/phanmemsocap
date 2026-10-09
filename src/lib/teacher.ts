@@ -6,6 +6,7 @@ export type RosterRow = {
   studentName: string
   programId: string
   programTitle: LocalizedText
+  category: string
   progress: number
   averageScore: number | null
 }
@@ -41,8 +42,8 @@ function asScore(value: number | null): number | null {
 export async function listTeacherRoster(teacherId?: string): Promise<RosterRow[]> {
   const db = client()
   const programs = teacherId
-    ? await db.from('programs').select('id, title').eq('teacher_id', teacherId)
-    : await db.from('programs').select('id, title')
+    ? await db.from('programs').select('id, title, category').eq('teacher_id', teacherId)
+    : await db.from('programs').select('id, title, category')
   if (programs.error) throw programs.error
   const programRows = programs.data ?? []
   if (programRows.length === 0) return []
@@ -93,6 +94,7 @@ export async function listTeacherRoster(teacherId?: string): Promise<RosterRow[]
 
   const names = new Map((profiles.data ?? []).map((profile) => [profile.id, profile.full_name ?? '']))
   const titles = new Map(programRows.map((program) => [program.id, asLocalized(program.title)]))
+  const categories = new Map(programRows.map((program) => [program.id, program.category ?? '']))
 
   return (enrollments.data ?? [])
     .filter((row) => row.student_id && row.program_id)
@@ -112,6 +114,7 @@ export async function listTeacherRoster(teacherId?: string): Promise<RosterRow[]
         studentName: names.get(studentId) ?? '',
         programId,
         programTitle: titles.get(programId) ?? { vi: '', my: '', bn: '' },
+        category: categories.get(programId) ?? '',
         progress,
         averageScore,
       }
