@@ -43,11 +43,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
       }
 
       const userId = nextSession.user.id
+      const accessToken = nextSession.access_token
       const requestId = roleRequest.current + 1
       roleRequest.current = requestId
       setIsLoading(true)
       window.setTimeout(() => {
-        void fetchProfileRole(userId).then((nextRole) => {
+        void fetchProfileRole(userId, accessToken).then((nextRole) => {
           if (roleRequest.current !== requestId) {
             return
           }
@@ -80,8 +81,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
         if (error) {
           throw error
         }
-        const nextRole = data.user ? await fetchProfileRole(data.user.id) : null
-        setRole(nextRole)
+        const requestId = roleRequest.current + 1
+        roleRequest.current = requestId
+        const nextRole = data.user ? await fetchProfileRole(data.user.id, data.session?.access_token) : null
+        if (roleRequest.current === requestId) {
+          setRole(nextRole)
+          setIsLoading(false)
+        }
         return nextRole
       },
       async logout() {

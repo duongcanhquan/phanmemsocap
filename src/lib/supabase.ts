@@ -173,15 +173,41 @@ export function isAppRole(value: string | null | undefined): value is AppRole {
   return value === 'superadmin' || value === 'admin' || value === 'teacher' || value === 'student'
 }
 
-export async function fetchProfileRole(userId: string): Promise<AppRole | null> {
+export async function fetchProfileRole(userId: string, accessToken?: string): Promise<AppRole | null> {
   if (!supabase) {
     return null
   }
 
-  const { data, error } = await supabase.from('profiles').select('role').eq('id', userId).maybeSingle()
-  if (error || !isAppRole(data?.role)) {
+  const token = accessToken ?? (await supabase.auth.getSession()).data.session?.access_token
+  if (!token) {
     return null
   }
 
-  return data.role
+  const headers = {
+    apikey: supabasePublishableKey,
+    Authorization: `Bearer ${token}`,
+    Accept: 'application/json',
+    'Content-Type': 'application/json',
+  }
+  const roleResponse = await fetch(`${supabaseUrl}/rest/v1/rpc/my_app_role`, {
+    method: 'POST',
+    headers,
+    body: '{}',
+  })
+  if (roleResponse.ok) {
+    const role = (await roleResponse.json()) as string | null
+    if (isAppRole(role)) return role
+  }
+
+  const response = await fetch(
+    `${supabaseUrl}/rest/v1/profiles?select=role&id=eq.${encodeURIComponent(userId)}`,
+    { headers },
+  )
+  if (!response.ok) {
+    return null
+  }
+
+  const rows = (await response.json()) as { role?: string }[]
+  const role = rows[0]?.role
+  return isAppRole(role) ? role : null
 }

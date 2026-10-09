@@ -23,8 +23,8 @@ export function Login() {
     formState: { errors, isSubmitting },
   } = useForm<LoginForm>({ defaultValues: { email: '', password: '' } })
 
-  if (!isLoading && user) {
-    return <Navigate to={role ? roleHome[role] : '/unauthorized'} replace />
+  if (!isLoading && user && role) {
+    return <Navigate to={roleHome[role]} replace />
   }
 
   async function onSubmit(values: LoginForm) {
