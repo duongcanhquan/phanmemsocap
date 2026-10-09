@@ -146,8 +146,11 @@ export interface Database {
   }
 }
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-const supabasePublishableKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY
+const projectUrl = 'https://zkpmemckzaegomwbgzag.supabase.co'
+const projectPublishableKey = 'sb_publishable_8K-KEqjdSzzdCvyggyEx3w_TmbyYgaJ'
+
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || projectUrl
+const supabasePublishableKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || projectPublishableKey
 
 export const supabase: SupabaseClient<Database> | null =
   supabaseUrl && supabasePublishableKey
