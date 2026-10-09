@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { Component, useEffect, useState, type FormEvent, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { PageHeader } from '../../components/ui/PageHeader'
 import { Tabs } from '../../components/ui/Tabs'
@@ -6,6 +6,15 @@ import { aiCatalog, listAiConnections, saveAiConnection, type AiConnection, type
 import { isSupabaseConfigured } from '../../lib/supabase'
 
 export function AiSettings() {
+  const { t } = useTranslation()
+  return (
+    <SettingsBoundary message={t('aiSettings.errors.failed')}>
+      <AiSettingsScreen />
+    </SettingsBoundary>
+  )
+}
+
+function AiSettingsScreen() {
   const { t } = useTranslation()
   const [connections, setConnections] = useState<AiConnection[]>([])
   const [loading, setLoading] = useState(isSupabaseConfigured)
@@ -34,7 +43,7 @@ export function AiSettings() {
   return (
     <div className="ui-page">
       <PageHeader title={t('aiSettings.title')} />
-      <p className="rounded-2xl bg-canvas px-4 py-3 text-sm leading-relaxed text-ink">{t('aiSettings.antigravity')}</p>
+      <p className="rounded-2xl bg-canvas px-4 py-3 text-sm leading-relaxed text-ink">{t('aiSettings.lead')}</p>
       {loading ? <p role="status">{t('aiSettings.loading')}</p> : null}
       {notice ? <p role="status" className="text-sm font-medium text-accent">{notice}</p> : null}
       {error ? <p role="alert" className="text-sm text-danger">{error}</p> : null}
@@ -47,9 +56,10 @@ export function AiSettings() {
       <div className="ui-fill">
         {aiCatalog.filter((item) => item.provider === provider).map((item) => {
           const connection = connections.find((row) => row.provider === item.provider)
+          const models = connection?.models ?? []
           return (
           <ProviderCard
-            key={`${item.provider}:${connection?.enabled}:${connection?.models.join(',')}:${connection?.hasKey}`}
+            key={`${item.provider}:${connection?.enabled}:${models.join(',')}:${connection?.hasKey}`}
             provider={item.provider}
             label={t(item.labelKey)}
             models={item.models}
@@ -66,6 +76,19 @@ export function AiSettings() {
       </div>
     </div>
   )
+}
+
+class SettingsBoundary extends Component<{ children: ReactNode; message: string }, { failed: boolean }> {
+  state = { failed: false }
+
+  static getDerivedStateFromError() {
+    return { failed: true }
+  }
+
+  render() {
+    if (this.state.failed) return <p role="alert" className="px-1 text-sm text-danger">{this.props.message}</p>
+    return this.props.children
+  }
 }
 
 function ProviderCard({

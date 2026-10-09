@@ -98,6 +98,7 @@ function ProgramList() {
 
 function lessonStatus(lesson: LessonPathItem, currentId: string | null, t: (key: string) => string) {
   if (lesson.locked) return t('student.locked')
+  if (!lesson.required && !lesson.passed) return t('programs.optionalLesson')
   if (lesson.waiting) return t('student.statusWaiting')
   if (lesson.passed) return t('student.statusPassed')
   if (lesson.id === currentId) return t('student.statusOpen')

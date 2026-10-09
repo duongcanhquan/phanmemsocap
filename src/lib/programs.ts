@@ -30,6 +30,8 @@ export type LessonRecord = {
   isPublished: boolean
   authorId: string
   createdAt: string | null
+  gated: boolean
+  required: boolean
 }
 
 export type QuizRecord = {
@@ -38,6 +40,13 @@ export type QuizRecord = {
   options: LocalizedText[]
   correctOptionIndex: number
   isEssay: boolean
+  points: number
+}
+
+export type LessonQuizSettings = {
+  passMark: number
+  shuffleQuestions: boolean
+  shuffleOptions: boolean
 }
 
 export type StudentRecord = {
@@ -138,42 +147,139 @@ export async function updateProgram(programId: string, input: Omit<ProgramRecord
 }
 
 export async function listLessons(programId: string): Promise<LessonRecord[]> {
-  const { data, error } = await client()
-    .from('lessons')
-    .select('id, title, module_name, content_type, content_url, order_index, is_published, author_id, created_at')
+  const db = client()
+  const links = await db
+    .from('program_lessons')
+    .select('lesson_id, order_index, gated, required')
     .eq('program_id', programId)
     .order('order_index', { ascending: true })
+  if (links.error) throw links.error
+  const order = new Map((links.data ?? []).map((link) => [link.lesson_id, link]))
+  const ids = [...order.keys()]
+  if (ids.length === 0) return []
 
+  const { data, error } = await db
+    .from('lessons')
+    .select('id, title, module_name, content_type, content_url, is_published, author_id, created_at')
+    .in('id', ids)
   if (error) throw error
 
-  return (data ?? []).map((row, index) => ({
-    id: row.id,
-    title: asLocalized(row.title),
-    moduleName: asLocalized(row.module_name),
-    contentType: isLessonType(row.content_type) ? row.content_type : 'text',
-    contentUrl: row.content_url ?? '',
-    orderIndex: row.order_index ?? index,
-    isPublished: row.is_published ?? false,
-    authorId: row.author_id ?? '',
-    createdAt: row.created_at,
-  }))
+  return (data ?? [])
+    .map((row) => ({
+      id: row.id,
+      title: asLocalized(row.title),
+      moduleName: asLocalized(row.module_name),
+      contentType: isLessonType(row.content_type) ? row.content_type : 'text',
+      contentUrl: row.content_url ?? '',
+      orderIndex: order.get(row.id)?.order_index ?? 0,
+      isPublished: row.is_published ?? false,
+      authorId: row.author_id ?? '',
+      createdAt: row.created_at,
+      gated: order.get(row.id)?.gated ?? true,
+      required: order.get(row.id)?.required ?? true,
+    }))
+    .sort((left, right) => left.orderIndex - right.orderIndex || (left.createdAt ?? '').localeCompare(right.createdAt ?? ''))
 }
 
-export async function saveLessonOrder(lessons: LessonRecord[]): Promise<void> {
+export async function lessonCourseIds(lessonId: string): Promise<string[]> {
+  const { data, error } = await client()
+    .from('program_lessons')
+    .select('program_id, order_index')
+    .eq('lesson_id', lessonId)
+    .order('order_index', { ascending: true })
+  if (error) throw error
+  return (data ?? []).map((row) => row.program_id)
+}
+
+export async function saveLessonOrder(programId: string, lessons: LessonRecord[]): Promise<void> {
   const db = client()
   const results = await Promise.all(
-    lessons.map((lesson, index) => db.from('lessons').update({ order_index: index }).eq('id', lesson.id)),
+    lessons.map((lesson, index) =>
+      db.from('program_lessons').update({ order_index: index }).eq('program_id', programId).eq('lesson_id', lesson.id),
+    ),
   )
   const failed = results.find((result) => result.error)
   if (failed?.error) throw failed.error
 }
 
+export async function syncLessonCourses(lessonId: string, programIds: string[], orderedProgramId: string, orderIndex: number): Promise<void> {
+  const db = client()
+  const existing = await db.from('program_lessons').select('program_id').eq('lesson_id', lessonId)
+  if (existing.error) throw existing.error
+  const have = new Set((existing.data ?? []).map((row) => row.program_id))
+  const keep = new Set(programIds)
+  const remove = [...have].filter((id) => !keep.has(id))
+  if (remove.length > 0) {
+    const removed = await db.from('program_lessons').delete().eq('lesson_id', lessonId).in('program_id', remove)
+    if (removed.error) throw removed.error
+  }
+  const added = programIds.filter((id) => !have.has(id))
+  if (added.length > 0) {
+    const tops = await Promise.all(
+      added.map((programId) =>
+        db.from('program_lessons').select('order_index').eq('program_id', programId).order('order_index', { ascending: false }).limit(1),
+      ),
+    )
+    const failed = tops.find((result) => result.error)
+    if (failed?.error) throw failed.error
+    const modes = await db.from('programs').select('id, advance_mode').in('id', added)
+    if (modes.error) throw modes.error
+    const openCourses = new Set((modes.data ?? []).filter((row) => row.advance_mode === 'open').map((row) => row.id))
+    const inserted = await db.from('program_lessons').insert(
+      added.map((programId, index) => ({
+        program_id: programId,
+        lesson_id: lessonId,
+        order_index: (tops[index]?.data?.[0]?.order_index ?? -1) + 1,
+        gated: !openCourses.has(programId),
+        required: true,
+      })),
+    )
+    if (inserted.error) throw inserted.error
+  }
+  if (keep.has(orderedProgramId)) {
+    const placed = await db
+      .from('program_lessons')
+      .update({ order_index: orderIndex })
+      .eq('program_id', orderedProgramId)
+      .eq('lesson_id', lessonId)
+    if (placed.error) throw placed.error
+  }
+}
+
+export async function setAdvanceMode(programId: string, mode: 'sequence' | 'open'): Promise<void> {
+  const db = client()
+  const program = await db.from('programs').update({ advance_mode: mode }).eq('id', programId)
+  if (program.error) throw program.error
+  const links = await db.from('program_lessons').update({ gated: mode === 'sequence' }).eq('program_id', programId)
+  if (links.error) throw links.error
+}
+
+export async function setLessonRule(
+  programId: string,
+  lessonId: string,
+  rule: { gated?: boolean; required?: boolean },
+): Promise<void> {
+  const { error } = await client()
+    .from('program_lessons')
+    .update(rule)
+    .eq('program_id', programId)
+    .eq('lesson_id', lessonId)
+  if (error) throw error
+}
+
+export async function getAdvanceMode(programId: string): Promise<'sequence' | 'open'> {
+  const { data, error } = await client().from('programs').select('advance_mode').eq('id', programId).maybeSingle()
+  if (error) throw error
+  return data?.advance_mode === 'open' ? 'open' : 'sequence'
+}
+
 export async function saveLesson(
   programId: string,
-  lesson: Omit<LessonRecord, 'id' | 'orderIndex' | 'createdAt' | 'authorId'> & {
+  lesson: Omit<LessonRecord, 'id' | 'orderIndex' | 'createdAt' | 'authorId' | 'gated' | 'required'> & {
     id?: string
     orderIndex?: number
     authorId?: string
+    quiz?: LessonQuizSettings
   },
 ): Promise<string> {
   const payload = {
@@ -185,6 +291,13 @@ export async function saveLesson(
     is_published: lesson.isPublished,
     order_index: lesson.orderIndex ?? 0,
     ...(lesson.authorId !== undefined ? { author_id: lesson.authorId || null } : {}),
+    ...(lesson.quiz
+      ? {
+          pass_mark: lesson.quiz.passMark,
+          shuffle_questions: lesson.quiz.shuffleQuestions,
+          shuffle_options: lesson.quiz.shuffleOptions,
+        }
+      : {}),
   }
   if (lesson.id) {
     const { error } = await client().from('lessons').update(payload).eq('id', lesson.id)
@@ -223,8 +336,9 @@ function asOptionList(value: Json | null): LocalizedText[] {
 export async function listQuizzes(lessonId: string): Promise<QuizRecord[]> {
   const { data, error } = await client()
     .from('quizzes')
-    .select('id, question, options, correct_option_index, is_essay')
+    .select('id, question, options, correct_option_index, is_essay, points, position')
     .eq('lesson_id', lessonId)
+    .order('position', { ascending: true })
     .order('created_at', { ascending: true })
 
   if (error) throw error
@@ -235,7 +349,23 @@ export async function listQuizzes(lessonId: string): Promise<QuizRecord[]> {
     options: asOptionList(row.options),
     correctOptionIndex: row.correct_option_index ?? 0,
     isEssay: row.is_essay ?? false,
+    points: row.points ?? 1,
   }))
+}
+
+export async function getLessonQuizSettings(lessonId: string): Promise<LessonQuizSettings> {
+  const { data, error } = await client()
+    .from('lessons')
+    .select('pass_mark, shuffle_questions, shuffle_options')
+    .eq('id', lessonId)
+    .maybeSingle()
+  if (error) throw error
+  const passMark = Number(data?.pass_mark ?? 5)
+  return {
+    passMark: Number.isFinite(passMark) ? passMark : 5,
+    shuffleQuestions: data?.shuffle_questions ?? false,
+    shuffleOptions: data?.shuffle_options ?? false,
+  }
 }
 
 export async function saveQuizzes(lessonId: string, quizzes: QuizRecord[]): Promise<void> {
@@ -256,6 +386,8 @@ export async function saveQuizzes(lessonId: string, quizzes: QuizRecord[]): Prom
       options: quiz.isEssay ? [] : quiz.options.map((option) => toLocalizedJson(option)),
       correct_option_index: quiz.isEssay ? null : quiz.correctOptionIndex,
       is_essay: quiz.isEssay,
+      points: Math.min(20, Math.max(1, Math.round(quiz.points || 1))),
+      position: quizzes.indexOf(quiz),
     }
     if (quiz.id.startsWith('new-')) {
       const inserted = await db.from('quizzes').insert(payload)
@@ -310,24 +442,49 @@ export type CourseClass = {
   id: string
   programId: string
   name: string
+  startsOn: string
+  endsOn: string
+}
+
+function asClass(row: { id: string; program_id: string; name: string; starts_on: string | null; ends_on: string | null }): CourseClass {
+  return { id: row.id, programId: row.program_id, name: row.name, startsOn: row.starts_on ?? '', endsOn: row.ends_on ?? '' }
 }
 
 export async function listClasses(programId?: string): Promise<CourseClass[]> {
-  let query = client().from('course_classes').select('id, program_id, name').order('name')
+  let query = client().from('course_classes').select('id, program_id, name, starts_on, ends_on').order('name')
   if (programId) query = query.eq('program_id', programId)
   const { data, error } = await query
   if (error) throw error
-  return (data ?? []).map((row) => ({ id: row.id, programId: row.program_id, name: row.name }))
+  return (data ?? []).map(asClass)
 }
 
-export async function createClass(programId: string, name: string): Promise<CourseClass> {
+export async function createClass(
+  programId: string,
+  input: { name: string; startsOn?: string; endsOn?: string },
+): Promise<CourseClass> {
   const { data, error } = await client()
     .from('course_classes')
-    .insert({ program_id: programId, name })
-    .select('id, program_id, name')
+    .insert({
+      program_id: programId,
+      name: input.name,
+      starts_on: input.startsOn || null,
+      ends_on: input.endsOn || null,
+    })
+    .select('id, program_id, name, starts_on, ends_on')
     .single()
   if (error) throw error
-  return { id: data.id, programId: data.program_id, name: data.name }
+  return asClass(data)
+}
+
+export async function updateClass(
+  classId: string,
+  input: { name: string; startsOn?: string; endsOn?: string },
+): Promise<void> {
+  const { error } = await client()
+    .from('course_classes')
+    .update({ name: input.name, starts_on: input.startsOn || null, ends_on: input.endsOn || null })
+    .eq('id', classId)
+  if (error) throw error
 }
 
 export async function listEnrollments(classId: string): Promise<EnrollmentRecord[]> {

@@ -5,6 +5,7 @@ import {
   createClass,
   enrollStudents,
   listClasses,
+  updateClass,
   listEnrollments,
   listStudents,
   removeEnrollments,
@@ -23,6 +24,8 @@ export function EnrollmentManager({ programId }: EnrollmentManagerProps) {
   const [classes, setClasses] = useState<CourseClass[]>([])
   const [classId, setClassId] = useState('')
   const [className, setClassName] = useState('')
+  const [classStarts, setClassStarts] = useState('')
+  const [classEnds, setClassEnds] = useState('')
   const [enrollments, setEnrollments] = useState<EnrollmentRecord[]>([])
   const [availableSelection, setAvailableSelection] = useState<string[]>([])
   const [enrolledSelection, setEnrolledSelection] = useState<string[]>([])
@@ -134,30 +137,73 @@ export function EnrollmentManager({ programId }: EnrollmentManagerProps) {
             ))}
           </select>
         </label>
+        {classId ? (
+          <form
+            className="flex flex-wrap items-end gap-2"
+            onSubmit={(event) => {
+              event.preventDefault()
+              const current = classes.find((item) => item.id === classId)
+              if (!current) return
+              const form = event.currentTarget
+              const startsOn = (form.elements.namedItem('class-start') as HTMLInputElement).value
+              const endsOn = (form.elements.namedItem('class-end') as HTMLInputElement).value
+              setPending(true)
+              void updateClass(classId, { name: current.name, startsOn, endsOn })
+                .then(async () => setClasses(await listClasses(programId)))
+                .catch(() => setError(t('programs.saveError')))
+                .finally(() => setPending(false))
+            }}
+          >
+            <label className="grid gap-1 text-sm font-medium text-ink">
+              {t('classesPage.startsOn')}
+              <input className="ui-field" name="class-start" type="date" defaultValue={classes.find((item) => item.id === classId)?.startsOn ?? ''} key={`${classId}-start`} />
+            </label>
+            <label className="grid gap-1 text-sm font-medium text-ink">
+              {t('classesPage.endsOn')}
+              <input className="ui-field" name="class-end" type="date" defaultValue={classes.find((item) => item.id === classId)?.endsOn ?? ''} key={`${classId}-end`} />
+            </label>
+            <button type="submit" className="ui-inline ui-btn-ghost" disabled={pending}>
+              {t('programs.save')}
+            </button>
+          </form>
+        ) : null}
         <form
-          className="flex items-end gap-2"
+          className="grid w-full gap-2 sm:grid-cols-2 lg:grid-cols-[1fr_auto_auto_auto]"
           onSubmit={(event) => {
             event.preventDefault()
             if (!className.trim()) return
             setPending(true)
-            void createClass(programId, className.trim())
+            void createClass(programId, { name: className.trim(), startsOn: classStarts, endsOn: classEnds })
               .then(async (created) => {
                 setClasses(await listClasses(programId))
                 setClassId(created.id)
                 setClassName('')
+                setClassStarts('')
+                setClassEnds('')
               })
               .catch(() => setError(t('programs.saveError')))
               .finally(() => setPending(false))
           }}
         >
-          <input
-            className="ui-field"
-            value={className}
-            placeholder={t('classesPage.className')}
-            aria-label={t('classesPage.className')}
-            onChange={(event) => setClassName(event.target.value)}
-          />
-          <button type="submit" className="ui-inline ui-btn-primary" disabled={pending || !className.trim()}>
+          <label className="grid gap-1 text-sm font-medium text-ink">
+            {t('classesPage.add')}
+            <input
+              className="ui-field"
+              value={className}
+              placeholder={t('classesPage.className')}
+              aria-label={t('classesPage.className')}
+              onChange={(event) => setClassName(event.target.value)}
+            />
+          </label>
+          <label className="grid gap-1 text-sm font-medium text-ink">
+            {t('classesPage.startsOn')}
+            <input className="ui-field" type="date" value={classStarts} onChange={(event) => setClassStarts(event.target.value)} />
+          </label>
+          <label className="grid gap-1 text-sm font-medium text-ink">
+            {t('classesPage.endsOn')}
+            <input className="ui-field" type="date" value={classEnds} onChange={(event) => setClassEnds(event.target.value)} />
+          </label>
+          <button type="submit" className="ui-inline ui-btn-primary self-end" disabled={pending || !className.trim()}>
             {t('classesPage.add')}
           </button>
         </form>

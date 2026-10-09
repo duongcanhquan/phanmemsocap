@@ -58,10 +58,10 @@ export async function listTeacherRoster(): Promise<RosterRow[]> {
     .in('program_id', programIds)
   if (enrollments.error) throw enrollments.error
 
-  const lessons = await db.from('lessons').select('id, program_id').in('program_id', programIds)
+  const lessons = await db.from('program_lessons').select('program_id, lesson_id').in('program_id', programIds)
   if (lessons.error) throw lessons.error
   const lessonRows = lessons.data ?? []
-  const lessonIds = lessonRows.map((lesson) => lesson.id)
+  const lessonIds = [...new Set(lessonRows.map((lesson) => lesson.lesson_id))]
 
   const quizzes =
     lessonIds.length === 0
@@ -85,14 +85,20 @@ export async function listTeacherRoster(): Promise<RosterRow[]> {
       : await db.from('quiz_submissions').select('student_id, quiz_id, score').in('quiz_id', quizIds).in('student_id', studentIds)
   if (submissions.error) throw submissions.error
 
-  const lessonProgram = new Map(lessonRows.map((lesson) => [lesson.id, lesson.program_id]))
+  const programsByLesson = new Map<string, string[]>()
+  for (const lesson of lessonRows) {
+    const list = programsByLesson.get(lesson.lesson_id) ?? []
+    list.push(lesson.program_id)
+    programsByLesson.set(lesson.lesson_id, list)
+  }
   const quizzesByProgram = new Map<string, string[]>()
   for (const quiz of quizzes.data ?? []) {
-    const programId = quiz.lesson_id ? lessonProgram.get(quiz.lesson_id) : null
-    if (!programId) continue
-    const list = quizzesByProgram.get(programId) ?? []
-    list.push(quiz.id)
-    quizzesByProgram.set(programId, list)
+    const placed = quiz.lesson_id ? programsByLesson.get(quiz.lesson_id) ?? [] : []
+    for (const programId of placed) {
+      const list = quizzesByProgram.get(programId) ?? []
+      list.push(quiz.id)
+      quizzesByProgram.set(programId, list)
+    }
   }
 
   const classIds = [...new Set((enrollments.data ?? []).map((row) => row.class_id).filter((id): id is string => Boolean(id)))]
@@ -137,7 +143,11 @@ export async function listTeacherRoster(): Promise<RosterRow[]> {
 
 export async function listStudyLog(studentId: string, programId: string): Promise<StudyEntry[]> {
   const db = client()
-  const lessons = await db.from('lessons').select('id, title').eq('program_id', programId)
+  const links = await db.from('program_lessons').select('lesson_id').eq('program_id', programId)
+  if (links.error) throw links.error
+  const linkedIds = [...new Set((links.data ?? []).map((link) => link.lesson_id))]
+  const lessons =
+    linkedIds.length === 0 ? { data: [], error: null } : await db.from('lessons').select('id, title').in('id', linkedIds)
   if (lessons.error) throw lessons.error
   const lessonRows = lessons.data ?? []
   if (lessonRows.length === 0) return []

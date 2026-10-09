@@ -26,6 +26,7 @@ export interface Database {
           passport: string | null
           national_id: string | null
           photo_url: string | null
+          avatar_url: string | null
           phone: string | null
           status: string | null
           is_foreign: boolean
@@ -42,6 +43,7 @@ export interface Database {
           passport?: string | null
           national_id?: string | null
           photo_url?: string | null
+          avatar_url?: string | null
           phone?: string | null
           status?: string | null
           is_foreign?: boolean
@@ -58,6 +60,7 @@ export interface Database {
           cover_image_url: string | null
           teacher_id: string | null
           is_active: boolean | null
+          advance_mode: string | null
           created_at: string | null
         },
         {
@@ -67,6 +70,7 @@ export interface Database {
           cover_image_url?: string | null
           teacher_id?: string | null
           is_active?: boolean | null
+          advance_mode?: string | null
         }
       >
       lessons: Table<
@@ -80,6 +84,9 @@ export interface Database {
           order_index: number | null
           is_published: boolean | null
           author_id: string | null
+          pass_mark: number | null
+          shuffle_questions: boolean | null
+          shuffle_options: boolean | null
           created_at: string | null
         },
         {
@@ -91,6 +98,25 @@ export interface Database {
           order_index?: number | null
           is_published?: boolean | null
           author_id?: string | null
+          pass_mark?: number | null
+          shuffle_questions?: boolean | null
+          shuffle_options?: boolean | null
+        }
+      >
+      program_lessons: Table<
+        {
+          program_id: string
+          lesson_id: string
+          order_index: number
+          gated: boolean
+          required: boolean
+        },
+        {
+          program_id: string
+          lesson_id: string
+          order_index?: number
+          gated?: boolean
+          required?: boolean
         }
       >
       program_teachers: Table<
@@ -111,6 +137,8 @@ export interface Database {
           options: Json | null
           correct_option_index: number | null
           is_essay: boolean | null
+          points: number | null
+          position: number | null
           created_at: string | null
         },
         {
@@ -119,6 +147,8 @@ export interface Database {
           options?: Json | null
           correct_option_index?: number | null
           is_essay?: boolean | null
+          points?: number | null
+          position?: number | null
         }
       >
       quiz_submissions: Table<
@@ -164,11 +194,15 @@ export interface Database {
           id: string
           program_id: string
           name: string
+          starts_on: string | null
+          ends_on: string | null
           created_at: string | null
         },
         {
           program_id: string
           name: string
+          starts_on?: string | null
+          ends_on?: string | null
         }
       >
     }
@@ -205,6 +239,10 @@ export interface Database {
       set_my_language: {
         Args: { next_language: string }
         Returns: undefined
+      }
+      set_my_avatar: {
+        Args: { next_url: string }
+        Returns: string
       }
     }
   }

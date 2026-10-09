@@ -7,7 +7,7 @@ import { DataTable, FilterBar, SelectFilter } from '../../components/ui/DataShee
 import { PageHeader } from '../../components/ui/PageHeader'
 import { localizedLabel } from '../../lib/localized'
 import { countsInClass } from '../../lib/accounts'
-import { createClass, listClasses, listPrograms, type CourseClass, type ProgramRecord } from '../../lib/programs'
+import { createClass, listClasses, listPrograms, updateClass, type CourseClass, type ProgramRecord } from '../../lib/programs'
 import { isSupabaseConfigured } from '../../lib/supabase'
 import { listTeacherRoster } from '../../lib/teacher'
 
@@ -24,6 +24,9 @@ export function ClassManager() {
   const [creating, setCreating] = useState(false)
   const [draftCourse, setDraftCourse] = useState('')
   const [draftName, setDraftName] = useState('')
+  const [draftStarts, setDraftStarts] = useState('')
+  const [draftEnds, setDraftEnds] = useState('')
+  const [editing, setEditing] = useState<CourseClass | null>(null)
   const [pending, setPending] = useState(false)
   const [reloadKey, setReloadKey] = useState(0)
 
@@ -74,9 +77,11 @@ export function ClassManager() {
     setPending(true)
     setError('')
     try {
-      await createClass(draftCourse, draftName.trim())
+      await createClass(draftCourse, { name: draftName.trim(), startsOn: draftStarts, endsOn: draftEnds })
       setCreating(false)
       setDraftName('')
+      setDraftStarts('')
+      setDraftEnds('')
       setReloadKey((value) => value + 1)
     } catch {
       setError(t('programs.saveError'))
@@ -91,18 +96,27 @@ export function ClassManager() {
         title={t('classesPage.title')}
         action={
           <>
-            <button type="button" className="ui-inline ui-btn-primary" onClick={() => setCreating(true)}>
+            <button
+              type="button"
+              className="ui-inline ui-btn-primary"
+              onClick={() => {
+                setDraftCourse(course === 'all' ? '' : course)
+                setCreating(true)
+              }}
+            >
               {t('classesPage.add')}
             </button>
             <ExportButtons
               filename="lop-hoc"
               title={t('classesPage.title')}
-              headers={[t('classesPage.className'), t('teacher.course'), t('classesPage.students'), t('teacher.progress')]}
+              headers={[t('classesPage.className'), t('teacher.course'), t('classesPage.startsOn'), t('classesPage.endsOn'), t('classesPage.students'), t('teacher.progress')]}
               rows={visible.map((item) => {
                 const program = programs.find((row) => row.id === item.programId)
                 return [
                   item.name,
                   program ? localizedLabel(program.title, i18n.language) || t('programs.untitled') : t('programs.untitled'),
+                  item.startsOn || '—',
+                  item.endsOn || '—',
                   counts[item.id] ?? 0,
                   `${progress[item.id] ?? 0}%`,
                 ]
@@ -145,6 +159,8 @@ export function ClassManager() {
             <tr>
               <th>{t('classesPage.className')}</th>
               <th>{t('teacher.course')}</th>
+              <th>{t('classesPage.startsOn')}</th>
+              <th>{t('classesPage.endsOn')}</th>
               <th>{t('classesPage.students')}</th>
               <th>{t('teacher.progress')}</th>
               <th>{t('teacher.action')}</th>
@@ -154,13 +170,15 @@ export function ClassManager() {
             {visible.map((item) => {
               const program = programs.find((row) => row.id === item.programId)
               return (
-                <tr key={item.id}>
+                <tr key={item.id} className="ui-row" onClick={() => setEditing(item)}>
                   <td className="font-semibold text-ink">{item.name}</td>
                   <td>{program ? localizedLabel(program.title, i18n.language) || t('programs.untitled') : t('programs.untitled')}</td>
+                  <td>{item.startsOn || '—'}</td>
+                  <td>{item.endsOn || '—'}</td>
                   <td className="tabular-nums">{counts[item.id] ?? 0}</td>
                   <td className="tabular-nums">{progress[item.id] ?? 0}%</td>
                   <td>
-                    <Link to={`/programs/${item.programId}#class`} className="ui-inline ui-btn-primary">
+                    <Link to={`/programs/${item.programId}#class`} className="ui-inline ui-btn-primary" onClick={(event) => event.stopPropagation()}>
                       {t('classesPage.manage')}
                     </Link>
                   </td>
@@ -194,8 +212,60 @@ export function ClassManager() {
               {t('classesPage.className')}
               <input className="ui-field" value={draftName} onChange={(event) => setDraftName(event.target.value)} required />
             </label>
+            <label className="grid gap-1 text-sm font-medium text-ink">
+              {t('classesPage.startsOn')}
+              <input className="ui-field" type="date" value={draftStarts} onChange={(event) => setDraftStarts(event.target.value)} />
+            </label>
+            <label className="grid gap-1 text-sm font-medium text-ink">
+              {t('classesPage.endsOn')}
+              <input className="ui-field" type="date" value={draftEnds} onChange={(event) => setDraftEnds(event.target.value)} />
+            </label>
             <div className="ui-dialog-foot">
               <button type="button" className="ui-btn ui-btn-ghost border border-line" onClick={() => setCreating(false)}>
+                {t('accounts.cancel')}
+              </button>
+              <button type="submit" className="ui-btn ui-btn-primary" disabled={pending}>
+                {t('programs.save')}
+              </button>
+            </div>
+          </form>
+        </Dialog>
+      ) : null}
+      {editing ? (
+        <Dialog title={editing.name} onClose={() => setEditing(null)}>
+          <form
+            className="grid gap-4"
+            onSubmit={(event) => {
+              event.preventDefault()
+              const form = event.currentTarget
+              const name = (form.elements.namedItem('class-name') as HTMLInputElement).value.trim()
+              const startsOn = (form.elements.namedItem('class-start') as HTMLInputElement).value
+              const endsOn = (form.elements.namedItem('class-end') as HTMLInputElement).value
+              if (!name) return
+              setPending(true)
+              void updateClass(editing.id, { name, startsOn, endsOn })
+                .then(() => {
+                  setEditing(null)
+                  setReloadKey((value) => value + 1)
+                })
+                .catch(() => setError(t('programs.saveError')))
+                .finally(() => setPending(false))
+            }}
+          >
+            <label className="grid gap-1 text-sm font-medium text-ink">
+              {t('classesPage.className')}
+              <input className="ui-field" name="class-name" defaultValue={editing.name} required />
+            </label>
+            <label className="grid gap-1 text-sm font-medium text-ink">
+              {t('classesPage.startsOn')}
+              <input className="ui-field" name="class-start" type="date" defaultValue={editing.startsOn} />
+            </label>
+            <label className="grid gap-1 text-sm font-medium text-ink">
+              {t('classesPage.endsOn')}
+              <input className="ui-field" name="class-end" type="date" defaultValue={editing.endsOn} />
+            </label>
+            <div className="ui-dialog-foot">
+              <button type="button" className="ui-btn ui-btn-ghost border border-line" onClick={() => setEditing(null)}>
                 {t('accounts.cancel')}
               </button>
               <button type="submit" className="ui-btn ui-btn-primary" disabled={pending}>

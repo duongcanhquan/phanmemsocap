@@ -1,18 +1,25 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
-import { emptyLocalized, hasLocalizedText, type LocalizedText } from '../../lib/localized'
+import { emptyLocalized, hasLocalizedText, localizedLabel, type LocalizedText } from '../../lib/localized'
 import {
   deleteLesson,
+  lessonCourseIds,
   lessonTypes,
+  listPrograms,
+  getLessonQuizSettings,
   listQuizzes,
   saveLesson,
   saveQuizzes,
+  syncLessonCourses,
+  type LessonQuizSettings,
   type LessonRecord,
   type LessonType,
+  type ProgramRecord,
   type QuizRecord,
 } from '../../lib/programs'
 import { Dialog } from '../ui/Dialog'
 import { LocalizedFields } from './LocalizedFields'
+import { QuizSetup } from './QuizSetup'
 
 type LessonModalProps = {
   programId: string
@@ -29,20 +36,51 @@ function newQuiz(): QuizRecord {
     options: [emptyLocalized(), emptyLocalized()],
     correctOptionIndex: 0,
     isEssay: false,
+    points: 1,
   }
 }
 
 export function LessonModal({ programId, lesson, nextOrder, onClose, onSaved }: LessonModalProps) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
+  const [programs, setPrograms] = useState<ProgramRecord[]>([])
+  const [courseIds, setCourseIds] = useState<string[]>(programId ? [programId] : [])
+  const [orderIndex, setOrderIndex] = useState(lesson?.orderIndex ?? nextOrder)
   const [title, setTitle] = useState<LocalizedText>(lesson?.title ?? emptyLocalized())
   const [moduleName, setModuleName] = useState<LocalizedText>(lesson?.moduleName ?? emptyLocalized())
   const [contentType, setContentType] = useState<LessonType>(lesson?.contentType ?? 'text')
   const [contentUrl, setContentUrl] = useState(lesson?.contentUrl ?? '')
   const [isPublished, setIsPublished] = useState(lesson?.isPublished ?? false)
   const [quizzes, setQuizzes] = useState<QuizRecord[]>([])
+  const [quizSettings, setQuizSettings] = useState<LessonQuizSettings>({ passMark: 5, shuffleQuestions: false, shuffleOptions: false })
   const [quizzesLoaded, setQuizzesLoaded] = useState(!lesson)
   const [error, setError] = useState('')
   const [pending, setPending] = useState(false)
+
+  useEffect(() => {
+    let active = true
+    void listPrograms()
+      .then((rows) => {
+        if (active) setPrograms(rows)
+      })
+      .catch(() => {
+        if (active) setError(t('programs.loadError'))
+      })
+    if (lesson) {
+      void getLessonQuizSettings(lesson.id)
+        .then((settings) => {
+          if (active) setQuizSettings(settings)
+        })
+        .catch(() => undefined)
+      void lessonCourseIds(lesson.id)
+        .then((ids) => {
+          if (active && ids.length > 0) setCourseIds(ids)
+        })
+        .catch(() => undefined)
+    }
+    return () => {
+      active = false
+    }
+  }, [lesson, t])
 
   useEffect(() => {
     if (!lesson) return
@@ -64,7 +102,7 @@ export function LessonModal({ programId, lesson, nextOrder, onClose, onSaved }: 
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault()
-    if (!hasLocalizedText(title)) {
+    if (!hasLocalizedText(title) || courseIds.length === 0) {
       setError(t('programs.titleRequired'))
       return
     }
@@ -72,15 +110,21 @@ export function LessonModal({ programId, lesson, nextOrder, onClose, onSaved }: 
     setPending(true)
     setError('')
     try {
-      const lessonId = await saveLesson(programId, {
+      const lessonId = await saveLesson(courseIds[0], {
         id: lesson?.id,
         title,
         moduleName,
         contentType,
         contentUrl,
         isPublished,
-        orderIndex: lesson?.orderIndex ?? nextOrder,
+        orderIndex,
+        quiz: {
+          passMark: Math.min(10, Math.max(0, quizSettings.passMark)),
+          shuffleQuestions: quizSettings.shuffleQuestions,
+          shuffleOptions: quizSettings.shuffleOptions,
+        },
       })
+      await syncLessonCourses(lessonId, courseIds, programId, orderIndex)
       await saveQuizzes(lessonId, quizzes)
       onSaved()
     } catch {
@@ -147,6 +191,38 @@ export function LessonModal({ programId, lesson, nextOrder, onClose, onSaved }: 
               />
             </label>
           )}
+          <fieldset className="grid gap-2 text-sm font-medium text-ink lg:col-span-2">
+            <legend>{t('editor.assignCourse')}</legend>
+            {programs.map((program) => (
+              <label key={program.id} className="flex min-h-9 items-center gap-2 font-normal">
+                <input
+                  type="checkbox"
+                  checked={courseIds.includes(program.id)}
+                  onChange={() => {
+                    setCourseIds((current) => {
+                      if (current.includes(program.id)) {
+                        const next = current.filter((id) => id !== program.id)
+                        return next.length === 0 ? current : next
+                      }
+                      return [...current, program.id]
+                    })
+                  }}
+                />
+                {localizedLabel(program.title, i18n.language) || t('programs.untitled')}
+              </label>
+            ))}
+          </fieldset>
+          <label className="grid gap-1 text-sm font-medium text-ink" htmlFor="lesson-order">
+            {t('editor.sortOrder')}
+            <input
+              id="lesson-order"
+              className="ui-field"
+              type="number"
+              min={0}
+              value={orderIndex}
+              onChange={(event) => setOrderIndex(Number(event.target.value))}
+            />
+          </label>
           <label className="flex min-h-11 items-center gap-2 text-sm font-medium text-ink">
             <input
               type="checkbox"
@@ -156,25 +232,12 @@ export function LessonModal({ programId, lesson, nextOrder, onClose, onSaved }: 
             {t('programs.published')}
           </label>
         </div>
-        <div className="grid gap-4 lg:grid-cols-2">
-          {quizzes.map((quiz, index) => (
-                <QuizFields
-                  key={quiz.id}
-                  index={index}
-                  quiz={quiz}
-                  onChange={(next) => setQuizzes(quizzes.map((item) => (item.id === quiz.id ? next : item)))}
-                  onRemove={() => setQuizzes(quizzes.filter((item) => item.id !== quiz.id))}
-                />
-          ))}
-          <button type="button" className="ui-btn ui-btn-ghost border border-line" onClick={() => setQuizzes([...quizzes, newQuiz()])}>
-            {t('programs.addQuestion')}
-          </button>
-          {error ? (
-            <p role="alert" className="text-sm text-danger">
-              {error}
-            </p>
-          ) : null}
-        </div>
+        <QuizSetup quizzes={quizzes} settings={quizSettings} onQuizzes={setQuizzes} onSettings={setQuizSettings} />
+        {error ? (
+          <p role="alert" className="text-sm text-danger">
+            {error}
+          </p>
+        ) : null}
         <div className="ui-dialog-foot">
           {lesson ? (
             <button type="button" className="ui-btn text-danger" disabled={pending} onClick={() => void onDelete()}>
@@ -190,80 +253,5 @@ export function LessonModal({ programId, lesson, nextOrder, onClose, onSaved }: 
         </div>
       </form>
     </Dialog>
-  )
-}
-
-function QuizFields({
-  quiz,
-  index,
-  onChange,
-  onRemove,
-}: {
-  quiz: QuizRecord
-  index: number
-  onChange: (quiz: QuizRecord) => void
-  onRemove: () => void
-}) {
-  const { t } = useTranslation()
-  return (
-    <div className="grid gap-3 rounded-2xl border border-line p-3">
-      <div className="flex items-center justify-between">
-        <p className="text-sm font-semibold text-ink">
-          {t('programs.question')} {index + 1}
-        </p>
-        <button type="button" className="ui-btn text-danger" onClick={onRemove}>
-          {t('programs.remove')}
-        </button>
-      </div>
-      <LocalizedFields
-        id={`quiz-${quiz.id}`}
-        label={t('programs.question')}
-        value={quiz.question}
-        onChange={(question) => onChange({ ...quiz, question })}
-      />
-      <label className="flex min-h-11 items-center gap-2 text-sm font-medium text-ink">
-        <input
-          type="checkbox"
-          checked={quiz.isEssay}
-          onChange={(event) => onChange({ ...quiz, isEssay: event.target.checked })}
-        />
-        {t('programs.essay')}
-      </label>
-      {quiz.isEssay
-        ? null
-        : quiz.options.map((option, optionIndex) => (
-            <div key={`${quiz.id}-${optionIndex}`} className="grid gap-2">
-              <label className="flex min-h-11 items-center gap-2 text-sm font-medium text-ink">
-                <input
-                  type="radio"
-                  name={`correct-${quiz.id}`}
-                  checked={quiz.correctOptionIndex === optionIndex}
-                  onChange={() => onChange({ ...quiz, correctOptionIndex: optionIndex })}
-                />
-                {t('programs.correct')} {optionIndex + 1}
-              </label>
-              <LocalizedFields
-                id={`option-${quiz.id}-${optionIndex}`}
-                label={t('programs.option')}
-                value={option}
-                onChange={(next) =>
-                  onChange({
-                    ...quiz,
-                    options: quiz.options.map((item, itemIndex) => (itemIndex === optionIndex ? next : item)),
-                  })
-                }
-              />
-            </div>
-          ))}
-      {quiz.isEssay ? null : (
-        <button
-          type="button"
-          className="ui-btn ui-btn-ghost border border-line"
-          onClick={() => onChange({ ...quiz, options: [...quiz.options, emptyLocalized()] })}
-        >
-          {t('programs.addOption')}
-        </button>
-      )}
-    </div>
   )
 }

@@ -33,7 +33,7 @@ export function AILessonGenerator({ getContent, onInsert }: AILessonGeneratorPro
         if (!active) return
         const next = rows
           .filter((row) => row.enabled && row.hasKey)
-          .flatMap((row) => row.models.map((item) => ({ id: lessonModelId(row.provider, item), label: item })))
+          .flatMap((row) => (Array.isArray(row.models) ? row.models : []).map((item) => ({ id: lessonModelId(row.provider, item), label: item })))
         setChoices(next)
         setModel((current) => current || next[0]?.id || '')
       })

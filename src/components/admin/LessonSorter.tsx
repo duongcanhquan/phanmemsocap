@@ -32,10 +32,11 @@ const typeIcons: Record<LessonType, LucideIcon> = {
 type LessonSorterProps = {
   lessons: LessonRecord[]
   onReorder: (lessons: LessonRecord[]) => void
+  onRule: (lessonId: string, rule: { gated?: boolean; required?: boolean }) => void
   onEdit: (lesson: LessonRecord) => void
 }
 
-export function LessonSorter({ lessons, onReorder, onEdit }: LessonSorterProps) {
+export function LessonSorter({ lessons, onReorder, onRule, onEdit }: LessonSorterProps) {
   const { t, i18n } = useTranslation()
   const [query, setQuery] = useState('')
   const [typeFilter, setTypeFilter] = useState('all')
@@ -106,12 +107,14 @@ export function LessonSorter({ lessons, onReorder, onEdit }: LessonSorterProps) 
                   <th>{t('programs.name')}</th>
                   <th>{t('filters.type')}</th>
                   <th>{t('filters.status')}</th>
+                  <th>{t('programs.gate')}</th>
+                  <th>{t('programs.mustStudy')}</th>
                   <th>{t('teacher.action')}</th>
                 </tr>
               </thead>
               <tbody>
                 {shown.map((lesson) => (
-                  <SortableLesson key={lesson.id} lesson={lesson} onEdit={onEdit} />
+                  <SortableLesson key={lesson.id} lesson={lesson} onEdit={onEdit} onRule={onRule} />
                 ))}
               </tbody>
             </table>
@@ -122,7 +125,15 @@ export function LessonSorter({ lessons, onReorder, onEdit }: LessonSorterProps) 
   )
 }
 
-function SortableLesson({ lesson, onEdit }: { lesson: LessonRecord; onEdit: (lesson: LessonRecord) => void }) {
+function SortableLesson({
+  lesson,
+  onEdit,
+  onRule,
+}: {
+  lesson: LessonRecord
+  onEdit: (lesson: LessonRecord) => void
+  onRule: (lessonId: string, rule: { gated?: boolean; required?: boolean }) => void
+}) {
   const { t, i18n } = useTranslation()
   const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: lesson.id })
   const Icon = typeIcons[lesson.contentType]
@@ -155,6 +166,30 @@ function SortableLesson({ lesson, onEdit }: { lesson: LessonRecord; onEdit: (les
       </td>
       <td>{t(`programs.types.${lesson.contentType}`)}</td>
       <td>{lesson.isPublished ? t('programs.published') : t('programs.draft')}</td>
+      <td>
+        <select
+          className="ui-field"
+          aria-label={t('programs.gate')}
+          value={lesson.gated ? 'gated' : 'open'}
+          onClick={(event) => event.stopPropagation()}
+          onChange={(event) => onRule(lesson.id, { gated: event.target.value === 'gated' })}
+        >
+          <option value="gated">{t('programs.gateAfter')}</option>
+          <option value="open">{t('programs.gateOpen')}</option>
+        </select>
+      </td>
+      <td>
+        <select
+          className="ui-field"
+          aria-label={t('programs.mustStudy')}
+          value={lesson.required ? 'required' : 'optional'}
+          onClick={(event) => event.stopPropagation()}
+          onChange={(event) => onRule(lesson.id, { required: event.target.value === 'required' })}
+        >
+          <option value="required">{t('programs.requiredLesson')}</option>
+          <option value="optional">{t('programs.optionalLesson')}</option>
+        </select>
+      </td>
       <td>
         <button type="button" className="ui-inline ui-btn-ghost" onClick={(event) => { event.stopPropagation(); onEdit(lesson) }}>
           <Pencil aria-hidden="true" className="size-4" />

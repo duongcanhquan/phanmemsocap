@@ -21,6 +21,7 @@ export type LessonPathItem = {
   contentUrl: string
   orderIndex: number
   locked: boolean
+  required: boolean
   hasQuiz: boolean
   passed: boolean
   waiting: boolean
@@ -41,6 +42,10 @@ export type StudentQuestion = {
   question: LocalizedText
   options: LocalizedText[]
   isEssay: boolean
+  points: number
+  passMark: number
+  shuffleQuestions: boolean
+  shuffleOptions: boolean
 }
 
 export type QuizGrade = {
@@ -103,11 +108,14 @@ export async function listEnrolledPrograms(): Promise<EnrolledProgram[]> {
 
 export async function listLessonPath(programId: string): Promise<LessonPathItem[]> {
   const db = client()
-  const lessons = await db
-    .from('lessons')
-    .select('id, title, module_name, content_type, content_url, order_index')
-    .eq('program_id', programId)
-    .order('order_index', { ascending: true })
+  const links = await db.from('program_lessons').select('lesson_id, order_index').eq('program_id', programId).order('order_index')
+  if (links.error) throw links.error
+  const order = new Map((links.data ?? []).map((link) => [link.lesson_id, link.order_index]))
+  const ids = [...order.keys()]
+  const lessons =
+    ids.length === 0
+      ? { data: [], error: null }
+      : await db.from('lessons').select('id, title, module_name, content_type, content_url').in('id', ids)
   if (lessons.error) throw lessons.error
 
   const [state, record] = await Promise.all([
@@ -121,7 +129,7 @@ export async function listLessonPath(programId: string): Promise<LessonPathItem[
       const row = asObject(item)
       return [
         typeof row.id === 'string' ? row.id : '',
-        { locked: row.locked === true, hasQuiz: row.has_quiz === true },
+        { locked: row.locked === true, hasQuiz: row.has_quiz === true, required: row.required !== false },
       ]
     }),
   )
@@ -139,7 +147,10 @@ export async function listLessonPath(programId: string): Promise<LessonPathItem[
     }),
   )
 
-  return (lessons.data ?? []).flatMap((lesson, index) => {
+  return (lessons.data ?? [])
+    .slice()
+    .sort((left, right) => (order.get(left.id) ?? 0) - (order.get(right.id) ?? 0))
+    .flatMap((lesson) => {
     const flag = flags.get(lesson.id)
     if (!flag) return []
     const mark = progress.get(lesson.id)
@@ -149,8 +160,9 @@ export async function listLessonPath(programId: string): Promise<LessonPathItem[
       moduleName: asLocalized(lesson.module_name),
       contentType: lesson.content_type ?? 'text',
       contentUrl: lesson.content_url ?? '',
-      orderIndex: lesson.order_index ?? index,
+      orderIndex: order.get(lesson.id) ?? 0,
       locked: flag.locked,
+      required: flag.required,
       hasQuiz: flag.hasQuiz,
       passed: mark?.passed ?? false,
       waiting: mark?.waiting ?? false,
@@ -186,6 +198,10 @@ export async function loadLessonQuestions(lessonId: string): Promise<StudentQues
       question: asLocalized(row.question ?? null),
       options,
       isEssay: row.is_essay === true,
+      points: typeof row.points === 'number' ? row.points : 1,
+      passMark: typeof row.pass_mark === 'number' ? row.pass_mark : Number(row.pass_mark ?? 5) || 5,
+      shuffleQuestions: row.shuffle_questions === true,
+      shuffleOptions: row.shuffle_options === true,
     }
   })
 }

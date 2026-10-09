@@ -26,19 +26,34 @@ export function QuizEngine({ lessonId, programId, nextLessonId }: QuizEngineProp
   return <QuizSession key={lessonId} lessonId={lessonId} programId={programId} nextLessonId={nextLessonId} />
 }
 
-function lessonIsPassed(questions: StudentQuestion[], grades: QuizGrade[]) {
-  return (
-    questions.length > 0 &&
-    questions.every((question) => {
-      const grade = grades.find((item) => item.quizId === question.id)
-      return grade?.score != null && grade.score >= passingScore
-    })
-  )
+function lessonScore(questions: StudentQuestion[], grades: QuizGrade[]) {
+  const possible = questions.reduce((sum, question) => sum + question.points, 0)
+  if (possible === 0) return null
+  const waiting = questions.some((question) => grades.find((item) => item.quizId === question.id)?.score == null)
+  if (waiting) return null
+  const earned = questions.reduce((sum, question) => {
+    const grade = grades.find((item) => item.quizId === question.id)
+    return sum + ((grade?.score ?? 0) / 10) * question.points
+  }, 0)
+  return (earned / possible) * 10
+}
+
+function mixOrder<T>(items: T[], enabled: boolean): T[] {
+  if (!enabled) return items
+  const next = [...items]
+  for (let index = next.length - 1; index > 0; index -= 1) {
+    const swap = Math.floor(Math.random() * (index + 1))
+    const current = next[index]
+    next[index] = next[swap]
+    next[swap] = current
+  }
+  return next
 }
 
 function QuizSession({ lessonId, programId, nextLessonId }: QuizEngineProps) {
   const { t, i18n } = useTranslation()
   const [questions, setQuestions] = useState<StudentQuestion[]>([])
+  const [optionOrder, setOptionOrder] = useState<Record<string, number[]>>({})
   const [index, setIndex] = useState(0)
   const [answers, setAnswers] = useState<Record<string, AnswerState>>({})
   const [grades, setGrades] = useState<QuizGrade[]>([])
@@ -53,12 +68,25 @@ function QuizSession({ lessonId, programId, nextLessonId }: QuizEngineProps) {
     void loadLessonQuestions(lessonId)
       .then(async (nextQuestions) => {
         if (!active) return
-        setQuestions(nextQuestions)
+        const mixed = mixOrder(nextQuestions, nextQuestions[0]?.shuffleQuestions === true)
+        setQuestions(mixed)
+        setOptionOrder(
+          Object.fromEntries(
+            mixed.map((item) => [
+              item.id,
+              mixOrder(
+                item.options.map((_, optionIndex) => optionIndex),
+                item.shuffleOptions,
+              ),
+            ]),
+          ),
+        )
         const existing = await loadExistingGrades(nextQuestions.map((question) => question.id))
         if (!active) return
         setGrades(existing)
         setSubmitted(existing.length > 0 && existing.length >= nextQuestions.length)
-        setPassed(lessonIsPassed(nextQuestions, existing))
+        const score = lessonScore(nextQuestions, existing)
+        setPassed(score != null && score >= (nextQuestions[0]?.passMark ?? passingScore))
       })
       .catch(() => {
         if (active) setError(t('student.loadError'))
@@ -108,6 +136,12 @@ function QuizSession({ lessonId, programId, nextLessonId }: QuizEngineProps) {
   if (submitted) {
     return (
       <div className="grid gap-3">
+        <p className="text-sm font-medium text-ink">
+          {t('exam.result', {
+            score: (lessonScore(questions, grades) ?? 0).toFixed(1),
+            pass: questions[0]?.passMark ?? passingScore,
+          })}
+        </p>
         {questions.map((item) => {
           const grade = grades.find((entry) => entry.quizId === item.id)
           const waiting = grade?.score == null
@@ -159,7 +193,8 @@ function QuizSession({ lessonId, programId, nextLessonId }: QuizEngineProps) {
         />
       ) : (
         <div className="grid gap-2">
-          {question.options.map((option, optionIndex) => {
+          {(optionOrder[question.id] ?? question.options.map((_, optionIndex) => optionIndex)).map((optionIndex) => {
+            const option = question.options[optionIndex]
             const selected = answers[question.id]?.option === optionIndex
             return (
               <button

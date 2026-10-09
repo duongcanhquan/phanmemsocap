@@ -12,7 +12,14 @@ import { Tabs } from '../../components/ui/Tabs'
 import { useAuth } from '../../hooks/useAuth'
 import { emptyLocalized, hasLocalizedText, localizedLabel, type LocalizedText } from '../../lib/localized'
 import { isSchoolAdmin } from '../../lib/roles'
-import { getProgram, listLessons, saveLessonOrder, updateProgram, type LessonRecord } from '../../lib/programs'
+import { getAdvanceMode, getProgram, listLessons, saveLessonOrder, setAdvanceMode, setLessonRule, updateProgram, type LessonRecord } from '../../lib/programs'
+
+function lessonAdvance(lessons: LessonRecord[], fallback: 'sequence' | 'open'): 'sequence' | 'open' | 'mixed' {
+  if (lessons.length === 0) return fallback
+  if (lessons.every((lesson) => lesson.gated)) return 'sequence'
+  if (lessons.every((lesson) => !lesson.gated)) return 'open'
+  return 'mixed'
+}
 
 export function ProgramDetail() {
   const { t, i18n } = useTranslation()
@@ -26,6 +33,7 @@ export function ProgramDetail() {
   const [isActive, setIsActive] = useState(true)
   const [teacherId, setTeacherId] = useState('')
   const [lessons, setLessons] = useState<LessonRecord[]>([])
+  const [advanceMode, setAdvance] = useState<'sequence' | 'open' | 'mixed'>('sequence')
   const [editing, setEditing] = useState<LessonRecord | null | undefined>(undefined)
   const [loading, setLoading] = useState(true)
   const [missing, setMissing] = useState(false)
@@ -41,7 +49,7 @@ export function ProgramDetail() {
   useEffect(() => {
     let active = true
     void Promise.all([getProgram(programId), listLessons(programId)])
-      .then(([program, nextLessons]) => {
+      .then(async ([program, nextLessons]) => {
         if (!active) return
         if (!program) {
           setMissing(true)
@@ -54,6 +62,8 @@ export function ProgramDetail() {
         setIsActive(program.isActive)
         setTeacherId(program.teacherId)
         setLessons(nextLessons)
+        const mode = await getAdvanceMode(programId)
+        if (active) setAdvance(lessonAdvance(nextLessons, mode))
       })
       .catch(() => {
         if (active) setError(t('programs.loadError'))
@@ -85,11 +95,25 @@ export function ProgramDetail() {
     }
   }
 
+  async function onRule(lessonId: string, rule: { gated?: boolean; required?: boolean }) {
+    const previous = lessons
+    const next = lessons.map((lesson) => (lesson.id === lessonId ? { ...lesson, ...rule } : lesson))
+    setLessons(next)
+    setAdvance(lessonAdvance(next, advanceMode === 'mixed' ? 'sequence' : advanceMode))
+    try {
+      await setLessonRule(programId, lessonId, rule)
+    } catch {
+      setLessons(previous)
+      setAdvance(lessonAdvance(previous, advanceMode === 'mixed' ? 'sequence' : advanceMode))
+      setError(t('programs.saveError'))
+    }
+  }
+
   async function onReorder(next: LessonRecord[]) {
     const previous = lessons
     setLessons(next)
     try {
-      await saveLessonOrder(next)
+      await saveLessonOrder(programId, next)
     } catch {
       setLessons(previous)
       setError(t('programs.saveError'))
@@ -175,13 +199,43 @@ export function ProgramDetail() {
           <section className="ui-card grid gap-3">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <h2 className="text-lg font-semibold text-ink">{t('programs.lessons')}</h2>
+              {admin ? (
+                <label className="grid gap-1 text-sm font-medium text-ink" htmlFor="advance-mode">
+                  {t('programs.advance')}
+                  <select
+                    id="advance-mode"
+                    className="ui-field"
+                    value={advanceMode}
+                    onChange={(event) => {
+                      const mode = event.target.value === 'open' ? 'open' : 'sequence'
+                      const previous = lessons
+                      setAdvance(mode)
+                      setLessons(lessons.map((lesson) => ({ ...lesson, gated: mode === 'sequence' })))
+                      void setAdvanceMode(programId, mode).catch(() => {
+                        setLessons(previous)
+                        setAdvance(lessonAdvance(previous, mode === 'open' ? 'sequence' : 'open'))
+                        setError(t('programs.saveError'))
+                      })
+                    }}
+                  >
+                    {advanceMode === 'mixed' ? <option value="mixed">{t('programs.advanceMixed')}</option> : null}
+                    <option value="sequence">{t('programs.advanceSequence')}</option>
+                    <option value="open">{t('programs.advanceOpen')}</option>
+                  </select>
+                </label>
+              ) : null}
               <button type="button" className="ui-inline ui-btn-primary" onClick={() => setEditing(null)}>
                 <Plus aria-hidden="true" className="size-4" />
                 {t('programs.addLesson')}
               </button>
             </div>
             {lessons.length === 0 ? <p className="text-sm text-muted">{t('programs.lessonEmpty')}</p> : null}
-            <LessonSorter lessons={lessons} onReorder={(next) => void onReorder(next)} onEdit={setEditing} />
+            <LessonSorter
+              lessons={lessons}
+              onReorder={(next) => void onReorder(next)}
+              onRule={(lessonId, rule) => void onRule(lessonId, rule)}
+              onEdit={setEditing}
+            />
           </section>
           ) : null}
           {tab === 'class' ? <EnrollmentManager programId={programId} /> : null}

@@ -8,7 +8,7 @@ import { DataTable, FilterBar, SelectFilter } from '../../components/ui/DataShee
 import { Dialog } from '../../components/ui/Dialog'
 import { PageHeader } from '../../components/ui/PageHeader'
 import { emptyLocalized, hasLocalizedText, localizedLabel, type LocalizedText } from '../../lib/localized'
-import { createProgram, deleteProgram, listProgramTeacherIds, listPrograms, listTeachers, saveProgramTeachers, updateProgram, type ProgramRecord, type StudentRecord } from '../../lib/programs'
+import { createClass, createProgram, deleteProgram, listClasses, listProgramTeacherIds, listPrograms, listTeachers, saveProgramTeachers, updateProgram, type CourseClass, type ProgramRecord, type StudentRecord } from '../../lib/programs'
 import { isSupabaseConfigured } from '../../lib/supabase'
 
 export function ProgramManager() {
@@ -215,6 +215,42 @@ function ProgramDialog({
   const [error, setError] = useState('')
   const [pending, setPending] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [classes, setClasses] = useState<CourseClass[]>([])
+  const [className, setClassName] = useState('')
+  const [classStarts, setClassStarts] = useState('')
+  const [classEnds, setClassEnds] = useState('')
+
+  useEffect(() => {
+    if (!program) return
+    let active = true
+    void listClasses(program.id)
+      .then((rows) => {
+        if (active) setClasses(rows)
+      })
+      .catch(() => {
+        if (active) setError(t('programs.loadError'))
+      })
+    return () => {
+      active = false
+    }
+  }, [program, t])
+
+  async function addClass() {
+    if (!program || !className.trim()) return
+    setPending(true)
+    setError('')
+    try {
+      await createClass(program.id, { name: className.trim(), startsOn: classStarts, endsOn: classEnds })
+      setClasses(await listClasses(program.id))
+      setClassName('')
+      setClassStarts('')
+      setClassEnds('')
+    } catch {
+      setError(t('programs.saveError'))
+    } finally {
+      setPending(false)
+    }
+  }
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault()
@@ -276,6 +312,39 @@ function ProgramDialog({
               onChange={(event) => setCoverImageUrl(event.target.value)}
             />
           </label>
+          {program ? (
+            <div className="grid gap-3 rounded-xl border border-line p-3 lg:col-span-2">
+              <p className="text-sm font-semibold text-ink">{t('classesPage.inCourse')}</p>
+              {classes.length === 0 ? <p className="text-sm text-muted">{t('classesPage.empty')}</p> : null}
+              {classes.length > 0 ? (
+                <ul className="grid gap-1 text-sm text-ink">
+                  {classes.map((item) => (
+                    <li key={item.id}>
+                      {item.name}
+                      {item.startsOn || item.endsOn ? ` · ${item.startsOn || '—'} – ${item.endsOn || '—'}` : ''}
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-[1fr_auto_auto_auto]">
+                <label className="grid gap-1 text-sm font-medium text-ink">
+                  {t('classesPage.className')}
+                  <input className="ui-field" value={className} onChange={(event) => setClassName(event.target.value)} />
+                </label>
+                <label className="grid gap-1 text-sm font-medium text-ink">
+                  {t('classesPage.startsOn')}
+                  <input className="ui-field" type="date" value={classStarts} onChange={(event) => setClassStarts(event.target.value)} />
+                </label>
+                <label className="grid gap-1 text-sm font-medium text-ink">
+                  {t('classesPage.endsOn')}
+                  <input className="ui-field" type="date" value={classEnds} onChange={(event) => setClassEnds(event.target.value)} />
+                </label>
+                <button type="button" className="ui-inline ui-btn-primary self-end" disabled={pending || !className.trim()} onClick={() => void addClass()}>
+                  {t('classesPage.add')}
+                </button>
+              </div>
+            </div>
+          ) : null}
           <fieldset className="grid gap-2 text-sm font-medium lg:col-span-2">
             <legend>{t('programs.teacher')}</legend>
             <div className="flex flex-wrap gap-2">

@@ -18,6 +18,7 @@ export type NavItem = {
 
 export const navItems: NavItem[] = [
   { to: '/', labelKey: 'nav.dashboard', icon: LayoutDashboard, roles: ['superadmin', 'admin', 'teacher', 'student'], end: true, mobile: true, teacherTo: '/teacher', studentTo: '/student' },
+  { to: '/lessons', labelKey: 'nav.lessons', icon: NotebookPen, roles: ['superadmin', 'admin', 'teacher'], mobile: true },
   {
     to: '/teacher',
     labelKey: 'nav.review',
@@ -37,8 +38,7 @@ export const navItems: NavItem[] = [
   },
   { to: '/classes', labelKey: 'nav.classes', icon: GraduationCap, roles: ['superadmin', 'admin'] },
   { to: '/accounts', labelKey: 'nav.accounts', icon: UserCog, roles: ['superadmin', 'admin'], mobile: true },
-  { to: '/ai', labelKey: 'nav.ai', icon: Sparkles, roles: ['superadmin', 'admin'] },
-  { to: '/lessons', labelKey: 'nav.lessons', icon: NotebookPen, roles: ['superadmin', 'admin', 'teacher'], mobile: true },
+  { to: '/ai', labelKey: 'nav.ai', icon: Sparkles, roles: ['superadmin', 'admin'], mobile: true },
   { to: '/teacher/grading', labelKey: 'nav.grading', icon: ClipboardCheck, roles: ['teacher'], mobile: true },
 ]
 

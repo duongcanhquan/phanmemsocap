@@ -63,7 +63,18 @@ async function invoke(name: string, body: Record<string, unknown>) {
 }
 
 export function listAiConnections() {
-  return invoke('ai-settings', { action: 'list' }).then((payload) => payload?.connections ?? [])
+  return invoke('ai-settings', { action: 'list' }).then((payload) =>
+    (payload?.connections ?? []).flatMap((row) => {
+      if (!row || (row.provider !== 'openai' && row.provider !== 'gemini' && row.provider !== 'deepseek')) return []
+      return [{
+        provider: row.provider,
+        enabled: row.enabled === true,
+        hasKey: row.hasKey === true,
+        keyHint: typeof row.keyHint === 'string' ? row.keyHint : '',
+        models: Array.isArray(row.models) ? row.models.filter((model) => typeof model === 'string') : [],
+      }]
+    }),
+  )
 }
 
 export function saveAiConnection(input: { provider: AiProvider; apiKey: string; enabled: boolean; models: string[] }) {

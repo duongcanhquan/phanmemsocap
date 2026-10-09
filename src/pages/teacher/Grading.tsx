@@ -49,7 +49,7 @@ export function Grading() {
     event.preventDefault()
     if (!selected) return
     const value = Number(score)
-    if (!Number.isFinite(value)) {
+    if (!Number.isFinite(value) || value < 0 || value > 10) {
       setError(t('teacher.scoreInvalid'))
       return
     }
@@ -187,6 +187,7 @@ export function Grading() {
                 id="essay-score"
                 type="number"
                 min={0}
+                max={10}
                 step="0.1"
                 inputMode="decimal"
                 className="ui-field"

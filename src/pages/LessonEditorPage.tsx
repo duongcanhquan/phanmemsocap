@@ -12,19 +12,60 @@ import { emptyLocalized, localizedLabel } from '../lib/localized'
 import {
   lessonTypes,
   deleteLesson,
+  getLessonQuizSettings,
+  lessonCourseIds,
   listLessons,
+  listQuizzes,
+  saveQuizzes,
   listPrograms,
   listTeachers,
   saveLesson,
+  syncLessonCourses,
+  type LessonQuizSettings,
   type LessonRecord,
   type LessonType,
   type ProgramRecord,
+  type QuizRecord,
   type StudentRecord,
 } from '../lib/programs'
 import { isSchoolAdmin } from '../lib/roles'
+import { QuizSetup } from '../components/admin/QuizSetup'
 import { isSupabaseConfigured } from '../lib/supabase'
 
 const composeTypes = lessonTypes.filter((type) => type !== 'quiz')
+
+type LessonDraft = {
+  courseId: string
+  courseIds?: string[]
+  title: string
+  moduleName: string
+  contentType: LessonType
+  body: string
+  orderIndex: number
+  authorId: string
+}
+
+function readLessonDraft(key: string): LessonDraft | null {
+  try {
+    const raw = localStorage.getItem(key)
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as Partial<LessonDraft>
+    if (!parsed.title?.trim() && !parsed.body?.trim()) return null
+    if (!parsed.contentType || !lessonTypes.includes(parsed.contentType)) return null
+    return {
+      courseId: parsed.courseId ?? '',
+      courseIds: Array.isArray(parsed.courseIds) ? parsed.courseIds.filter((id) => typeof id === 'string') : undefined,
+      title: parsed.title ?? '',
+      moduleName: parsed.moduleName ?? '',
+      contentType: parsed.contentType,
+      body: parsed.body ?? '',
+      orderIndex: Number(parsed.orderIndex ?? 0),
+      authorId: parsed.authorId ?? '',
+    }
+  } catch {
+    return null
+  }
+}
 
 export function LessonEditorPage() {
   const { t, i18n } = useTranslation()
@@ -156,10 +197,10 @@ export function LessonEditorPage() {
           canAssignAuthor={isSchoolAdmin(role)}
           selfId={user?.id ?? ''}
           onClose={() => setEditing(undefined)}
-          onSaved={(nextProgramId) => {
-            setEditing(undefined)
+          onSaved={(nextProgramId, close) => {
             setProgramId(nextProgramId)
             void listLessons(nextProgramId).then(setLessons).catch(() => setError(t('programs.loadError')))
+            if (close) setEditing(undefined)
           }}
         />
       ) : null}
@@ -186,52 +227,190 @@ function LessonComposer({
   canAssignAuthor: boolean
   selfId: string
   onClose: () => void
-  onSaved: (programId: string) => void
+  onSaved: (programId: string, close: boolean) => void
 }) {
   const { t, i18n } = useTranslation()
   const editorRef = useRef<AdvancedEditorHandle>(null)
-  const [courseId, setCourseId] = useState(programId)
-  const [title, setTitle] = useState(localizedLabel(lesson?.title ?? emptyLocalized(), 'vi'))
-  const [moduleName, setModuleName] = useState(localizedLabel(lesson?.moduleName ?? emptyLocalized(), 'vi'))
-  const [contentType, setContentType] = useState<LessonType>(lesson?.contentType ?? 'text')
-  const [contentUrl, setContentUrl] = useState(lesson?.contentUrl ?? '')
-  const [content, setContent] = useState<JSONContent | string | undefined>(lesson?.contentUrl || undefined)
-  const [orderIndex, setOrderIndex] = useState(lesson?.orderIndex ?? nextOrder)
-  const [isPublished, setIsPublished] = useState(lesson?.isPublished ?? false)
-  const [authorId, setAuthorId] = useState(lesson?.authorId || selfId)
+  const draftKey = `phanmemsocap.lesson-draft.${lesson?.id ?? `new-${programId}`}`
+  const stored = readLessonDraft(draftKey)
+  const storageKey = useRef(draftKey)
+  const savedId = useRef(lesson?.id)
+  const skipServerCourses = useRef(Boolean(stored?.courseIds?.length))
+  const quizzesReady = useRef(!lesson?.id)
+  const keepPublished = useRef(lesson?.isPublished ?? false)
+  const mounted = useRef(true)
+  const [courseIds, setCourseIds] = useState<string[]>(() => {
+    if (stored?.courseIds?.length) return stored.courseIds
+    if (stored?.courseId) return [stored.courseId]
+    return programId ? [programId] : []
+  })
+  const [title, setTitle] = useState(stored?.title ?? localizedLabel(lesson?.title ?? emptyLocalized(), 'vi'))
+  const [moduleName, setModuleName] = useState(stored?.moduleName ?? localizedLabel(lesson?.moduleName ?? emptyLocalized(), 'vi'))
+  const [contentType, setContentType] = useState<LessonType>(stored?.contentType ?? lesson?.contentType ?? 'text')
+  const [contentUrl, setContentUrl] = useState(stored?.body ?? lesson?.contentUrl ?? '')
+  const [content, setContent] = useState<JSONContent | string | undefined>(stored?.body || lesson?.contentUrl || undefined)
+  const [orderIndex, setOrderIndex] = useState(stored?.orderIndex ?? lesson?.orderIndex ?? nextOrder)
+  const [authorId, setAuthorId] = useState(stored?.authorId || lesson?.authorId || selfId)
+  const [published, setPublished] = useState(lesson?.isPublished ?? false)
+  const [quizzes, setQuizzes] = useState<QuizRecord[]>([])
+  const [quizSettings, setQuizSettings] = useState<LessonQuizSettings>({ passMark: 5, shuffleQuestions: false, shuffleOptions: false })
+  const [hasSaved, setHasSaved] = useState(Boolean(lesson))
   const [pane, setPane] = useState('write')
   const [pending, setPending] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [error, setError] = useState('')
+  const [draftNote, setDraftNote] = useState('')
+  const latest = useRef({ courseIds, title, moduleName, contentType, contentUrl, orderIndex, authorId, quizzes, quizSettings })
+  const queue = useRef(Promise.resolve())
 
-  async function onSubmit() {
-    if (!title.trim() || !courseId) {
-      setError(t('programs.titleRequired'))
-      return
+  function writeLocal() {
+    const current = latest.current
+    const body = current.contentType === 'text' ? (editorRef.current?.getHTML() || current.contentUrl) : current.contentUrl
+    localStorage.setItem(storageKey.current, JSON.stringify({
+      courseId: current.courseIds[0] ?? '',
+      courseIds: current.courseIds,
+      title: current.title,
+      moduleName: current.moduleName,
+      contentType: current.contentType,
+      body,
+      orderIndex: current.orderIndex,
+      authorId: current.authorId,
+    }))
+  }
+
+  function persist(mode: 'auto' | 'draft' | 'publish') {
+    const run = queue.current.then(() => persistNow(mode), () => persistNow(mode))
+    queue.current = run.then(() => undefined, () => undefined)
+    return run
+  }
+
+  async function persistNow(mode: 'auto' | 'draft' | 'publish') {
+    const current = latest.current
+    const body = current.contentType === 'text' ? (editorRef.current?.getHTML() || current.contentUrl) : current.contentUrl
+    if (!current.title.trim() || current.courseIds.length === 0) {
+      writeLocal()
+      if (mode !== 'auto' && mounted.current) setError(t('programs.titleRequired'))
+      return false
     }
-    const body = contentType === 'text' ? (editorRef.current?.getHTML() ?? contentUrl) : contentUrl
-    setPending(true)
-    setError('')
+    const publish = mode === 'publish' ? true : mode === 'draft' ? false : keepPublished.current
+    if (mode !== 'auto' && mounted.current) {
+      setPending(true)
+      setError('')
+    }
     try {
-      await saveLesson(courseId, {
-        id: lesson?.id,
-        title: { ...emptyLocalized(), ...(lesson?.title ?? {}), vi: title.trim() },
-        moduleName: { ...emptyLocalized(), ...(lesson?.moduleName ?? {}), vi: moduleName.trim() },
-        contentType,
+      const id = await saveLesson(current.courseIds[0], {
+        id: savedId.current,
+        title: { ...emptyLocalized(), ...(lesson?.title ?? {}), vi: current.title.trim() },
+        moduleName: { ...emptyLocalized(), ...(lesson?.moduleName ?? {}), vi: current.moduleName.trim() },
+        contentType: current.contentType,
         contentUrl: body,
-        isPublished,
-        orderIndex,
-        authorId: authorId || selfId,
+        isPublished: publish,
+        orderIndex: current.orderIndex,
+        authorId: current.authorId || selfId,
+        quiz: current.quizSettings,
       })
-      onSaved(courseId)
+      if (quizzesReady.current) {
+        const ready = current.quizzes.filter((quiz) => quiz.question.vi.trim() || quiz.options.some((option) => option.vi.trim()))
+        await saveQuizzes(id, ready)
+      }
+      savedId.current = id
+      await syncLessonCourses(id, current.courseIds, programId, current.orderIndex)
+      keepPublished.current = publish
+      if (mounted.current) {
+        setPublished(publish)
+        setHasSaved(true)
+      }
+      const nextKey = `phanmemsocap.lesson-draft.${id}`
+      if (storageKey.current !== nextKey) localStorage.removeItem(storageKey.current)
+      storageKey.current = nextKey
+      if (mode === 'publish') localStorage.removeItem(nextKey)
+      else writeLocal()
+      onSaved(programId, mode === 'publish')
+      if (mounted.current) {
+        setPending(false)
+        setDraftNote(publish ? '' : t('editor.draftSaved'))
+      }
+      return true
     } catch {
-      setError(t('programs.saveError'))
-      setPending(false)
+      if (mounted.current && mode !== 'auto') {
+        setError(t('programs.saveError'))
+        setPending(false)
+      }
+      return false
     }
   }
 
+  useEffect(() => {
+    mounted.current = true
+    return () => {
+      mounted.current = false
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!lesson?.id) return
+    let active = true
+    void Promise.all([listQuizzes(lesson.id), getLessonQuizSettings(lesson.id)])
+      .then(([rows, settings]) => {
+        if (!active) return
+        setQuizzes(rows)
+        setQuizSettings(settings)
+        quizzesReady.current = true
+      })
+      .catch(() => undefined)
+    return () => {
+      active = false
+    }
+  }, [lesson?.id])
+
+  useEffect(() => {
+    if (!lesson?.id || skipServerCourses.current) return
+    let active = true
+    void lessonCourseIds(lesson.id)
+      .then((ids) => {
+        if (active && ids.length > 0) setCourseIds(ids)
+      })
+      .catch(() => undefined)
+    return () => {
+      active = false
+    }
+  }, [lesson?.id])
+
+  const persistRef = useRef(persist)
+
+  useEffect(() => {
+    latest.current = { courseIds, title, moduleName, contentType, contentUrl, orderIndex, authorId, quizzes, quizSettings }
+    persistRef.current = persist
+    writeLocal()
+    const timer = window.setTimeout(() => void persistRef.current('auto'), 1600)
+    return () => window.clearTimeout(timer)
+    // persist is stored on persistRef so a new function identity does not reset the draft timer.
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
+  }, [courseIds, title, moduleName, contentType, contentUrl, orderIndex, authorId, content, quizzes, quizSettings])
+
+  useEffect(() => {
+    const flush = () => {
+      writeLocal()
+      if (document.visibilityState === 'hidden') void persistRef.current('auto')
+    }
+    document.addEventListener('visibilitychange', flush)
+    window.addEventListener('pagehide', flush)
+    return () => {
+      document.removeEventListener('visibilitychange', flush)
+      window.removeEventListener('pagehide', flush)
+      writeLocal()
+      void persistRef.current('auto')
+    }
+  }, [])
+
+  async function leave() {
+    writeLocal()
+    await persist('auto')
+    onClose()
+  }
+
   async function onDelete() {
-    if (!lesson) return
+    if (!savedId.current) return
     if (!confirmDelete) {
       setConfirmDelete(true)
       return
@@ -239,8 +418,9 @@ function LessonComposer({
     setPending(true)
     setError('')
     try {
-      await deleteLesson(lesson.id)
-      onSaved(courseId)
+      await deleteLesson(savedId.current)
+      localStorage.removeItem(storageKey.current)
+      onSaved(programId, true)
     } catch {
       setError(t('programs.saveError'))
       setPending(false)
@@ -248,7 +428,7 @@ function LessonComposer({
   }
 
   return (
-    <Dialog title={lesson ? t('programs.editLesson') : t('editor.newLesson')} onClose={onClose}>
+    <Dialog title={lesson ? t('programs.editLesson') : t('editor.newLesson')} onClose={() => void leave()}>
       <div className="grid gap-4">
         <div className="flex flex-wrap gap-2">
           {(lesson?.contentType === 'quiz' ? lessonTypes : composeTypes).map((type) => (
@@ -272,16 +452,27 @@ function LessonComposer({
             {t('programs.module')}
             <input id="compose-module" className="ui-field" value={moduleName} onChange={(event) => setModuleName(event.target.value)} />
           </label>
-          <label className="grid gap-1 text-sm font-medium text-ink" htmlFor="compose-course">
-            {t('editor.assignCourse')}
-            <select id="compose-course" className="ui-field" value={courseId} onChange={(event) => setCourseId(event.target.value)}>
-              {programs.map((program) => (
-                <option key={program.id} value={program.id}>
-                  {localizedLabel(program.title, i18n.language) || t('programs.untitled')}
-                </option>
-              ))}
-            </select>
-          </label>
+          <fieldset className="grid gap-2 text-sm font-medium text-ink">
+            <legend>{t('editor.assignCourse')}</legend>
+            {programs.map((program) => (
+              <label key={program.id} className="flex min-h-9 items-center gap-2 font-normal">
+                <input
+                  type="checkbox"
+                  checked={courseIds.includes(program.id)}
+                  onChange={() => {
+                    setCourseIds((current) => {
+                      if (current.includes(program.id)) {
+                        const next = current.filter((id) => id !== program.id)
+                        return next.length === 0 ? current : next
+                      }
+                      return [...current, program.id]
+                    })
+                  }}
+                />
+                {localizedLabel(program.title, i18n.language) || t('programs.untitled')}
+              </label>
+            ))}
+          </fieldset>
           <label className="grid gap-1 text-sm font-medium text-ink" htmlFor="compose-order">
             {t('editor.sortOrder')}
             <input id="compose-order" className="ui-field" type="number" min={0} value={orderIndex} onChange={(event) => setOrderIndex(Number(event.target.value))} />
@@ -297,10 +488,9 @@ function LessonComposer({
               </select>
             </label>
           ) : null}
-          <label className="flex min-h-10 items-center gap-2 text-sm font-medium text-ink">
-            <input type="checkbox" checked={isPublished} onChange={(event) => setIsPublished(event.target.checked)} />
-            {t('programs.published')}
-          </label>
+          <p className="flex min-h-10 items-center text-sm font-medium text-ink">
+            {published ? t('programs.published') : t('programs.draft')}
+          </p>
         </div>
         {contentType === 'text' ? (
           <>
@@ -339,16 +529,21 @@ function LessonComposer({
             <input id="compose-url" className="ui-field" value={contentUrl} onChange={(event) => setContentUrl(event.target.value)} />
           </label>
         ) : null}
+        <QuizSetup quizzes={quizzes} settings={quizSettings} onQuizzes={setQuizzes} onSettings={setQuizSettings} />
         {error ? <p role="alert" className="text-sm text-danger">{error}</p> : null}
+        {draftNote ? <p className="text-sm text-muted">{draftNote}</p> : null}
         <div className="ui-dialog-foot">
-          {lesson ? (
+          {hasSaved ? (
             <button type="button" className="ui-inline bg-danger text-white" disabled={pending} onClick={() => void onDelete()}>
               {confirmDelete ? t('programs.confirmRemove') : t('programs.remove')}
             </button>
           ) : null}
-          <button type="button" className="ui-inline ui-btn-ghost" onClick={onClose}>{t('programs.cancel')}</button>
-          <button type="button" className="ui-inline ui-btn-primary" disabled={pending} onClick={() => void onSubmit()}>
-            {pending ? t('programs.saving') : t('programs.save')}
+          <button type="button" className="ui-inline ui-btn-ghost" onClick={() => void leave()}>{t('programs.cancel')}</button>
+          <button type="button" className="ui-inline ui-btn-ghost" disabled={pending} onClick={() => void persist('draft')}>
+            {pending ? t('editor.draftSaving') : t('editor.saveDraft')}
+          </button>
+          <button type="button" className="ui-inline ui-btn-primary" disabled={pending} onClick={() => void persist('publish')}>
+            {t('editor.publish')}
           </button>
         </div>
       </div>

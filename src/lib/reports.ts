@@ -30,13 +30,18 @@ export async function loadScoreReport(programId: string): Promise<ScoreReport | 
   if (program.error) throw program.error
   if (!program.data) return null
 
-  const lessons = await db
-    .from('lessons')
-    .select('id, title, order_index')
-    .eq('program_id', programId)
-    .order('order_index', { ascending: true })
+  const links = await db.from('program_lessons').select('lesson_id, order_index').eq('program_id', programId).order('order_index')
+  if (links.error) throw links.error
+  const linkOrder = new Map((links.data ?? []).map((link) => [link.lesson_id, link.order_index]))
+  const linkedIds = [...linkOrder.keys()]
+  const lessons =
+    linkedIds.length === 0
+      ? { data: [], error: null }
+      : await db.from('lessons').select('id, title').in('id', linkedIds)
   if (lessons.error) throw lessons.error
-  const lessonRows = lessons.data ?? []
+  const lessonRows = (lessons.data ?? [])
+    .map((lesson) => ({ ...lesson, order_index: linkOrder.get(lesson.id) ?? 0 }))
+    .sort((left, right) => left.order_index - right.order_index)
 
   const enrollments = await db.from('program_enrollments').select('student_id').eq('program_id', programId)
   if (enrollments.error) throw enrollments.error
@@ -118,17 +123,26 @@ export type StudentTranscript = {
 
 export async function loadStudentTranscript(studentId: string, programId: string): Promise<StudentTranscript | null> {
   const db = client()
-  const [profile, program, lessons] = await Promise.all([
+  const [profile, program, links] = await Promise.all([
     db.from('profiles').select('full_name, date_of_birth, phone, national_id, passport').eq('id', studentId).maybeSingle(),
     db.from('programs').select('title').eq('id', programId).maybeSingle(),
-    db.from('lessons').select('id, title, order_index').eq('program_id', programId).order('order_index', { ascending: true }),
+    db.from('program_lessons').select('lesson_id, order_index').eq('program_id', programId).order('order_index'),
   ])
   if (profile.error) throw profile.error
   if (program.error) throw program.error
-  if (lessons.error) throw lessons.error
+  if (links.error) throw links.error
   if (!profile.data || !program.data) return null
 
-  const lessonRows = lessons.data ?? []
+  const linkOrder = new Map((links.data ?? []).map((link) => [link.lesson_id, link.order_index]))
+  const linkedIds = [...linkOrder.keys()]
+  const lessons =
+    linkedIds.length === 0
+      ? { data: [], error: null }
+      : await db.from('lessons').select('id, title').in('id', linkedIds)
+  if (lessons.error) throw lessons.error
+  const lessonRows = (lessons.data ?? [])
+    .map((lesson) => ({ ...lesson, order_index: linkOrder.get(lesson.id) ?? 0 }))
+    .sort((left, right) => left.order_index - right.order_index)
   const lessonIds = lessonRows.map((lesson) => lesson.id)
   const quizzes =
     lessonIds.length === 0

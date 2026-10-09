@@ -16,10 +16,8 @@ export function Sidebar() {
 
   return (
     <aside className="ui-chrome hidden h-full overflow-y-auto border-r lg:flex lg:flex-col">
-      <div className="px-5 py-5">
+      <div className="flex justify-center px-5 py-5">
         <img src="/logo-vietmy-blue.png" alt={t('brand.school')} className="h-16 w-auto" />
-        <p className="mt-3 text-sm leading-snug font-semibold text-ink">{t('brand.school')}</p>
-        <p className="mt-1 text-xs text-muted">{t('appName')}</p>
       </div>
       <nav aria-label={t('nav.label')} className="flex flex-1 flex-col gap-1 px-3 pb-6">
         {navItemsForRole(role).map((item) => {
