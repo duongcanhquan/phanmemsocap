@@ -6,7 +6,7 @@ const catalog: Record<string, string[]> = {
   deepseek: ['deepseek-chat', 'deepseek-reasoner'],
 }
 
-const tasks = new Set(['outline', 'terms', 'quiz', 'slides'])
+const tasks = new Set(['outline', 'terms', 'quiz', 'slides', 'translate'])
 
 const instructions: Record<string, string> = {
   outline: 'Write a clear lesson outline with headings and short bullets. Use Markdown.',
@@ -14,6 +14,8 @@ const instructions: Record<string, string> = {
   quiz: 'Write multiple-choice questions from the lesson. Each question has 4 options and mark the correct one. Use Markdown.',
   slides:
     'Turn the lesson into slides. Return only Markdown. Separate slides with a line that contains only ---. Each slide starts with a heading and has at most 5 short bullets.',
+  translate:
+    'The user message is JSON written in Vietnamese with title, module, body, and quizzes. Translate it into Burmese and Bengali. Return only JSON with keys my and bn. Each value keeps the same shape: title, module, body, and quizzes as an array of question plus options. Keep HTML tags, Markdown, URLs, numbers, and attribute names unchanged. Translate visible text and data-explanation values. Do not add commentary.',
 }
 
 const cors = {
@@ -48,7 +50,7 @@ Deno.serve(async (request) => {
   const body = await request.json().catch(() => null)
   const modelId = typeof body?.model === 'string' ? body.model : ''
   const task = typeof body?.task === 'string' ? body.task : ''
-  const content = typeof body?.content === 'string' ? body.content.slice(0, 12000) : ''
+  const content = typeof body?.content === 'string' ? body.content.slice(0, task === 'translate' ? 24000 : 12000) : ''
   const language = body?.language === 'my' || body?.language === 'bn' ? body.language : 'vi'
   const [provider, model] = modelId.split('/')
   if (!tasks.has(task) || !catalog[provider]?.includes(model)) return json({ error: 'invalid' }, 400)
@@ -58,7 +60,9 @@ Deno.serve(async (request) => {
   if (!row?.enabled || !row.api_key || !(row.models ?? []).includes(model)) return json({ error: 'missing-gateway' }, 503)
 
   const languageName = language === 'my' ? 'Burmese' : language === 'bn' ? 'Bengali' : 'Vietnamese'
-  const system = `${instructions[task]} Write in ${languageName}. Do not invent facts that are not supported by the lesson.`
+  const system = task === 'translate'
+    ? instructions.translate
+    : `${instructions[task]} Write in ${languageName}. Do not invent facts that are not supported by the lesson.`
   const user = content || 'The lesson is still empty. Draft a short beginner lesson for basic vocational training.'
   const text = provider === 'gemini'
     ? await gemini(row.api_key, model, system, user)

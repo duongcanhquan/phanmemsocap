@@ -171,6 +171,35 @@ export async function listLessonPath(programId: string): Promise<LessonPathItem[
   })
 }
 
+export type ResultRow = StudyHistoryItem & {
+  programTitle: LocalizedText
+  lessonTitle: LocalizedText
+}
+
+export async function listMyResults(programs: { id: string; title: LocalizedText }[]): Promise<ResultRow[]> {
+  const groups = await Promise.all(
+    programs.map(async (program) => {
+      const items = await listStudyHistory(program.id)
+      return items.map((item) => ({ ...item, programTitle: program.title, lessonTitle: emptyTitle() }))
+    }),
+  )
+  const rows = groups.flat()
+  const lessonIds = [...new Set(rows.map((row) => row.lessonId).filter(Boolean))]
+  const lessons =
+    lessonIds.length === 0
+      ? { data: [], error: null }
+      : await client().from('lessons').select('id, title').in('id', lessonIds)
+  if (lessons.error) throw lessons.error
+  const titles = new Map((lessons.data ?? []).map((lesson) => [lesson.id, asLocalized(lesson.title)]))
+  return rows
+    .map((row) => ({ ...row, lessonTitle: titles.get(row.lessonId) ?? emptyTitle() }))
+    .sort((left, right) => (right.submittedAt ?? '').localeCompare(left.submittedAt ?? ''))
+}
+
+function emptyTitle(): LocalizedText {
+  return { vi: '', my: '', bn: '' }
+}
+
 export async function listStudyHistory(programId: string): Promise<StudyHistoryItem[]> {
   const { data, error } = await client().rpc('my_study_record', { program_id: programId })
   if (error) throw error

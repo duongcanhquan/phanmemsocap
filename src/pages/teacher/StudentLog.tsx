@@ -1,7 +1,6 @@
-import { ArrowLeft } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Link, useParams } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 import { ExportButtons } from '../../components/ExportButtons'
 import { DataTable, FilterBar, SelectFilter } from '../../components/ui/DataSheet'
 import { PageHeader } from '../../components/ui/PageHeader'
@@ -24,6 +23,10 @@ export function StudentLog() {
 
   useEffect(() => {
     let active = true
+    setLoading(true)
+    setError('')
+    setEntries([])
+    setTranscript(null)
     void getProgram(programId)
       .then(async (program) => {
         if (!active) return
@@ -58,12 +61,9 @@ export function StudentLog() {
 
   return (
     <div className="ui-page">
-      <Link to="/teacher" className="ui-btn ui-btn-ghost w-fit px-2">
-        <ArrowLeft aria-hidden="true" className="size-4" />
-        {t('teacher.back')}
-      </Link>
       <PageHeader
         title={transcript?.fullName || t('transcript.title')}
+        back={{ to: '/teacher', label: t('teacher.back') }}
         action={
           transcript ? (
             <ExportButtons

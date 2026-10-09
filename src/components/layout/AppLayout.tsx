@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next'
+import { PageTitleProvider } from '../../context/PageTitleContext'
 import { BottomNav } from './BottomNav'
 import { Header } from './Header'
 import { MainContent } from './MainContent'
@@ -17,10 +18,12 @@ export function AppLayout() {
       </a>
       <div className="h-full lg:grid lg:grid-cols-[16.5rem_minmax(0,1fr)]">
         <Sidebar />
-        <div className="flex h-full min-h-0 min-w-0 flex-col">
-          <Header />
-          <MainContent />
-        </div>
+        <PageTitleProvider>
+          <div className="flex h-full min-h-0 min-w-0 flex-col">
+            <Header />
+            <MainContent />
+          </div>
+        </PageTitleProvider>
       </div>
       <BottomNav />
     </div>

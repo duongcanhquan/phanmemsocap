@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useNavigate } from 'react-router-dom'
 import { ExportButtons } from '../../components/ExportButtons'
 import { DataTable, FilterBar, SelectFilter } from '../../components/ui/DataSheet'
 import { Dialog } from '../../components/ui/Dialog'
@@ -9,10 +10,10 @@ import { useAuth } from '../../hooks/useAuth'
 import {
   accountCsvHeader,
   canEditPerson,
-  changeOwnPassword,
   createAccount,
   deleteAccount,
   importAccounts,
+  visaWindow,
   listAccounts,
   parseAccountCsv,
   rolesFor,
@@ -35,6 +36,7 @@ const emptyPerson = (role: AppRole): AccountInput => ({
   language: 'vi',
   dateOfBirth: '',
   passport: '',
+  nationality: '',
   nationalId: '',
   phone: '',
   photoUrl: '',
@@ -47,16 +49,18 @@ const emptyPerson = (role: AppRole): AccountInput => ({
 export function Accounts() {
   const { t } = useTranslation()
   const { user, role } = useAuth()
+  const navigate = useNavigate()
   const [people, setPeople] = useState<AccountPerson[]>([])
   const [query, setQuery] = useState('')
   const [studyFilter, setStudyFilter] = useState('all')
+  const [nationFilter, setNationFilter] = useState('all')
+  const [visaFilter, setVisaFilter] = useState('all')
   const [loading, setLoading] = useState(isSupabaseConfigured)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
   const [editing, setEditing] = useState<AccountPerson | null>(null)
   const [creating, setCreating] = useState(false)
   const [importing, setImporting] = useState(false)
-  const [passwordOpen, setPasswordOpen] = useState(false)
   const [pendingDelete, setPendingDelete] = useState('')
   const [tab, setTab] = useState<'student' | 'teacher' | 'manager'>('student')
   const allowed = rolesFor(role)
@@ -89,9 +93,14 @@ export function Accounts() {
 
   const visible = people.filter((person) => {
     const inTab = tab === 'manager' ? person.role === 'admin' || person.role === 'superadmin' : person.role === tab
-    const haystack = `${person.fullName} ${person.email} ${person.phone} ${person.nationalId} ${person.passport}`.toLowerCase()
+    const nation = person.nationality ?? ''
+    const haystack = `${person.fullName} ${person.email} ${person.phone} ${person.nationalId} ${person.passport} ${nation}`.toLowerCase()
     const matchesStudy = tab !== 'student' || studyFilter === 'all' || person.studyStatus === studyFilter
-    return inTab && matchesStudy && haystack.includes(query.trim().toLowerCase())
+    const matchesNation = tab !== 'student' || nationFilter === 'all' || nation === nationFilter
+    const visaSpan = person.isForeign ? visaWindow(person.visaExpiresOn) : 'ok'
+    const inVisaWindow = visaFilter === 'quarter' ? visaSpan === 'quarter' || visaSpan === 'month' : visaSpan === visaFilter
+    const matchesVisa = tab !== 'student' || visaFilter === 'all' || (person.isForeign && inVisaWindow)
+    return inTab && matchesStudy && matchesNation && matchesVisa && haystack.includes(query.trim().toLowerCase())
   })
 
   return (
@@ -111,6 +120,7 @@ export function Accounts() {
               t('accounts.phone'),
               t('accounts.nationalId'),
               t('accounts.passport'),
+              t('accounts.nationality'),
               t('accounts.visaStatus'),
               t('accounts.visaExpires'),
             ]}
@@ -123,6 +133,7 @@ export function Accounts() {
               person.phone,
               person.nationalId,
               person.passport,
+              person.nationality,
               person.isForeign && person.visaStatus ? t(`accounts.visa.${person.visaStatus}`) : '',
               person.isForeign ? person.visaExpiresOn : '',
             ])}
@@ -147,8 +158,17 @@ export function Accounts() {
         ]}
       />
       <div className="ui-fill flex flex-col">
+      {tab === 'student' ? (
+        <VisaBoard
+          people={people.filter((person) => person.role === 'student' && person.isForeign)}
+          onEdit={(person) => {
+            if (canEditPerson(role, person, user?.id)) setEditing(person)
+          }}
+        />
+      ) : null}
       <FilterBar query={query} onQuery={setQuery} count={visible.length}>
         {tab === 'student' ? (
+          <>
           <SelectFilter
             id="student-study"
             label={t('accounts.studyStatus')}
@@ -159,6 +179,32 @@ export function Accounts() {
               ...studyStatuses.map((status) => ({ value: status, label: t(`accounts.study.${status}`) })),
             ]}
           />
+          <SelectFilter
+            id="student-nation"
+            label={t('accounts.nationality')}
+            value={nationFilter}
+            onChange={setNationFilter}
+            options={[
+              { value: 'all', label: t('filters.all') },
+              ...[...new Set(people.filter((person) => person.role === 'student' && person.nationality).map((person) => person.nationality))].map((name) => ({
+                value: name,
+                label: name,
+              })),
+            ]}
+          />
+          <SelectFilter
+            id="student-visa"
+            label={t('accounts.visaBoard')}
+            value={visaFilter}
+            onChange={setVisaFilter}
+            options={[
+              { value: 'all', label: t('filters.all') },
+              { value: 'month', label: t('accounts.visaMonth') },
+              { value: 'quarter', label: t('accounts.visaQuarter') },
+              { value: 'expired', label: t('accounts.visa.expired') },
+            ]}
+          />
+          </>
         ) : null}
         {canCreate ? (
           <button type="button" className="ui-inline ui-btn-primary shrink-0" onClick={() => setCreating(true)}>
@@ -170,7 +216,7 @@ export function Accounts() {
             {t('accounts.importTitle')}
           </button>
         ) : null}
-        <button type="button" className="ui-inline ui-btn-ghost shrink-0" onClick={() => setPasswordOpen(true)}>
+        <button type="button" className="ui-inline ui-btn-ghost shrink-0" onClick={() => navigate('/account')}>
           {t('accounts.savePassword')}
         </button>
       </FilterBar>
@@ -185,6 +231,7 @@ export function Accounts() {
               <th className="px-3 py-3 font-medium">{t('accounts.dateOfBirth')}</th>
               <th className="px-3 py-3 font-medium">{t('accounts.phone')}</th>
               <th className="px-3 py-3 font-medium">{t('accounts.nationalId')}</th>
+              {tab === 'student' ? <th className="px-3 py-3 font-medium">{t('accounts.nationality')}</th> : null}
               {tab === 'student' ? <th className="px-3 py-3 font-medium">{t('accounts.studyStatus')}</th> : null}
               <th className="px-3 py-3 font-medium">{t('accounts.passport')}</th>
               {tab === 'student' ? <th className="px-3 py-3 font-medium">{t('accounts.visaExpires')}</th> : null}
@@ -197,7 +244,8 @@ export function Accounts() {
                 key={person.id}
                 className={canEditPerson(role, person, user?.id) ? 'ui-row' : undefined}
                 onClick={() => {
-                  if (canEditPerson(role, person, user?.id)) setEditing(person)
+                  if (person.role === 'student') navigate(`/students/${person.id}`)
+                  else if (canEditPerson(role, person, user?.id)) setEditing(person)
                 }}
               >
                 <td className="px-3 py-2 font-medium text-ink">
@@ -211,6 +259,7 @@ export function Accounts() {
                 <td className="px-3 py-2 text-ink">{person.dateOfBirth}</td>
                 <td className="px-3 py-2 text-ink">{person.phone}</td>
                 <td className="px-3 py-2 text-ink">{person.nationalId}</td>
+                {tab === 'student' ? <td className="px-3 py-2 text-ink">{person.nationality || '—'}</td> : null}
                 {tab === 'student' ? <td className="px-3 py-2 text-ink">{t(`accounts.study.${person.studyStatus}`)}</td> : null}
                 <td className="px-3 py-2 text-ink">{person.passport}</td>
                 {tab === 'student' ? (
@@ -219,6 +268,11 @@ export function Accounts() {
                 <td className="px-3 py-2">
                   {canEditPerson(role, person, user?.id) ? (
                     <span className="inline-flex gap-2" onClick={(event) => event.stopPropagation()}>
+                      {person.role === 'student' ? (
+                        <button type="button" className="ui-inline ui-btn-primary" onClick={() => navigate(`/students/${person.id}`)}>
+                          {t('accounts.detail')}
+                        </button>
+                      ) : null}
                       <button type="button" className="ui-inline ui-btn-ghost" onClick={() => setEditing(person)}>
                         {t('accounts.edit')}
                       </button>
@@ -284,11 +338,6 @@ export function Accounts() {
           />
         </Dialog>
       ) : null}
-      {passwordOpen ? (
-        <Dialog title={t('accounts.ownTitle')} onClose={() => setPasswordOpen(false)}>
-          <OwnPassword email={user?.email ?? ''} onSaved={() => { setNotice(t('accounts.passwordSaved')); setPasswordOpen(false) }} onError={setError} />
-        </Dialog>
-      ) : null}
       {editing ? (
         <Dialog key={editing.id} title={editing.fullName || editing.email} onClose={() => setEditing(null)}>
           <PersonForm
@@ -301,6 +350,7 @@ export function Accounts() {
               language: editing.language,
               dateOfBirth: editing.dateOfBirth,
               passport: editing.passport,
+              nationality: editing.nationality,
               nationalId: editing.nationalId,
               phone: editing.phone,
               photoUrl: editing.photoUrl,
@@ -395,6 +445,9 @@ function PersonForm({
       <TextField id={`${title}-id`} label={t('accounts.nationalId')} value={draft.nationalId} onChange={(value) => setField('nationalId', value)} />
       <TextField id={`${title}-passport`} label={t('accounts.passport')} value={draft.passport} onChange={(value) => setField('passport', value)} />
       {draft.role === 'student' ? (
+        <TextField id={`${title}-nation`} label={t('accounts.nationality')} value={draft.nationality} onChange={(value) => setField('nationality', value)} />
+      ) : null}
+      {draft.role === 'student' ? (
         <>
           <label className="grid gap-1 text-sm font-medium text-ink" htmlFor={`${title}-study`}>
             {t('accounts.studyStatus')}
@@ -473,7 +526,7 @@ function ImportPeople({
   const [pending, setPending] = useState(false)
 
   function downloadTemplate() {
-    const sample = `${accountCsvHeader}\nstudent@example.com,Matkhau123,Nguyen Van A,2005-04-12,P1234567,001234567890,0901234567,`
+    const sample = `${accountCsvHeader}\nstudent@example.com,Matkhau123,Nguyen Van A,2005-04-12,P1234567,Viet Nam,001234567890,0901234567,`
     const blob = new Blob([sample], { type: 'text/csv;charset=utf-8' })
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
@@ -602,46 +655,51 @@ function TextField({
   )
 }
 
-function OwnPassword({ email, onSaved, onError }: { email: string; onSaved: () => void; onError: (message: string) => void }) {
+function VisaBoard({ people, onEdit }: { people: AccountPerson[]; onEdit: (person: AccountPerson) => void }) {
   const { t } = useTranslation()
-  const [password, setPassword] = useState('')
-  const [confirm, setConfirm] = useState('')
-  const [pending, setPending] = useState(false)
-
-  async function onSubmit(event: FormEvent) {
-    event.preventDefault()
-    if (password.length < 8) {
-      onError(t('accounts.errors.weak-password'))
-      return
-    }
-    if (password !== confirm) {
-      onError(t('accounts.errors.mismatch'))
-      return
-    }
-    setPending(true)
-    try {
-      await changeOwnPassword(password)
-      setPassword('')
-      setConfirm('')
-      onSaved()
-    } catch (reason) {
-      onError(accountError(t, reason))
-    } finally {
-      setPending(false)
-    }
-  }
+  const ranked = [...people].sort((left, right) => (left.visaExpiresOn || '9999').localeCompare(right.visaExpiresOn || '9999'))
+  const month = ranked.filter((person) => visaWindow(person.visaExpiresOn) === 'month').length
+  const quarter = ranked.filter((person) => visaWindow(person.visaExpiresOn) === 'quarter').length
+  const expired = ranked.filter((person) => visaWindow(person.visaExpiresOn) === 'expired').length
 
   return (
-    <form className="grid max-w-xl gap-5" onSubmit={(event) => void onSubmit(event)}>
-      <p className="text-base text-muted">{email}</p>
-      <TextField id="own-password" label={t('accounts.newPassword')} type="password" value={password} required onChange={setPassword} />
-      <TextField id="own-confirm" label={t('accounts.confirmPassword')} type="password" value={confirm} required onChange={setConfirm} />
-      <div className="ui-dialog-foot">
-        <button type="submit" className="ui-btn ui-btn-primary" disabled={pending}>
-          {pending ? t('accounts.saving') : t('accounts.savePassword')}
-        </button>
+    <section className="ui-card mb-3 grid gap-3">
+      <h2 className="text-lg font-semibold text-ink">{t('accounts.visaBoard')}</h2>
+      <p className="text-sm text-muted">{t('accounts.visaLead')}</p>
+      <div className="flex flex-wrap gap-3 text-sm font-medium">
+        <span className="text-danger">{t('accounts.visaMonth')}: {month}</span>
+        <span className="text-accent">{t('accounts.visaQuarter')}: {quarter}</span>
+        <span className="text-danger">{t('accounts.visa.expired')}: {expired}</span>
       </div>
-    </form>
+      {ranked.length === 0 ? <p className="text-sm text-muted">{t('accounts.visaNone')}</p> : (
+        <DataTable>
+          <thead>
+            <tr>
+              <th className="px-3 py-3 font-medium">{t('accounts.name')}</th>
+              <th className="px-3 py-3 font-medium">{t('accounts.nationality')}</th>
+              <th className="px-3 py-3 font-medium">{t('accounts.visaStatus')}</th>
+              <th className="px-3 py-3 font-medium">{t('accounts.visaExpires')}</th>
+              <th className="px-3 py-3 font-medium">{t('accounts.visaWatch')}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {ranked.map((person) => {
+              const span = visaWindow(person.visaExpiresOn)
+              const urgent = span === 'month' || span === 'expired'
+              return (
+                <tr key={person.id} className="ui-row" onClick={() => onEdit(person)}>
+                  <td className="px-3 py-2 font-medium text-ink">{person.fullName || t('accounts.unnamed')}</td>
+                  <td className="px-3 py-2">{person.nationality || '—'}</td>
+                  <td className="px-3 py-2">{person.visaStatus ? t(`accounts.visa.${person.visaStatus}`) : t('accounts.visaUnset')}</td>
+                  <td className={`px-3 py-2 ${urgent ? 'font-semibold text-danger' : ''}`}>{person.visaExpiresOn || '—'}</td>
+                  <td className={`px-3 py-2 ${urgent ? 'font-semibold text-danger' : ''}`}>{t(`accounts.visaWindows.${span}`)}</td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </DataTable>
+      )}
+    </section>
   )
 }
 

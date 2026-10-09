@@ -8,6 +8,11 @@ export type LocalizedText = {
 
 const languageKeys = ['vi', 'my', 'bn'] as const
 
+export function keepCopy(next: string | undefined, previous: string) {
+  const value = (next ?? '').trim()
+  return value || previous
+}
+
 export function emptyLocalized(): LocalizedText {
   return { vi: '', my: '', bn: '' }
 }
@@ -36,4 +41,32 @@ export function toLocalizedJson(value: LocalizedText): Json {
 
 export function hasLocalizedText(value: LocalizedText): boolean {
   return languageKeys.some((key) => value[key].trim().length > 0)
+}
+
+export function packLessonBody(value: LocalizedText): string {
+  return JSON.stringify({ vi: value.vi, my: value.my, bn: value.bn })
+}
+
+export function unpackLessonBody(raw: string): LocalizedText {
+  const trimmed = raw.trim()
+  if (trimmed.startsWith('{')) {
+    try {
+      const parsed = JSON.parse(trimmed) as Partial<LocalizedText>
+      if (typeof parsed.vi === 'string' && (typeof parsed.my === 'string' || typeof parsed.bn === 'string')) {
+        return {
+          vi: parsed.vi,
+          my: typeof parsed.my === 'string' ? parsed.my : '',
+          bn: typeof parsed.bn === 'string' ? parsed.bn : '',
+        }
+      }
+    } catch {
+      return { vi: raw, my: '', bn: '' }
+    }
+  }
+  return { vi: raw, my: '', bn: '' }
+}
+
+export function lessonBody(raw: string, language: string): string {
+  const text = unpackLessonBody(raw)
+  return localizedLabel(text, language) || text.vi
 }

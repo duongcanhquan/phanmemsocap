@@ -67,7 +67,7 @@ function client() {
 }
 
 function isLessonType(value: string | null): value is LessonType {
-  return value === 'pdf' || value === 'video' || value === 'text' || value === 'quiz'
+  return value === 'pdf' || value === 'video' || value === 'text' || value === 'slides' || value === 'quiz'
 }
 
 export async function listPrograms(): Promise<ProgramRecord[]> {
@@ -125,8 +125,6 @@ export async function createProgram(input: Omit<ProgramRecord, 'id'>): Promise<s
     .single()
 
   if (error) throw error
-  const classroom = await client().from('course_classes').insert({ program_id: data.id, name: 'Lớp 1' })
-  if (classroom.error) throw classroom.error
   return data.id
 }
 
@@ -144,6 +142,27 @@ export async function updateProgram(programId: string, input: Omit<ProgramRecord
     .eq('id', programId)
 
   if (error) throw error
+}
+
+export async function listAllLessons(): Promise<LessonRecord[]> {
+  const { data, error } = await client()
+    .from('lessons')
+    .select('id, title, module_name, content_type, content_url, order_index, is_published, author_id, created_at')
+    .order('created_at', { ascending: false })
+  if (error) throw error
+  return (data ?? []).map((row) => ({
+    id: row.id,
+    title: asLocalized(row.title),
+    moduleName: asLocalized(row.module_name),
+    contentType: isLessonType(row.content_type) ? row.content_type : 'text',
+    contentUrl: row.content_url ?? '',
+    orderIndex: row.order_index ?? 0,
+    isPublished: row.is_published ?? false,
+    authorId: row.author_id ?? '',
+    createdAt: row.created_at,
+    gated: true,
+    required: true,
+  }))
 }
 
 export async function listLessons(programId: string): Promise<LessonRecord[]> {
@@ -283,7 +302,7 @@ export async function saveLesson(
   },
 ): Promise<string> {
   const payload = {
-    program_id: programId,
+    program_id: programId || null,
     title: toLocalizedJson(lesson.title),
     module_name: toLocalizedJson(lesson.moduleName),
     content_type: lesson.contentType,
@@ -311,6 +330,14 @@ export async function saveLesson(
 
 export async function saveLessonContent(lessonId: string, contentUrl: string): Promise<void> {
   const { error } = await client().from('lessons').update({ content_url: contentUrl }).eq('id', lessonId)
+  if (error) throw error
+}
+
+export async function deleteClass(classId: string): Promise<void> {
+  const db = client()
+  const enrollments = await db.from('program_enrollments').delete().eq('class_id', classId)
+  if (enrollments.error) throw enrollments.error
+  const { error } = await db.from('course_classes').delete().eq('id', classId)
   if (error) throw error
 }
 
@@ -407,6 +434,27 @@ export async function listTeachers(): Promise<StudentRecord[]> {
     .sort((a, b) => a.fullName.localeCompare(b.fullName))
 }
 
+export async function listClassTeacherIds(): Promise<Record<string, string[]>> {
+  const { data, error } = await client().from('class_teachers').select('class_id, teacher_id')
+  if (error) throw error
+  const grouped: Record<string, string[]> = {}
+  for (const row of data ?? []) {
+    const list = grouped[row.class_id] ?? []
+    list.push(row.teacher_id)
+    grouped[row.class_id] = list
+  }
+  return grouped
+}
+
+export async function saveClassTeachers(classId: string, teacherIds: string[]): Promise<void> {
+  const db = client()
+  const removed = await db.from('class_teachers').delete().eq('class_id', classId)
+  if (removed.error) throw removed.error
+  if (teacherIds.length === 0) return
+  const inserted = await db.from('class_teachers').insert(teacherIds.map((teacherId) => ({ class_id: classId, teacher_id: teacherId })))
+  if (inserted.error) throw inserted.error
+}
+
 export async function listProgramTeacherIds(): Promise<Record<string, string[]>> {
   const { data, error } = await client().from('program_teachers').select('program_id, teacher_id')
   if (error) throw error
@@ -446,8 +494,8 @@ export type CourseClass = {
   endsOn: string
 }
 
-function asClass(row: { id: string; program_id: string; name: string; starts_on: string | null; ends_on: string | null }): CourseClass {
-  return { id: row.id, programId: row.program_id, name: row.name, startsOn: row.starts_on ?? '', endsOn: row.ends_on ?? '' }
+function asClass(row: { id: string; program_id: string | null; name: string; starts_on: string | null; ends_on: string | null }): CourseClass {
+  return { id: row.id, programId: row.program_id ?? '', name: row.name, startsOn: row.starts_on ?? '', endsOn: row.ends_on ?? '' }
 }
 
 export async function listClasses(programId?: string): Promise<CourseClass[]> {
@@ -458,14 +506,11 @@ export async function listClasses(programId?: string): Promise<CourseClass[]> {
   return (data ?? []).map(asClass)
 }
 
-export async function createClass(
-  programId: string,
-  input: { name: string; startsOn?: string; endsOn?: string },
-): Promise<CourseClass> {
+export async function createClass(input: { name: string; startsOn?: string; endsOn?: string }): Promise<CourseClass> {
   const { data, error } = await client()
     .from('course_classes')
     .insert({
-      program_id: programId,
+      program_id: null,
       name: input.name,
       starts_on: input.startsOn || null,
       ends_on: input.endsOn || null,
@@ -487,6 +532,14 @@ export async function updateClass(
   if (error) throw error
 }
 
+export async function assignClassProgram(classId: string, programId: string | null): Promise<void> {
+  const db = client()
+  const updated = await db.from('course_classes').update({ program_id: programId }).eq('id', classId)
+  if (updated.error) throw updated.error
+  const enrollments = await db.from('program_enrollments').update({ program_id: programId }).eq('class_id', classId)
+  if (enrollments.error) throw enrollments.error
+}
+
 export async function listEnrollments(classId: string): Promise<EnrollmentRecord[]> {
   const { data, error } = await client()
     .from('program_enrollments')
@@ -499,12 +552,32 @@ export async function listEnrollments(classId: string): Promise<EnrollmentRecord
     .map((row) => ({ id: row.id, studentId: row.student_id as string }))
 }
 
-export async function enrollStudents(programId: string, classId: string, studentIds: string[]): Promise<void> {
+export async function enrollStudents(classId: string, studentIds: string[]): Promise<void> {
   if (studentIds.length === 0) return
+  const classroom = await client().from('course_classes').select('program_id').eq('id', classId).maybeSingle()
+  if (classroom.error) throw classroom.error
   const { error } = await client()
     .from('program_enrollments')
-    .insert(studentIds.map((studentId) => ({ student_id: studentId, program_id: programId, class_id: classId, status: 'active' })))
+    .insert(
+      studentIds.map((studentId) => ({
+        student_id: studentId,
+        program_id: classroom.data?.program_id ?? null,
+        class_id: classId,
+        status: 'active',
+      })),
+    )
   if (error) throw error
+}
+
+export async function classHeadcounts(): Promise<Record<string, number>> {
+  const { data, error } = await client().from('program_enrollments').select('class_id')
+  if (error) throw error
+  const counts: Record<string, number> = {}
+  for (const row of data ?? []) {
+    if (!row.class_id) continue
+    counts[row.class_id] = (counts[row.class_id] ?? 0) + 1
+  }
+  return counts
 }
 
 export async function removeEnrollments(enrollmentIds: string[]): Promise<void> {

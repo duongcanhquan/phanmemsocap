@@ -2,13 +2,14 @@ import { Plus } from 'lucide-react'
 import { useEffect, useState, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
+import { ClassAssignment } from '../../components/admin/ClassAssignment'
 import { LocalizedFields } from '../../components/admin/LocalizedFields'
 import { ExportButtons } from '../../components/ExportButtons'
 import { DataTable, FilterBar, SelectFilter } from '../../components/ui/DataSheet'
 import { Dialog } from '../../components/ui/Dialog'
 import { PageHeader } from '../../components/ui/PageHeader'
 import { emptyLocalized, hasLocalizedText, localizedLabel, type LocalizedText } from '../../lib/localized'
-import { createClass, createProgram, deleteProgram, listClasses, listProgramTeacherIds, listPrograms, listTeachers, saveProgramTeachers, updateProgram, type CourseClass, type ProgramRecord, type StudentRecord } from '../../lib/programs'
+import { createProgram, deleteProgram, listProgramTeacherIds, listPrograms, listTeachers, saveProgramTeachers, updateProgram, type ProgramRecord, type StudentRecord } from '../../lib/programs'
 import { isSupabaseConfigured } from '../../lib/supabase'
 
 export function ProgramManager() {
@@ -20,6 +21,7 @@ export function ProgramManager() {
   const [error, setError] = useState('')
   const [creating, setCreating] = useState(false)
   const [editing, setEditing] = useState<ProgramRecord | null>(null)
+  const [pendingDelete, setPendingDelete] = useState('')
   const [query, setQuery] = useState('')
   const [status, setStatus] = useState('all')
   const [category, setCategory] = useState('all')
@@ -133,9 +135,35 @@ export function ProgramManager() {
                   <td>{teacherNames(program, teacherMap, teachers, t('programs.unassigned'))}</td>
                   <td>{program.isActive ? t('programs.active') : t('programs.inactive')}</td>
                   <td>
-                    <Link to={`/programs/${program.id}`} className="ui-inline ui-btn-primary" onClick={(event) => event.stopPropagation()}>
-                      {t('classesPage.manage')}
-                    </Link>
+                    <span className="inline-flex gap-2" onClick={(event) => event.stopPropagation()}>
+                      <button type="button" className="ui-inline ui-btn-ghost" onClick={() => setEditing(program)}>
+                        {t('accounts.edit')}
+                      </button>
+                      <Link to={`/programs/${program.id}`} className="ui-inline ui-btn-primary">
+                        {t('programs.open')}
+                      </Link>
+                      {pendingDelete === program.id ? (
+                        <button
+                          type="button"
+                          className="ui-inline bg-danger text-white"
+                          onClick={() => {
+                            void deleteProgram(program.id)
+                              .then(() => {
+                                setPrograms((current) => current.filter((item) => item.id !== program.id))
+                                setPendingDelete('')
+                                setEditing(null)
+                              })
+                              .catch(() => setError(t('programs.saveError')))
+                          }}
+                        >
+                          {t('programs.confirmRemove')}
+                        </button>
+                      ) : (
+                        <button type="button" className="ui-inline text-danger" onClick={() => setPendingDelete(program.id)}>
+                          {t('programs.remove')}
+                        </button>
+                      )}
+                    </span>
                   </td>
                 </tr>
               )
@@ -215,42 +243,6 @@ function ProgramDialog({
   const [error, setError] = useState('')
   const [pending, setPending] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
-  const [classes, setClasses] = useState<CourseClass[]>([])
-  const [className, setClassName] = useState('')
-  const [classStarts, setClassStarts] = useState('')
-  const [classEnds, setClassEnds] = useState('')
-
-  useEffect(() => {
-    if (!program) return
-    let active = true
-    void listClasses(program.id)
-      .then((rows) => {
-        if (active) setClasses(rows)
-      })
-      .catch(() => {
-        if (active) setError(t('programs.loadError'))
-      })
-    return () => {
-      active = false
-    }
-  }, [program, t])
-
-  async function addClass() {
-    if (!program || !className.trim()) return
-    setPending(true)
-    setError('')
-    try {
-      await createClass(program.id, { name: className.trim(), startsOn: classStarts, endsOn: classEnds })
-      setClasses(await listClasses(program.id))
-      setClassName('')
-      setClassStarts('')
-      setClassEnds('')
-    } catch {
-      setError(t('programs.saveError'))
-    } finally {
-      setPending(false)
-    }
-  }
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault()
@@ -313,36 +305,8 @@ function ProgramDialog({
             />
           </label>
           {program ? (
-            <div className="grid gap-3 rounded-xl border border-line p-3 lg:col-span-2">
-              <p className="text-sm font-semibold text-ink">{t('classesPage.inCourse')}</p>
-              {classes.length === 0 ? <p className="text-sm text-muted">{t('classesPage.empty')}</p> : null}
-              {classes.length > 0 ? (
-                <ul className="grid gap-1 text-sm text-ink">
-                  {classes.map((item) => (
-                    <li key={item.id}>
-                      {item.name}
-                      {item.startsOn || item.endsOn ? ` · ${item.startsOn || '—'} – ${item.endsOn || '—'}` : ''}
-                    </li>
-                  ))}
-                </ul>
-              ) : null}
-              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-[1fr_auto_auto_auto]">
-                <label className="grid gap-1 text-sm font-medium text-ink">
-                  {t('classesPage.className')}
-                  <input className="ui-field" value={className} onChange={(event) => setClassName(event.target.value)} />
-                </label>
-                <label className="grid gap-1 text-sm font-medium text-ink">
-                  {t('classesPage.startsOn')}
-                  <input className="ui-field" type="date" value={classStarts} onChange={(event) => setClassStarts(event.target.value)} />
-                </label>
-                <label className="grid gap-1 text-sm font-medium text-ink">
-                  {t('classesPage.endsOn')}
-                  <input className="ui-field" type="date" value={classEnds} onChange={(event) => setClassEnds(event.target.value)} />
-                </label>
-                <button type="button" className="ui-inline ui-btn-primary self-end" disabled={pending || !className.trim()} onClick={() => void addClass()}>
-                  {t('classesPage.add')}
-                </button>
-              </div>
+            <div className="rounded-xl border border-line p-3 lg:col-span-2">
+              <ClassAssignment programId={program.id} />
             </div>
           ) : null}
           <fieldset className="grid gap-2 text-sm font-medium lg:col-span-2">

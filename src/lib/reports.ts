@@ -14,6 +14,16 @@ export type ScoreReport = {
   }[]
 }
 
+function lessonCell(quizIds: string[], rows: { quiz_id: string | null; score: number | null }[]) {
+  if (quizIds.length === 0) return null
+  const byQuiz = new Map<string, number>()
+  for (const row of rows) {
+    if (row.quiz_id && typeof row.score === 'number') byQuiz.set(row.quiz_id, row.score)
+  }
+  if (quizIds.some((id) => !byQuiz.has(id))) return null
+  return average(quizIds.map((id) => byQuiz.get(id) as number))
+}
+
 function client() {
   if (!supabase) throw new Error('missing-supabase')
   return supabase
@@ -82,11 +92,9 @@ export async function loadScoreReport(programId: string): Promise<ScoreReport | 
   const students = studentIds
     .map((studentId) => {
       const scores = lessonRows.map((lesson) => {
-        const ids = new Set(quizzesByLesson.get(lesson.id) ?? [])
-        const values = (submissions.data ?? [])
-          .filter((row) => row.student_id === studentId && row.quiz_id && ids.has(row.quiz_id) && typeof row.score === 'number')
-          .map((row) => row.score as number)
-        return average(values)
+        const ids = quizzesByLesson.get(lesson.id) ?? []
+        const rows = (submissions.data ?? []).filter((row) => row.student_id === studentId)
+        return lessonCell(ids, rows)
       })
       return {
         id: studentId,
@@ -170,13 +178,12 @@ export async function loadStudentTranscript(studentId: string, programId: string
   }
 
   const transcriptLessons = lessonRows.map((lesson) => {
-    const ids = new Set(quizzesByLesson.get(lesson.id) ?? [])
-    const mine = (submissions.data ?? []).filter((row) => row.quiz_id && ids.has(row.quiz_id))
-    const scores = mine.map((row) => row.score).filter((score): score is number => typeof score === 'number')
+    const ids = quizzesByLesson.get(lesson.id) ?? []
+    const mine = (submissions.data ?? []).filter((row) => row.quiz_id && ids.includes(row.quiz_id))
     const comments = mine.map((row) => row.teacher_feedback?.trim() ?? '').filter(Boolean)
     return {
       title: asLocalized(lesson.title),
-      score: average(scores),
+      score: lessonCell(ids, mine),
       comment: comments.join('\n'),
     }
   })

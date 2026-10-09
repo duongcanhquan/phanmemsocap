@@ -1,12 +1,13 @@
 import { getEmbedUrlFromYoutubeUrl, isValidYoutubeUrl } from '@tiptap/extension-youtube'
-import { ArrowLeft } from 'lucide-react'
 import { useEffect, useId, useState, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { QuizEngine } from '../../components/student/QuizEngine'
+import { PageHeader } from '../../components/ui/PageHeader'
 import { Tabs } from '../../components/ui/Tabs'
 import { SlideDeck } from '../../components/slides/SlideDeck'
-import { localizedLabel } from '../../lib/localized'
+import { splitLessonHtml } from '../../lib/lessonParts'
+import { lessonBody, localizedLabel } from '../../lib/localized'
 import { isSlideDeck, markdownToHtml } from '../../lib/markdown'
 import { listLessonPath, type LessonPathItem } from '../../lib/student'
 
@@ -23,10 +24,10 @@ type TermDetail = {
 }
 
 export function LessonViewer({ programId, lessonId }: LessonViewerProps) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const [lessons, setLessons] = useState<LessonPathItem[]>([])
   const [error, setError] = useState('')
-  const [tab, setTab] = useState('content')
+  const [tab, setTab] = useState('theory')
 
   useEffect(() => {
     let active = true
@@ -52,10 +53,10 @@ export function LessonViewer({ programId, lessonId }: LessonViewerProps) {
 
   return (
     <div className="ui-page">
-      <Link to={`/student/${programId}`} className="ui-btn ui-btn-ghost w-fit shrink-0 px-2">
-        <ArrowLeft aria-hidden="true" className="size-4" />
-        {t('student.backPath')}
-      </Link>
+      <PageHeader
+        title={lesson ? localizedLabel(lesson.title, i18n.language) || t('programs.untitled') : t('student.pathTitle')}
+        back={{ to: `/student/${programId}`, label: t('student.backPath') }}
+      />
       {error ? (
         <p role="alert" className="text-sm text-danger">
           {error}
@@ -69,21 +70,27 @@ export function LessonViewer({ programId, lessonId }: LessonViewerProps) {
             value={tab}
             onChange={setTab}
             tabs={[
-              { id: 'content', label: t('panels.content') },
-              { id: 'practice', label: t('panels.practice') },
+              { id: 'theory', label: t('student.theory') },
+              { id: 'reference', label: t('student.reference') },
+              { id: 'exercise', label: t('student.exercise') },
             ]}
           />
           <div className="ui-fill">
-            {tab === 'content' ? <LessonBody lesson={lesson} /> : null}
-            {tab === 'practice' ? (
-              <section className="ui-card" aria-label={t('student.practice')}>
-                <QuizEngine lessonId={lesson.id} programId={programId} nextLessonId={nextLesson} />
-                {!lesson.hasQuiz && nextLesson ? (
-                  <Link to={`/student/${programId}/${nextLesson}`} className="ui-btn ui-btn-primary mt-3">
-                    {t('student.continue')}
-                  </Link>
-                ) : null}
-              </section>
+            {tab === 'theory' ? <LessonBody key={lesson.id} lesson={lesson} part="theory" /> : null}
+            {tab === 'reference' ? <LessonBody key={`${lesson.id}-reference`} lesson={lesson} part="reference" /> : null}
+            {tab === 'exercise' ? (
+              <div className="grid gap-4">
+                <LessonBody key={`${lesson.id}-exercise`} lesson={lesson} part="exercise" />
+                <section className="ui-card" aria-label={t('student.practice')}>
+                  <h2 className="mb-3 text-lg font-semibold text-ink">{t('student.practice')}</h2>
+                  <QuizEngine lessonId={lesson.id} programId={programId} nextLessonId={nextLesson} />
+                  {!lesson.hasQuiz && nextLesson ? (
+                    <Link to={`/student/${programId}/${nextLesson}`} className="ui-btn ui-btn-primary mt-3">
+                      {t('student.continue')}
+                    </Link>
+                  ) : null}
+                </section>
+              </div>
             ) : null}
           </div>
         </>
@@ -92,14 +99,20 @@ export function LessonViewer({ programId, lessonId }: LessonViewerProps) {
   )
 }
 
-function LessonBody({ lesson }: { lesson: LessonPathItem }) {
+function LessonBody({ lesson, part }: { lesson: LessonPathItem; part: 'theory' | 'reference' | 'exercise' }) {
   const { t, i18n } = useTranslation()
   const title = localizedLabel(lesson.title, i18n.language) || t('programs.untitled')
-  const slides = hasSlideMarkup(lesson)
+  const viewed = {
+    ...lesson,
+    contentUrl: lesson.contentType === 'pdf' || lesson.contentType === 'video' ? lesson.contentUrl : lessonBody(lesson.contentUrl, i18n.language),
+  }
+  const slides = hasSlideMarkup(viewed)
   const [mode, setMode] = useState<'article' | 'slides'>(lesson.contentType === 'slides' ? 'slides' : 'article')
   const [term, setTerm] = useState<TermDetail | null>(null)
-  const html = articleHtml(lesson)
-  const youtube = lessonYoutube(lesson)
+  const parts = splitLessonHtml(articleHtml(viewed))
+  const html = parts[part]
+  const youtube = part === 'theory' ? lessonYoutube(viewed) : null
+  const showSlides = part === 'theory' && slides
 
   function openTerm(target: HTMLElement) {
     const example = target.closest('[data-example]')
@@ -128,7 +141,7 @@ function LessonBody({ lesson }: { lesson: LessonPathItem }) {
 
   return (
     <section className="ui-card h-full overflow-auto p-0" aria-label={t('student.content')}>
-      {slides ? (
+      {showSlides ? (
         <div className="sticky top-0 z-10 flex gap-2 border-b border-line bg-white/80 p-2 backdrop-blur-xl">
           <button
             type="button"
@@ -148,9 +161,9 @@ function LessonBody({ lesson }: { lesson: LessonPathItem }) {
           </button>
         </div>
       ) : null}
-      {mode === 'slides' && slides ? (
+      {mode === 'slides' && showSlides ? (
         <div className="h-full min-h-[70dvh]">
-          <SlideDeck markdown={lesson.contentUrl} />
+          <SlideDeck markdown={viewed.contentUrl} />
         </div>
       ) : (
         <article
@@ -158,10 +171,10 @@ function LessonBody({ lesson }: { lesson: LessonPathItem }) {
           onClick={onClick}
           onKeyDown={onKeyDown}
         >
-          <h1>{title}</h1>
+          {part === 'theory' ? <h1>{title}</h1> : <h2>{t(`student.${part}`)}</h2>}
           {youtube ? <YoutubeFrame src={youtube} title={title} /> : null}
           {html ? <div dangerouslySetInnerHTML={{ __html: html }} /> : null}
-          {!html && !youtube ? <p className="text-muted">{t('student.noContent')}</p> : null}
+          {!html && !youtube ? <p className="text-muted">{t('student.sectionEmpty')}</p> : null}
         </article>
       )}
       {term ? <TermDialog detail={term} onClose={() => setTerm(null)} /> : null}
@@ -230,7 +243,6 @@ function lessonYoutube(lesson: LessonPathItem) {
 }
 
 function articleHtml(lesson: LessonPathItem) {
-  if (lesson.contentType === 'slides') return ''
   if (lesson.contentType === 'pdf') {
     const url = httpsUrl(lesson.contentUrl)
     return url ? `<iframe class="lesson-pdf" src="${escapeAttr(url)}" title=""></iframe>` : ''

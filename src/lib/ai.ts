@@ -41,7 +41,14 @@ export type AiConnection = {
 
 export type LessonModel = string
 
-export type LessonTask = 'outline' | 'terms' | 'quiz' | 'slides'
+export type LessonTask = 'outline' | 'terms' | 'quiz' | 'slides' | 'translate'
+
+export type LessonCopy = {
+  title: string
+  module: string
+  body: string
+  quizzes: { question: string; options: string[] }[]
+}
 
 type AiPayload = {
   connections?: AiConnection[]
@@ -89,4 +96,44 @@ export async function generateLesson(input: { model: LessonModel; task: LessonTa
   const payload = await invoke('ai-lesson', input)
   if (!payload?.text) throw new Error('empty')
   return payload.text
+}
+
+export async function translateLesson(source: LessonCopy): Promise<{ my: LessonCopy; bn: LessonCopy } | null> {
+  const connections = await listAiConnections()
+  const ready = connections.find((row) => row.enabled && row.hasKey && row.models[0])
+  if (!ready) return null
+  const payload = await invoke('ai-lesson', {
+    model: lessonModelId(ready.provider, ready.models[0]),
+    task: 'translate',
+    content: JSON.stringify(source),
+    language: 'vi',
+  })
+  return parseLessonCopy(payload?.text ?? '')
+}
+
+function parseLessonCopy(raw: string): { my: LessonCopy; bn: LessonCopy } | null {
+  const trimmed = raw.trim().replace(/^```json\s*/i, '').replace(/^```\s*/, '').replace(/```$/, '')
+  try {
+    const parsed = JSON.parse(trimmed) as { my?: Partial<LessonCopy>; bn?: Partial<LessonCopy> }
+    const my = asCopy(parsed.my)
+    const bn = asCopy(parsed.bn)
+    if (!my || !bn) return null
+    return { my, bn }
+  } catch {
+    return null
+  }
+}
+
+function asCopy(value: Partial<LessonCopy> | undefined): LessonCopy | null {
+  if (!value || typeof value.title !== 'string' || typeof value.module !== 'string' || typeof value.body !== 'string') return null
+  const quizzes = Array.isArray(value.quizzes) ? value.quizzes : []
+  return {
+    title: value.title,
+    module: value.module,
+    body: value.body,
+    quizzes: quizzes.map((quiz) => ({
+      question: typeof quiz?.question === 'string' ? quiz.question : '',
+      options: Array.isArray(quiz?.options) ? quiz.options.filter((option): option is string => typeof option === 'string') : [],
+    })),
+  }
 }

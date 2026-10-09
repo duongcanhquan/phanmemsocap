@@ -1,12 +1,13 @@
-import { NavLink } from 'react-router-dom'
+import { NavLink, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../../hooks/useAuth'
 import { isSchoolAdmin } from '../../lib/roles'
-import { navItemsForRole } from './nav'
+import { isNavActive, navItemsForRole } from './nav'
 
 export function BottomNav() {
   const { t } = useTranslation()
   const { role } = useAuth()
+  const location = useLocation()
 
   const items = navItemsForRole(role).filter((item) => item.mobile)
 
@@ -36,15 +37,17 @@ export function BottomNav() {
             <li key={item.to}>
               <NavLink
                 to={to}
-                end={item.end}
-                className={({ isActive }) =>
-                  [
-                    'flex min-h-14 flex-col items-center justify-center gap-1 px-1 py-2 text-center text-xs leading-tight',
+                className={() => {
+                  const isActive = isNavActive(to, location.pathname, location.search, item.end)
+                  return [
+                    'flex min-h-14 flex-col items-center justify-center gap-1 px-1 py-2 text-center text-xs leading-tight transition duration-150 active:scale-95',
                     isActive ? 'font-semibold text-ink' : 'font-medium text-muted',
                   ].join(' ')
-                }
+                }}
               >
-                {({ isActive }) => (
+                {() => {
+                  const isActive = isNavActive(to, location.pathname, location.search, item.end)
+                  return (
                   <>
                     <span
                       aria-hidden="true"
@@ -53,7 +56,8 @@ export function BottomNav() {
                     <Icon aria-hidden="true" className="size-6" strokeWidth={isActive ? 2.4 : 1.8} />
                     <span className="line-clamp-2">{t(labelKey)}</span>
                   </>
-                )}
+                  )
+                }}
               </NavLink>
             </li>
           )

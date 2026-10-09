@@ -2,7 +2,7 @@ import { ArrowLeft, Plus } from 'lucide-react'
 import { useEffect, useState, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useParams } from 'react-router-dom'
-import { EnrollmentManager } from '../../components/admin/EnrollmentManager'
+import { ClassAssignment } from '../../components/admin/ClassAssignment'
 import { ReportExport } from '../../components/ReportExport'
 import { LessonModal } from '../../components/admin/LessonModal'
 import { LessonSorter } from '../../components/admin/LessonSorter'
@@ -238,7 +238,11 @@ export function ProgramDetail() {
             />
           </section>
           ) : null}
-          {tab === 'class' ? <EnrollmentManager programId={programId} /> : null}
+          {tab === 'class' ? (
+            <section className="ui-card">
+              <ClassAssignment programId={programId} canEdit={admin} />
+            </section>
+          ) : null}
           {tab === 'report' ? <ReportExport key={programId} programId={programId} /> : null}
           </div>
         </>

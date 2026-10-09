@@ -1,7 +1,8 @@
-import { ArrowLeft, Lock } from 'lucide-react'
+import { Lock } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { MessageThread } from '../../components/messages/MessageThread'
 import { DataTable, FilterBar } from '../../components/ui/DataSheet'
 import { PageHeader } from '../../components/ui/PageHeader'
 import { Tabs } from '../../components/ui/Tabs'
@@ -10,9 +11,11 @@ import { isSupabaseConfigured } from '../../lib/supabase'
 import {
   listEnrolledPrograms,
   listLessonPath,
+  listMyResults,
   listStudyHistory,
   type EnrolledProgram,
   type LessonPathItem,
+  type ResultRow,
   type StudyHistoryItem,
 } from '../../lib/student'
 import { LessonViewer } from './LessonViewer'
@@ -27,15 +30,27 @@ export function LearningSpace() {
 function ProgramList() {
   const { t, i18n } = useTranslation()
   const [programs, setPrograms] = useState<EnrolledProgram[]>([])
+  const [results, setResults] = useState<ResultRow[]>([])
   const [loading, setLoading] = useState(isSupabaseConfigured)
   const [error, setError] = useState('')
+  const [params, setParams] = useSearchParams()
+  const view = params.get('view')
+  const tab = view === 'results' || view === 'messages' ? view : 'programs'
+
+  function setTab(next: string) {
+    if (next === 'programs') setParams({})
+    else setParams({ view: next })
+  }
 
   useEffect(() => {
     if (!isSupabaseConfigured) return
     let active = true
     void listEnrolledPrograms()
-      .then((rows) => {
-        if (active) setPrograms(rows)
+      .then(async (rows) => {
+        if (!active) return
+        setPrograms(rows)
+        const next = await listMyResults(rows.map((program) => ({ id: program.id, title: program.title })))
+        if (active) setResults(next)
       })
       .catch(() => {
         if (active) setError(t('student.loadError'))
@@ -51,6 +66,70 @@ function ProgramList() {
   return (
     <div className="ui-page">
       <PageHeader title={t('student.homeTitle')} />
+      <Tabs
+        label={t('panels.label')}
+        value={tab}
+        onChange={setTab}
+        tabs={[
+          { id: 'programs', label: t('student.homeTitle') },
+          { id: 'results', label: t('student.results') },
+          { id: 'messages', label: t('messages.title') },
+        ]}
+      />
+      {tab === 'messages' ? (
+        <div className="ui-fill">
+          <MessageThread />
+        </div>
+      ) : null}
+      {tab === 'results' ? (
+        <div className="ui-fill">
+          {!loading && results.length === 0 ? <p className="text-muted">{t('student.resultsEmpty')}</p> : null}
+          {results.length > 0 ? (
+            <>
+            <div className="grid gap-3 sm:hidden">
+              {results.map((item) => (
+                <article key={`card-${item.programTitle.vi}-${item.id}`} className="ui-card grid gap-1 p-4">
+                  <p className="text-base font-semibold text-ink">{localizedLabel(item.lessonTitle, i18n.language) || t('programs.untitled')}</p>
+                  <p className="text-sm text-muted">{localizedLabel(item.question, i18n.language)}</p>
+                  <p className="text-sm font-medium text-ink">
+                    {t('transcript.score')}: {item.score === null ? t('teacher.ungraded') : item.score.toFixed(1)}
+                  </p>
+                  <p className="text-sm text-ink">{item.feedback || t('transcript.noComment')}</p>
+                </article>
+              ))}
+            </div>
+            <div className="hidden sm:block">
+            <DataTable>
+              <thead>
+                <tr>
+                  <th>{t('filters.submitted')}</th>
+                  <th>{t('dashboard.program')}</th>
+                  <th>{t('programs.lessons')}</th>
+                  <th>{t('teacher.question')}</th>
+                  <th>{t('transcript.score')}</th>
+                  <th>{t('transcript.comment')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {results.map((item) => (
+                  <tr key={`${item.programTitle.vi}-${item.id}`}>
+                    <td>{item.submittedAt ? new Date(item.submittedAt).toLocaleString(i18n.language) : '—'}</td>
+                    <td>{localizedLabel(item.programTitle, i18n.language) || t('programs.untitled')}</td>
+                    <td className="font-medium text-ink">{localizedLabel(item.lessonTitle, i18n.language) || t('programs.untitled')}</td>
+                    <td className="max-w-xs truncate">{localizedLabel(item.question, i18n.language)}</td>
+                    <td className="tabular-nums">{item.score === null ? t('teacher.ungraded') : item.score.toFixed(1)}</td>
+                    <td className="wrap">{item.feedback || t('transcript.noComment')}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </DataTable>
+            </div>
+            </>
+          ) : null}
+        </div>
+      ) : null}
+      {tab === 'programs' ? (
+      <>
       {!isSupabaseConfigured ? (
         <p role="status" className="rounded-2xl bg-warning-bg px-4 py-3 text-sm text-warning">
           {t('supabase.missing')}
@@ -92,6 +171,8 @@ function ProgramList() {
           </article>
         ))}
       </div>
+      </>
+      ) : null}
     </div>
   )
 }
@@ -117,6 +198,10 @@ function LessonTimeline({ programId }: { programId: string }) {
 
   useEffect(() => {
     let active = true
+    setLoading(true)
+    setError('')
+    setLessons([])
+    setHistory([])
     void Promise.all([listLessonPath(programId), listStudyHistory(programId)])
       .then(([path, past]) => {
         if (!active) return
@@ -145,12 +230,9 @@ function LessonTimeline({ programId }: { programId: string }) {
 
   return (
     <div className="ui-page">
-      <Link to="/student" className="ui-btn ui-btn-ghost w-fit px-2">
-        <ArrowLeft aria-hidden="true" className="size-4" />
-        {t('student.backPrograms')}
-      </Link>
       <PageHeader
         title={t('student.pathTitle')}
+        back={{ to: '/student', label: t('student.backPrograms') }}
         action={
           current ? (
             <Link to={`/student/${programId}/${current.id}`} className="ui-inline ui-btn-primary">
@@ -173,11 +255,36 @@ function LessonTimeline({ programId }: { programId: string }) {
         onChange={setTab}
         tabs={[
           { id: 'path', label: t('panels.studyPath') },
-          { id: 'history', label: t('panels.studyHistory') },
+          { id: 'history', label: t('student.results') },
         ]}
       />
       <div className="ui-fill">
         {tab === 'path' ? (
+          <>
+          <div className="grid gap-3 sm:hidden">
+            {lessons.map((lesson, index) => {
+              const title = localizedLabel(lesson.title, i18n.language) || t('programs.untitled')
+              return (
+                <button
+                  key={lesson.id}
+                  type="button"
+                  disabled={lesson.locked}
+                  className="ui-card grid gap-1 p-4 text-left disabled:opacity-60"
+                  onClick={() => {
+                    if (!lesson.locked) navigate(`/student/${programId}/${lesson.id}`)
+                  }}
+                >
+                  <span className="text-sm font-medium text-muted">{lesson.locked ? t('student.locked') : index + 1}</span>
+                  <span className="text-base font-semibold text-ink">{title}</span>
+                  <span className="text-sm text-ink">{lessonStatus(lesson, current?.id ?? null, t)}</span>
+                  <span className="text-sm tabular-nums text-muted">
+                    {t('transcript.score')}: {lesson.score === null ? t('reports.emptyScore') : lesson.score.toFixed(1)}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+          <div className="hidden sm:block">
           <DataTable>
             <thead>
               <tr>
@@ -214,6 +321,8 @@ function LessonTimeline({ programId }: { programId: string }) {
               })}
             </tbody>
           </DataTable>
+          </div>
+          </>
         ) : (
           <>
             <FilterBar query={query} onQuery={setQuery} count={visibleHistory.length} />

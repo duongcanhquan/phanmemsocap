@@ -19,6 +19,7 @@ type PersonInput = {
   language?: string
   dateOfBirth?: string
   passport?: string
+  nationality?: string
   nationalId?: string
   phone?: string
   photoUrl?: string
@@ -177,6 +178,7 @@ function readPerson(input: PersonInput | undefined) {
     language: input?.language && languages.has(input.language) ? input.language : 'vi',
     dateOfBirth,
     passport: (input?.passport ?? '').trim().slice(0, 40),
+    nationality: (input?.nationality ?? '').trim().slice(0, 80),
     nationalId: (input?.nationalId ?? '').trim().slice(0, 20),
     phone: (input?.phone ?? '').trim().slice(0, 20),
     photoUrl: httpsUrl(input?.photoUrl ?? ''),
@@ -195,6 +197,7 @@ function profileRow(id: string, person: ReturnType<typeof readPerson>) {
     language: person.language,
     date_of_birth: person.dateOfBirth || null,
     passport: person.passport || null,
+    nationality: person.nationality || null,
     national_id: person.nationalId || null,
     phone: person.phone || null,
     photo_url: person.photoUrl || null,
@@ -227,7 +230,7 @@ async function listPeople(admin: ReturnType<typeof createClient>) {
   if (users.error) throw users.error
   const profiles = await admin
     .from('profiles')
-    .select('id, role, full_name, language, date_of_birth, passport, national_id, phone, photo_url, status, is_foreign, visa_status, visa_expires_on')
+    .select('id, role, full_name, language, date_of_birth, passport, nationality, national_id, phone, photo_url, status, is_foreign, visa_status, visa_expires_on')
   if (profiles.error) throw profiles.error
   const byId = new Map((profiles.data ?? []).map((row) => [row.id, row]))
   return (users.data.users ?? [])
@@ -237,11 +240,12 @@ async function listPeople(admin: ReturnType<typeof createClient>) {
       return {
         id: user.id,
         email: user.email ?? '',
-        fullName: profile?.full_name ?? '',
+        fullName: profile?.full_name || metadataName(user.user_metadata) || '',
         role,
         language: profile?.language && languages.has(profile.language) ? profile.language : 'vi',
         dateOfBirth: profile?.date_of_birth ?? '',
         passport: profile?.passport ?? '',
+        nationality: profile?.nationality ?? '',
         nationalId: profile?.national_id ?? '',
         phone: profile?.phone ?? '',
         photoUrl: profile?.photo_url ?? '',
@@ -252,6 +256,12 @@ async function listPeople(admin: ReturnType<typeof createClient>) {
       }
     })
     .sort((a, b) => a.fullName.localeCompare(b.fullName) || a.email.localeCompare(b.email))
+}
+
+function metadataName(metadata: unknown) {
+  if (!metadata || typeof metadata !== 'object') return ''
+  const value = (metadata as { full_name?: unknown }).full_name
+  return typeof value === 'string' ? value.trim() : ''
 }
 
 function json(body: unknown, status = 200) {

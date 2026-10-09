@@ -1,6 +1,7 @@
 import { X } from 'lucide-react'
 import { useEffect, useState, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useSearchParams } from 'react-router-dom'
 import { ExportButtons } from '../../components/ExportButtons'
 import { DataTable, FilterBar, SelectFilter } from '../../components/ui/DataSheet'
 import { PageHeader } from '../../components/ui/PageHeader'
@@ -8,7 +9,7 @@ import { localizedLabel } from '../../lib/localized'
 import { isSupabaseConfigured } from '../../lib/supabase'
 import { listUngradedEssays, saveEssayGrade, type UngradedEssay } from '../../lib/teacher'
 
-export function Grading() {
+export function Grading({ embedded = false }: { embedded?: boolean }) {
   const { t, i18n } = useTranslation()
   const [rows, setRows] = useState<UngradedEssay[]>([])
   const [selected, setSelected] = useState<UngradedEssay | null>(null)
@@ -18,7 +19,10 @@ export function Grading() {
   const [pending, setPending] = useState(false)
   const [error, setError] = useState('')
   const [query, setQuery] = useState('')
+  const [params] = useSearchParams()
   const [programFilter, setProgramFilter] = useState('all')
+  const [classFilter, setClassFilter] = useState(params.get('class') || 'all')
+  const studentFocus = params.get('student') || ''
 
   useEffect(() => {
     if (!isSupabaseConfigured) return
@@ -40,7 +44,7 @@ export function Grading() {
 
   function openRow(row: UngradedEssay) {
     setSelected(row)
-    setScore('')
+    setScore(row.score === null ? '' : String(row.score))
     setFeedback('')
     setError('')
   }
@@ -57,7 +61,7 @@ export function Grading() {
     setError('')
     try {
       await saveEssayGrade(selected.id, value, feedback)
-      setRows((current) => current.filter((row) => row.id !== selected.id))
+      setRows((current) => current.map((row) => (row.id === selected.id ? { ...row, score: value } : row)))
       setSelected(null)
     } catch {
       setError(t('teacher.saveError'))
@@ -67,33 +71,35 @@ export function Grading() {
   }
 
   const programs = [...new Map(rows.map((row) => [row.programId, row.programTitle])).entries()]
+  const classOptions = [...new Map(rows.filter((row) => row.classId).map((row) => [row.classId, row.className])).entries()]
   const visible = rows.filter((row) => {
     const lesson = localizedLabel(row.lessonTitle, i18n.language)
     const question = localizedLabel(row.question, i18n.language)
     const course = localizedLabel(row.programTitle, i18n.language)
     const matchesQuery = `${row.studentName} ${lesson} ${question} ${course}`.toLowerCase().includes(query.trim().toLowerCase())
-    return matchesQuery && (programFilter === 'all' || row.programId === programFilter)
+    const matchesStudent = !studentFocus || row.studentId === studentFocus
+    const matchesClass = classFilter === 'all' || row.classId === classFilter
+    return matchesQuery && matchesStudent && matchesClass && (programFilter === 'all' || row.programId === programFilter)
   })
 
+  const exportButtons = (
+    <ExportButtons
+      filename="cham-bai"
+      title={t('teacher.gradingTitle')}
+      headers={[t('teacher.student'), t('teacher.course'), t('programs.lessons'), t('teacher.question'), t('filters.submitted')]}
+      rows={visible.map((row) => [
+        row.studentName || t('enrollment.unnamed'),
+        localizedLabel(row.programTitle, i18n.language) || t('programs.untitled'),
+        localizedLabel(row.lessonTitle, i18n.language) || t('programs.untitled'),
+        localizedLabel(row.question, i18n.language),
+        row.submittedAt ? new Date(row.submittedAt).toLocaleString(i18n.language) : '—',
+      ])}
+    />
+  )
+
   return (
-    <div className="ui-page">
-      <PageHeader
-        title={t('teacher.gradingTitle')}
-        action={
-          <ExportButtons
-            filename="cham-bai"
-            title={t('teacher.gradingTitle')}
-            headers={[t('teacher.student'), t('teacher.course'), t('programs.lessons'), t('teacher.question'), t('filters.submitted')]}
-            rows={visible.map((row) => [
-              row.studentName || t('enrollment.unnamed'),
-              localizedLabel(row.programTitle, i18n.language) || t('programs.untitled'),
-              localizedLabel(row.lessonTitle, i18n.language) || t('programs.untitled'),
-              localizedLabel(row.question, i18n.language),
-              row.submittedAt ? new Date(row.submittedAt).toLocaleString(i18n.language) : '—',
-            ])}
-          />
-        }
-      />
+    <div className={embedded ? 'grid min-h-0 gap-3' : 'ui-page'}>
+      {embedded ? null : <PageHeader title={t('teacher.gradingTitle')} action={exportButtons} />}
       {!isSupabaseConfigured ? (
         <p role="status" className="rounded-2xl bg-warning-bg px-4 py-3 text-sm text-warning">
           {t('supabase.missing')}
@@ -106,8 +112,19 @@ export function Grading() {
         </p>
       ) : null}
       {!loading && rows.length === 0 && isSupabaseConfigured ? <p className="text-muted">{t('teacher.emptyGrading')}</p> : null}
-      <div className="ui-fill">
+      <div className={embedded ? 'grid min-h-0 gap-3' : 'ui-fill'}>
+        {embedded ? <div className="flex justify-end">{exportButtons}</div> : null}
         <FilterBar query={query} onQuery={setQuery} count={visible.length}>
+          <SelectFilter
+            id="grade-class"
+            label={t('reports.className')}
+            value={classFilter}
+            onChange={setClassFilter}
+            options={[
+              { value: 'all', label: t('filters.all') },
+              ...classOptions.map(([id, name]) => ({ value: id, label: name || t('classesPage.untitled') })),
+            ]}
+          />
           <SelectFilter
             id="grade-program"
             label={t('teacher.course')}
@@ -124,10 +141,12 @@ export function Grading() {
           <thead>
             <tr>
               <th>{t('teacher.student')}</th>
+              <th>{t('reports.className')}</th>
               <th>{t('teacher.course')}</th>
               <th>{t('programs.lessons')}</th>
               <th>{t('teacher.question')}</th>
               <th>{t('filters.submitted')}</th>
+              <th>{t('transcript.score')}</th>
               <th>{t('teacher.action')}</th>
             </tr>
           </thead>
@@ -135,13 +154,15 @@ export function Grading() {
             {visible.map((row) => (
               <tr key={row.id}>
                 <td className="font-medium text-ink">{row.studentName || t('enrollment.unnamed')}</td>
+                <td>{row.className || '—'}</td>
                 <td>{localizedLabel(row.programTitle, i18n.language) || t('programs.untitled')}</td>
                 <td>{localizedLabel(row.lessonTitle, i18n.language) || t('programs.untitled')}</td>
                 <td className="max-w-xs truncate">{localizedLabel(row.question, i18n.language)}</td>
                 <td>{row.submittedAt ? new Date(row.submittedAt).toLocaleString(i18n.language) : '—'}</td>
+                <td className="tabular-nums font-semibold">{row.score === null ? t('teacher.ungraded') : row.score.toFixed(1)}</td>
                 <td>
                   <button type="button" className="ui-inline ui-btn-primary" onClick={() => openRow(row)}>
-                    {t('teacher.grade')}
+                    {row.score === null ? t('teacher.grade') : t('teacher.regrade')}
                   </button>
                 </td>
               </tr>

@@ -12,8 +12,8 @@ export function FilterBar({ query, onQuery, count, children }: FilterBarProps) {
   const { t } = useTranslation()
 
   return (
-    <div className="mb-3 flex items-center gap-2 overflow-x-auto">
-      <label className="flex min-w-72 flex-1 items-center gap-2 text-sm font-medium text-ink">
+    <div className="mb-3 flex flex-wrap items-center gap-2">
+      <label className="flex min-w-0 w-full flex-1 items-center gap-2 text-sm font-medium text-ink sm:min-w-72 sm:w-auto">
         <span className="shrink-0">{t('filters.search')}</span>
         <input
           className="ui-field min-w-0 flex-1"

@@ -1,4 +1,5 @@
 import { asLocalized, type LocalizedText } from './localized'
+import { passingScore } from './student'
 import { supabase } from './supabase'
 
 export type RosterRow = {
@@ -26,12 +27,16 @@ export type StudyEntry = {
 
 export type UngradedEssay = {
   id: string
+  studentId: string
   studentName: string
+  classId: string
+  className: string
   programId: string
   programTitle: LocalizedText
   lessonTitle: LocalizedText
   question: LocalizedText
   essayAnswer: string
+  score: number | null
   submittedAt: string | null
 }
 
@@ -122,9 +127,14 @@ export async function listTeacherRoster(): Promise<RosterRow[]> {
       const mine = (submissions.data ?? []).filter(
         (submission) => submission.student_id === studentId && submission.quiz_id && programQuizIds.has(submission.quiz_id),
       )
-      const answered = new Set(mine.map((submission) => submission.quiz_id))
-      const scores = mine.map((submission) => asScore(submission.score)).filter((score): score is number => score !== null)
-      const progress = programQuizIds.size === 0 ? 0 : Math.round((answered.size / programQuizIds.size) * 100)
+      const scoreByQuiz = new Map<string, number>()
+      for (const submission of mine) {
+        const score = asScore(submission.score)
+        if (submission.quiz_id && score !== null) scoreByQuiz.set(submission.quiz_id, score)
+      }
+      const scores = [...scoreByQuiz.values()]
+      const passed = [...scoreByQuiz].filter(([, score]) => score >= passingScore).length
+      const progress = programQuizIds.size === 0 ? 0 : Math.round((passed / programQuizIds.size) * 100)
       const averageScore = scores.length === 0 ? null : scores.reduce((sum, score) => sum + score, 0) / scores.length
       return {
         studentId,
@@ -217,8 +227,7 @@ export async function listUngradedEssays(): Promise<UngradedEssay[]> {
       'quiz_id',
       essayRows.map((quiz) => quiz.id),
     )
-    .is('score', null)
-    .order('submitted_at', { ascending: true })
+    .order('submitted_at', { ascending: false })
   if (submissions.error) throw submissions.error
 
   const pending = submissions.data ?? []
@@ -230,6 +239,15 @@ export async function listUngradedEssays(): Promise<UngradedEssay[]> {
   if (profiles.error) throw profiles.error
 
   const names = new Map((profiles.data ?? []).map((profile) => [profile.id, profile.full_name ?? '']))
+  const enrollments =
+    studentIds.length === 0
+      ? { data: [], error: null }
+      : await db.from('program_enrollments').select('student_id, class_id, program_id').in('student_id', studentIds)
+  if (enrollments.error) throw enrollments.error
+  const classIds = [...new Set((enrollments.data ?? []).map((row) => row.class_id).filter((id): id is string => Boolean(id)))]
+  const classRows = classIds.length === 0 ? { data: [], error: null } : await db.from('course_classes').select('id, name').in('id', classIds)
+  if (classRows.error) throw classRows.error
+  const className = new Map((classRows.data ?? []).map((row) => [row.id, row.name]))
   const lessonTitle = new Map((lessons.data ?? []).map((lesson) => [lesson.id, asLocalized(lesson.title)]))
   const lessonProgram = new Map((lessons.data ?? []).map((lesson) => [lesson.id, lesson.program_id ?? '']))
   const programIds = [...new Set([...lessonProgram.values()].filter(Boolean))]
@@ -256,14 +274,20 @@ export async function listUngradedEssays(): Promise<UngradedEssay[]> {
 
   return pending.map((submission) => {
     const meta = questions.get(submission.quiz_id ?? '')
+    const programId = meta?.programId ?? ''
+    const place = (enrollments.data ?? []).find((row) => row.student_id === submission.student_id && (row.program_id === programId || !programId))
     return {
       id: submission.id,
+      studentId: submission.student_id ?? '',
       studentName: names.get(submission.student_id ?? '') ?? '',
-      programId: meta?.programId ?? '',
+      classId: place?.class_id ?? '',
+      className: className.get(place?.class_id ?? '') ?? '',
+      programId,
       programTitle: meta?.programTitle ?? { vi: '', my: '', bn: '' },
       lessonTitle: meta?.lessonTitle ?? { vi: '', my: '', bn: '' },
       question: meta?.question ?? { vi: '', my: '', bn: '' },
       essayAnswer: submission.essay_answer ?? '',
+      score: asScore(submission.score),
       submittedAt: submission.submitted_at,
     }
   })

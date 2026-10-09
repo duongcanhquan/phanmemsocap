@@ -55,7 +55,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
           }
           setRole(nextRole)
           setIsLoading(false)
-          if (rememberedLanguage()) return
+          if (nextRole && nextRole !== 'student') {
+            void i18n.changeLanguage('vi')
+            return
+          }
+          const picked = rememberedLanguage()
+          if (picked) {
+            void i18n.changeLanguage(picked)
+            return
+          }
           void fetchProfileLanguage(userId, accessToken).then((language) => {
             if (!language || !isAppLanguage(language) || rememberedLanguage()) return
             rememberLanguage(language)

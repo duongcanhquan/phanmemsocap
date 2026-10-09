@@ -5,6 +5,20 @@ export type StudyStatus = (typeof studyStatuses)[number]
 export const visaStatuses = ['valid', 'pending', 'expired'] as const
 export type VisaStatus = (typeof visaStatuses)[number]
 
+export type VisaWindow = 'expired' | 'month' | 'quarter' | 'ok' | 'unknown'
+
+export function visaWindow(date: string, today = new Date()): VisaWindow {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return 'unknown'
+  const end = new Date(`${date}T00:00:00`)
+  const start = new Date(today)
+  start.setHours(0, 0, 0, 0)
+  const days = Math.round((end.getTime() - start.getTime()) / 86_400_000)
+  if (days < 0) return 'expired'
+  if (days <= 30) return 'month'
+  if (days <= 90) return 'quarter'
+  return 'ok'
+}
+
 export function countsInClass(status: string) {
   return status === 'studying'
 }
@@ -17,6 +31,7 @@ export type AccountPerson = {
   language: string
   dateOfBirth: string
   passport: string
+  nationality: string
   nationalId: string
   phone: string
   photoUrl: string
@@ -34,6 +49,7 @@ export type AccountInput = {
   language: string
   dateOfBirth: string
   passport: string
+  nationality: string
   nationalId: string
   phone: string
   photoUrl: string
@@ -116,7 +132,7 @@ export function canEditPerson(caller: AppRole | null, person: AccountPerson, sel
   return false
 }
 
-export const accountCsvHeader = 'email,password,full_name,date_of_birth,passport,national_id,phone,photo_url'
+export const accountCsvHeader = 'email,password,full_name,date_of_birth,passport,nationality,national_id,phone,photo_url'
 
 export function parseAccountCsv(text: string, role: AppRole): AccountInput[] {
   const lines = text.replace(/^\uFEFF/, '').split(/\r?\n/).map((line) => line.trim()).filter(Boolean)
@@ -135,6 +151,7 @@ export function parseAccountCsv(text: string, role: AppRole): AccountInput[] {
       language: 'vi',
       dateOfBirth: cell('date_of_birth'),
       passport: cell('passport'),
+      nationality: cell('nationality'),
       nationalId: cell('national_id'),
       phone: cell('phone'),
       photoUrl: cell('photo_url'),

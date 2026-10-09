@@ -25,10 +25,11 @@ export function LanguageMenu() {
             key={language}
             type="button"
             aria-pressed={selected}
-            className={selected ? 'ui-btn ui-btn-primary rounded-none px-3' : 'ui-btn ui-btn-ghost rounded-none px-3'}
+            aria-label={t(`languages.${language}`)}
+            className={selected ? 'ui-btn ui-btn-primary rounded-none px-2.5' : 'ui-btn ui-btn-ghost rounded-none px-2.5'}
             onClick={() => chooseLanguage(language)}
           >
-            {t(`languages.${language}`)}
+            {language.toUpperCase()}
           </button>
         )
       })}

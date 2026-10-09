@@ -184,7 +184,7 @@ function QuizSession({ lessonId, programId, nextLessonId }: QuizEngineProps) {
       <h2 className="text-lg font-semibold text-ink">{localizedLabel(question.question, i18n.language)}</h2>
       {question.isEssay ? (
         <textarea
-          className="ui-field min-h-28 py-2"
+          className="min-h-36 w-full rounded-2xl border border-line bg-white px-4 py-3 text-base"
           value={answers[question.id]?.essay ?? ''}
           aria-label={t('student.answer')}
           onChange={(event) =>

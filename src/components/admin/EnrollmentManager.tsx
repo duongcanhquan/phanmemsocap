@@ -2,30 +2,21 @@ import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
-  createClass,
   enrollStudents,
-  listClasses,
-  updateClass,
   listEnrollments,
   listStudents,
   removeEnrollments,
-  type CourseClass,
   type EnrollmentRecord,
   type StudentRecord,
 } from '../../lib/programs'
 
-type EnrollmentManagerProps = {
-  programId: string
+interface EnrollmentManagerProps {
+  classId: string
 }
 
-export function EnrollmentManager({ programId }: EnrollmentManagerProps) {
+export function EnrollmentManager({ classId }: EnrollmentManagerProps) {
   const { t } = useTranslation()
   const [students, setStudents] = useState<StudentRecord[]>([])
-  const [classes, setClasses] = useState<CourseClass[]>([])
-  const [classId, setClassId] = useState('')
-  const [className, setClassName] = useState('')
-  const [classStarts, setClassStarts] = useState('')
-  const [classEnds, setClassEnds] = useState('')
   const [enrollments, setEnrollments] = useState<EnrollmentRecord[]>([])
   const [availableSelection, setAvailableSelection] = useState<string[]>([])
   const [enrolledSelection, setEnrolledSelection] = useState<string[]>([])
@@ -37,12 +28,11 @@ export function EnrollmentManager({ programId }: EnrollmentManagerProps) {
 
   useEffect(() => {
     let active = true
-    void Promise.all([listStudents(), listClasses(programId)])
-      .then(([nextStudents, nextClasses]) => {
+    void Promise.all([listStudents(), listEnrollments(classId)])
+      .then(([nextStudents, nextEnrollments]) => {
         if (!active) return
         setStudents(nextStudents)
-        setClasses(nextClasses)
-        setClassId((current) => current || nextClasses[0]?.id || '')
+        setEnrollments(nextEnrollments)
         setError('')
       })
       .catch(() => {
@@ -50,21 +40,6 @@ export function EnrollmentManager({ programId }: EnrollmentManagerProps) {
       })
       .finally(() => {
         if (active) setLoading(false)
-      })
-    return () => {
-      active = false
-    }
-  }, [programId, t])
-
-  useEffect(() => {
-    if (!classId) return
-    let active = true
-    void listEnrollments(classId)
-      .then((rows) => {
-        if (active) setEnrollments(rows)
-      })
-      .catch(() => {
-        if (active) setError(t('programs.loadError'))
       })
     return () => {
       active = false
@@ -88,7 +63,7 @@ export function EnrollmentManager({ programId }: EnrollmentManagerProps) {
     setPending(true)
     setError('')
     try {
-      await enrollStudents(programId, classId, availableSelection)
+      await enrollStudents(classId, availableSelection)
       setEnrollments(await listEnrollments(classId))
       setAvailableSelection([])
     } catch {
@@ -116,98 +91,8 @@ export function EnrollmentManager({ programId }: EnrollmentManagerProps) {
   }
 
   return (
-    <section id="class" className="ui-card grid gap-4">
-      <div className="flex flex-wrap items-end gap-3">
-        <h2 className="text-lg font-semibold text-ink">{t('enrollment.title')}</h2>
-        <label className="grid gap-1 text-sm font-medium text-ink">
-          {t('classesPage.className')}
-          <select
-            className="ui-field"
-            value={classId}
-            onChange={(event) => {
-              setClassId(event.target.value)
-              setEnrollments([])
-              setEnrolledSelection([])
-            }}
-          >
-            {classes.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        {classId ? (
-          <form
-            className="flex flex-wrap items-end gap-2"
-            onSubmit={(event) => {
-              event.preventDefault()
-              const current = classes.find((item) => item.id === classId)
-              if (!current) return
-              const form = event.currentTarget
-              const startsOn = (form.elements.namedItem('class-start') as HTMLInputElement).value
-              const endsOn = (form.elements.namedItem('class-end') as HTMLInputElement).value
-              setPending(true)
-              void updateClass(classId, { name: current.name, startsOn, endsOn })
-                .then(async () => setClasses(await listClasses(programId)))
-                .catch(() => setError(t('programs.saveError')))
-                .finally(() => setPending(false))
-            }}
-          >
-            <label className="grid gap-1 text-sm font-medium text-ink">
-              {t('classesPage.startsOn')}
-              <input className="ui-field" name="class-start" type="date" defaultValue={classes.find((item) => item.id === classId)?.startsOn ?? ''} key={`${classId}-start`} />
-            </label>
-            <label className="grid gap-1 text-sm font-medium text-ink">
-              {t('classesPage.endsOn')}
-              <input className="ui-field" name="class-end" type="date" defaultValue={classes.find((item) => item.id === classId)?.endsOn ?? ''} key={`${classId}-end`} />
-            </label>
-            <button type="submit" className="ui-inline ui-btn-ghost" disabled={pending}>
-              {t('programs.save')}
-            </button>
-          </form>
-        ) : null}
-        <form
-          className="grid w-full gap-2 sm:grid-cols-2 lg:grid-cols-[1fr_auto_auto_auto]"
-          onSubmit={(event) => {
-            event.preventDefault()
-            if (!className.trim()) return
-            setPending(true)
-            void createClass(programId, { name: className.trim(), startsOn: classStarts, endsOn: classEnds })
-              .then(async (created) => {
-                setClasses(await listClasses(programId))
-                setClassId(created.id)
-                setClassName('')
-                setClassStarts('')
-                setClassEnds('')
-              })
-              .catch(() => setError(t('programs.saveError')))
-              .finally(() => setPending(false))
-          }}
-        >
-          <label className="grid gap-1 text-sm font-medium text-ink">
-            {t('classesPage.add')}
-            <input
-              className="ui-field"
-              value={className}
-              placeholder={t('classesPage.className')}
-              aria-label={t('classesPage.className')}
-              onChange={(event) => setClassName(event.target.value)}
-            />
-          </label>
-          <label className="grid gap-1 text-sm font-medium text-ink">
-            {t('classesPage.startsOn')}
-            <input className="ui-field" type="date" value={classStarts} onChange={(event) => setClassStarts(event.target.value)} />
-          </label>
-          <label className="grid gap-1 text-sm font-medium text-ink">
-            {t('classesPage.endsOn')}
-            <input className="ui-field" type="date" value={classEnds} onChange={(event) => setClassEnds(event.target.value)} />
-          </label>
-          <button type="submit" className="ui-inline ui-btn-primary self-end" disabled={pending || !className.trim()}>
-            {t('classesPage.add')}
-          </button>
-        </form>
-      </div>
+    <section className="grid gap-4">
+      <p className="text-sm text-muted">{t('enrollment.lead')}</p>
       {loading ? <p role="status">{t('programs.loading')}</p> : null}
       {error ? (
         <p role="alert" className="text-sm text-danger">
@@ -230,7 +115,7 @@ export function EnrollmentManager({ programId }: EnrollmentManagerProps) {
             type="button"
             className="ui-btn ui-btn-primary"
             aria-label={t('enrollment.add')}
-            disabled={pending || !classId || availableSelection.length === 0}
+            disabled={pending || availableSelection.length === 0}
             onClick={() => void moveIn()}
           >
             <ChevronRight aria-hidden="true" className="size-4" />
@@ -262,7 +147,7 @@ export function EnrollmentManager({ programId }: EnrollmentManagerProps) {
   )
 }
 
-type StudentColumnProps = {
+interface StudentColumnProps {
   title: string
   empty: string
   students: StudentRecord[]
@@ -288,10 +173,7 @@ function StudentColumn({ title, empty, students, query, onQuery, selected, onCha
         onChange={(event) => onQuery(event.target.value)}
         aria-label={t('filters.search')}
       />
-      <ul
-        aria-labelledby={`${title}-label`}
-        className="min-h-48 rounded-2xl border border-line bg-canvas p-2"
-      >
+      <ul aria-labelledby={`${title}-label`} className="min-h-48 rounded-2xl border border-line bg-canvas p-2">
         {students.length === 0 ? <li className="px-2 py-3 text-sm text-muted">{empty}</li> : null}
         {students.length > 0 && shown.length === 0 ? <li className="px-2 py-3 text-sm text-muted">{t('filters.noMatch')}</li> : null}
         {shown.map((student) => {
@@ -305,9 +187,7 @@ function StudentColumn({ title, empty, students, query, onQuery, selected, onCha
                   'flex min-h-11 w-full items-center rounded-xl px-3 text-left text-sm transition duration-200',
                   active ? 'bg-ink font-semibold text-white' : 'text-ink hover:bg-surface',
                 ].join(' ')}
-                onClick={() =>
-                  onChange(active ? selected.filter((id) => id !== student.id) : [...selected, student.id])
-                }
+                onClick={() => onChange(active ? selected.filter((id) => id !== student.id) : [...selected, student.id])}
               >
                 {nameOf(student)}
               </button>

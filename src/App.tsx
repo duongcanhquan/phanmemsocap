@@ -3,6 +3,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { AppLayout } from './components/layout/AppLayout'
 import { AuthProvider } from './context/AuthContext'
+import { AccountPage } from './pages/AccountPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { Login } from './pages/Login'
 import { useAuth } from './hooks/useAuth'
@@ -28,6 +29,9 @@ const TeacherDashboard = lazy(() =>
 const Grading = lazy(() => import('./pages/teacher/Grading').then((module) => ({ default: module.Grading })))
 const StudentLog = lazy(() =>
   import('./pages/teacher/StudentLog').then((module) => ({ default: module.StudentLog })),
+)
+const StudentFilePage = lazy(() =>
+  import('./pages/teacher/StudentFilePage').then((module) => ({ default: module.StudentFilePage })),
 )
 const LearningSpace = lazy(() =>
   import('./pages/student/LearningSpace').then((module) => ({ default: module.LearningSpace })),
@@ -59,6 +63,7 @@ export default function App() {
           <Route element={<ProtectedRoute allowedRoles={[...allRoles]} />}>
             <Route element={<AppLayout />}>
               <Route index element={<DashboardPage />} />
+              <Route path="account" element={<AccountPage />} />
               <Route element={<ProtectedRoute allowedRoles={[...staffRoles]} />}>
                 <Route
                   path="learners"
@@ -85,10 +90,26 @@ export default function App() {
                   }
                 />
                 <Route
+                  path="teacher/classes"
+                  element={
+                    <Suspense fallback={<PageFallback />}>
+                      <TeacherDashboard />
+                    </Suspense>
+                  }
+                />
+                <Route
                   path="teacher/grading"
                   element={
                     <Suspense fallback={<PageFallback />}>
                       <Grading />
+                    </Suspense>
+                  }
+                />
+                <Route
+                  path="students/:studentId"
+                  element={
+                    <Suspense fallback={<PageFallback />}>
+                      <StudentFilePage />
                     </Suspense>
                   }
                 />

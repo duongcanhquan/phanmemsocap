@@ -8,12 +8,14 @@ import { Dialog } from '../components/ui/Dialog'
 import { PageHeader } from '../components/ui/PageHeader'
 import { Tabs } from '../components/ui/Tabs'
 import { useAuth } from '../hooks/useAuth'
-import { emptyLocalized, localizedLabel } from '../lib/localized'
+import { translateLesson } from '../lib/ai'
+import { emptyLocalized, keepCopy, localizedLabel, packLessonBody, unpackLessonBody, type LocalizedText } from '../lib/localized'
 import {
   lessonTypes,
   deleteLesson,
   getLessonQuizSettings,
   lessonCourseIds,
+  listAllLessons,
   listLessons,
   listQuizzes,
   saveQuizzes,
@@ -76,6 +78,7 @@ export function LessonEditorPage() {
   const [programId, setProgramId] = useState('')
   const [sort, setSort] = useState<'order' | 'time'>('order')
   const [editing, setEditing] = useState<LessonRecord | null | undefined>(undefined)
+  const [pendingDelete, setPendingDelete] = useState('')
   const [loading, setLoading] = useState(isSupabaseConfigured)
   const [error, setError] = useState('')
 
@@ -100,12 +103,10 @@ export function LessonEditorPage() {
   }, [t])
 
   useEffect(() => {
-    if (!programId) {
-      setLessons([])
-      return
-    }
+    if (!isSupabaseConfigured) return
     let active = true
-    void listLessons(programId)
+    const load = programId ? listLessons(programId) : listAllLessons()
+    void load
       .then((rows) => {
         if (active) setLessons(rows)
       })
@@ -124,16 +125,9 @@ export function LessonEditorPage() {
 
   return (
     <div className="ui-page">
-      <PageHeader
-        title={t('editor.title')}
-        action={
-          <button type="button" className="ui-inline ui-btn-primary" disabled={!programId} onClick={() => setEditing(null)}>
-            {t('editor.newLesson')}
-          </button>
-        }
-      />
+      <PageHeader title={t('editor.title')} />
       {error ? <p role="alert" className="text-sm text-danger">{error}</p> : null}
-      <div className="flex shrink-0 items-center gap-2 overflow-x-auto">
+      <div className="flex shrink-0 flex-wrap items-center gap-2">
         <label className="flex min-w-56 flex-1 items-center gap-2 text-sm font-medium text-ink" htmlFor="editor-program">
           <span className="shrink-0">{t('editor.assignCourse')}</span>
           <select
@@ -143,7 +137,7 @@ export function LessonEditorPage() {
             disabled={loading}
             onChange={(event) => setProgramId(event.target.value)}
           >
-            <option value="">{t('editor.pickProgram')}</option>
+            <option value="">{t('editor.allCourses')}</option>
             {programs.map((program) => (
               <option key={program.id} value={program.id}>
                 {localizedLabel(program.title, i18n.language) || t('programs.untitled')}
@@ -151,6 +145,11 @@ export function LessonEditorPage() {
             ))}
           </select>
         </label>
+        <button type="button" className="ui-inline ui-btn-primary" onClick={() => setEditing(null)}>
+          {t('editor.newLesson')}
+        </button>
+      </div>
+      <div className="flex shrink-0 items-center gap-2">
         <button type="button" className={sort === 'order' ? 'ui-inline ui-btn-primary' : 'ui-inline ui-btn-ghost'} onClick={() => setSort('order')}>
           {t('editor.sortOrder')}
         </button>
@@ -169,6 +168,7 @@ export function LessonEditorPage() {
               <th>{t('programs.author')}</th>
               <th>{t('editor.createdAt')}</th>
               <th>{t('filters.status')}</th>
+              <th>{t('teacher.action')}</th>
             </tr>
           </thead>
           <tbody>
@@ -181,6 +181,34 @@ export function LessonEditorPage() {
                 <td>{teachers.find((teacher) => teacher.id === lesson.authorId)?.fullName || '—'}</td>
                 <td>{lesson.createdAt ? new Date(lesson.createdAt).toLocaleString(i18n.language) : '—'}</td>
                 <td>{lesson.isPublished ? t('programs.published') : t('programs.draft')}</td>
+                <td>
+                  <span className="inline-flex gap-2" onClick={(event) => event.stopPropagation()}>
+                    <button type="button" className="ui-inline ui-btn-ghost" onClick={() => setEditing(lesson)}>
+                      {t('accounts.edit')}
+                    </button>
+                    {pendingDelete === lesson.id ? (
+                      <button
+                        type="button"
+                        className="ui-inline bg-danger text-white"
+                        onClick={() => {
+                          void deleteLesson(lesson.id)
+                            .then(() => {
+                              setLessons((current) => current.filter((item) => item.id !== lesson.id))
+                              setPendingDelete('')
+                              setEditing(undefined)
+                            })
+                            .catch(() => setError(t('programs.saveError')))
+                        }}
+                      >
+                        {t('programs.confirmRemove')}
+                      </button>
+                    ) : (
+                      <button type="button" className="ui-inline text-danger" onClick={() => setPendingDelete(lesson.id)}>
+                        {t('programs.remove')}
+                      </button>
+                    )}
+                  </span>
+                </td>
               </tr>
             ))}
           </tbody>
@@ -195,11 +223,13 @@ export function LessonEditorPage() {
           programId={programId}
           nextOrder={lessons.length}
           canAssignAuthor={isSchoolAdmin(role)}
+          canPlaceCourse={isSchoolAdmin(role)}
           selfId={user?.id ?? ''}
           onClose={() => setEditing(undefined)}
           onSaved={(nextProgramId, close) => {
             setProgramId(nextProgramId)
-            void listLessons(nextProgramId).then(setLessons).catch(() => setError(t('programs.loadError')))
+            const load = nextProgramId ? listLessons(nextProgramId) : listAllLessons()
+            void load.then(setLessons).catch(() => setError(t('programs.loadError')))
             if (close) setEditing(undefined)
           }}
         />
@@ -215,6 +245,7 @@ function LessonComposer({
   programId,
   nextOrder,
   canAssignAuthor,
+  canPlaceCourse,
   selfId,
   onClose,
   onSaved,
@@ -225,6 +256,7 @@ function LessonComposer({
   programId: string
   nextOrder: number
   canAssignAuthor: boolean
+  canPlaceCourse: boolean
   selfId: string
   onClose: () => void
   onSaved: (programId: string, close: boolean) => void
@@ -244,11 +276,12 @@ function LessonComposer({
     if (stored?.courseId) return [stored.courseId]
     return programId ? [programId] : []
   })
+  const sourceBody = unpackLessonBody(lesson?.contentUrl ?? '').vi
   const [title, setTitle] = useState(stored?.title ?? localizedLabel(lesson?.title ?? emptyLocalized(), 'vi'))
   const [moduleName, setModuleName] = useState(stored?.moduleName ?? localizedLabel(lesson?.moduleName ?? emptyLocalized(), 'vi'))
   const [contentType, setContentType] = useState<LessonType>(stored?.contentType ?? lesson?.contentType ?? 'text')
-  const [contentUrl, setContentUrl] = useState(stored?.body ?? lesson?.contentUrl ?? '')
-  const [content, setContent] = useState<JSONContent | string | undefined>(stored?.body || lesson?.contentUrl || undefined)
+  const [contentUrl, setContentUrl] = useState(stored?.body ?? sourceBody)
+  const [content, setContent] = useState<JSONContent | string | undefined>(stored?.body || sourceBody || undefined)
   const [orderIndex, setOrderIndex] = useState(stored?.orderIndex ?? lesson?.orderIndex ?? nextOrder)
   const [authorId, setAuthorId] = useState(stored?.authorId || lesson?.authorId || selfId)
   const [published, setPublished] = useState(lesson?.isPublished ?? false)
@@ -260,6 +293,11 @@ function LessonComposer({
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [error, setError] = useState('')
   const [draftNote, setDraftNote] = useState('')
+  const copies = useRef({
+    title: lesson?.title ?? emptyLocalized(),
+    moduleName: lesson?.moduleName ?? emptyLocalized(),
+    body: unpackLessonBody(lesson?.contentUrl ?? ''),
+  })
   const latest = useRef({ courseIds, title, moduleName, contentType, contentUrl, orderIndex, authorId, quizzes, quizSettings })
   const queue = useRef(Promise.resolve())
 
@@ -287,7 +325,7 @@ function LessonComposer({
   async function persistNow(mode: 'auto' | 'draft' | 'publish') {
     const current = latest.current
     const body = current.contentType === 'text' ? (editorRef.current?.getHTML() || current.contentUrl) : current.contentUrl
-    if (!current.title.trim() || current.courseIds.length === 0) {
+    if (!current.title.trim()) {
       writeLocal()
       if (mode !== 'auto' && mounted.current) setError(t('programs.titleRequired'))
       return false
@@ -298,23 +336,59 @@ function LessonComposer({
       setError('')
     }
     try {
-      const id = await saveLesson(current.courseIds[0], {
+      const prose = current.contentType === 'text' || current.contentType === 'slides'
+      let titleText: LocalizedText = { ...copies.current.title, vi: current.title.trim() }
+      let moduleText: LocalizedText = { ...copies.current.moduleName, vi: current.moduleName.trim() }
+      let bodyText: LocalizedText = { ...copies.current.body, vi: prose ? body : '' }
+      let ready = current.quizzes.filter((quiz) => quiz.question.vi.trim() || quiz.options.some((option) => option.vi.trim()))
+      let translated = false
+      if (mode !== 'auto') {
+        const result = await translateLesson({
+          title: titleText.vi,
+          module: moduleText.vi,
+          body: prose ? body : '',
+          quizzes: ready.map((quiz) => ({
+            question: quiz.question.vi,
+            options: quiz.isEssay ? [] : quiz.options.map((option) => option.vi),
+          })),
+        }).catch(() => null)
+        if (result) {
+          translated = true
+          titleText = { vi: titleText.vi, my: keepCopy(result.my.title, titleText.my), bn: keepCopy(result.bn.title, titleText.bn) }
+          moduleText = { vi: moduleText.vi, my: keepCopy(result.my.module, moduleText.my), bn: keepCopy(result.bn.module, moduleText.bn) }
+          bodyText = { vi: bodyText.vi, my: keepCopy(result.my.body, bodyText.my), bn: keepCopy(result.bn.body, bodyText.bn) }
+          ready = ready.map((quiz, index) => ({
+            ...quiz,
+            question: {
+              vi: quiz.question.vi,
+              my: keepCopy(result.my.quizzes[index]?.question, quiz.question.my),
+              bn: keepCopy(result.bn.quizzes[index]?.question, quiz.question.bn),
+            },
+            options: quiz.options.map((option, optionIndex) => ({
+              vi: option.vi,
+              my: keepCopy(result.my.quizzes[index]?.options[optionIndex], option.my),
+              bn: keepCopy(result.bn.quizzes[index]?.options[optionIndex], option.bn),
+            })),
+          }))
+          copies.current = { title: titleText, moduleName: moduleText, body: bodyText }
+        }
+      }
+      const id = await saveLesson(current.courseIds[0] ?? '', {
         id: savedId.current,
-        title: { ...emptyLocalized(), ...(lesson?.title ?? {}), vi: current.title.trim() },
-        moduleName: { ...emptyLocalized(), ...(lesson?.moduleName ?? {}), vi: current.moduleName.trim() },
+        title: titleText,
+        moduleName: moduleText,
         contentType: current.contentType,
-        contentUrl: body,
+        contentUrl: prose ? packLessonBody(bodyText) : body,
         isPublished: publish,
         orderIndex: current.orderIndex,
         authorId: current.authorId || selfId,
         quiz: current.quizSettings,
       })
       if (quizzesReady.current) {
-        const ready = current.quizzes.filter((quiz) => quiz.question.vi.trim() || quiz.options.some((option) => option.vi.trim()))
         await saveQuizzes(id, ready)
       }
       savedId.current = id
-      await syncLessonCourses(id, current.courseIds, programId, current.orderIndex)
+      if (canPlaceCourse) await syncLessonCourses(id, current.courseIds, programId, current.orderIndex)
       keepPublished.current = publish
       if (mounted.current) {
         setPublished(publish)
@@ -328,7 +402,7 @@ function LessonComposer({
       onSaved(programId, mode === 'publish')
       if (mounted.current) {
         setPending(false)
-        setDraftNote(publish ? '' : t('editor.draftSaved'))
+        setDraftNote(mode === 'auto' ? (publish ? '' : t('editor.draftSaved')) : translated ? t('editor.translated') : t('editor.translateMissing'))
       }
       return true
     } catch {
@@ -452,7 +526,8 @@ function LessonComposer({
             {t('programs.module')}
             <input id="compose-module" className="ui-field" value={moduleName} onChange={(event) => setModuleName(event.target.value)} />
           </label>
-          <fieldset className="grid gap-2 text-sm font-medium text-ink">
+          {canPlaceCourse ? null : <p className="text-sm text-muted lg:col-span-2">{t('editor.adminPlaces')}</p>}
+          {canPlaceCourse ? <fieldset className="grid gap-2 text-sm font-medium text-ink">
             <legend>{t('editor.assignCourse')}</legend>
             {programs.map((program) => (
               <label key={program.id} className="flex min-h-9 items-center gap-2 font-normal">
@@ -460,23 +535,21 @@ function LessonComposer({
                   type="checkbox"
                   checked={courseIds.includes(program.id)}
                   onChange={() => {
-                    setCourseIds((current) => {
-                      if (current.includes(program.id)) {
-                        const next = current.filter((id) => id !== program.id)
-                        return next.length === 0 ? current : next
-                      }
-                      return [...current, program.id]
-                    })
+                    setCourseIds((current) =>
+                      current.includes(program.id) ? current.filter((id) => id !== program.id) : [...current, program.id],
+                    )
                   }}
                 />
                 {localizedLabel(program.title, i18n.language) || t('programs.untitled')}
               </label>
             ))}
-          </fieldset>
-          <label className="grid gap-1 text-sm font-medium text-ink" htmlFor="compose-order">
-            {t('editor.sortOrder')}
-            <input id="compose-order" className="ui-field" type="number" min={0} value={orderIndex} onChange={(event) => setOrderIndex(Number(event.target.value))} />
-          </label>
+          </fieldset> : null}
+          {canPlaceCourse && courseIds.length > 0 ? (
+            <label className="grid gap-1 text-sm font-medium text-ink" htmlFor="compose-order">
+              {t('editor.sortOrder')}
+              <input id="compose-order" className="ui-field" type="number" min={0} value={orderIndex} onChange={(event) => setOrderIndex(Number(event.target.value))} />
+            </label>
+          ) : null}
           {canAssignAuthor ? (
             <label className="grid gap-1 text-sm font-medium text-ink" htmlFor="compose-author">
               {t('programs.author')}

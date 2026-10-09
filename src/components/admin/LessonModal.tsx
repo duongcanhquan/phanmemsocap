@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
-import { emptyLocalized, hasLocalizedText, localizedLabel, type LocalizedText } from '../../lib/localized'
+import { translateLesson } from '../../lib/ai'
+import { emptyLocalized, hasLocalizedText, keepCopy, localizedLabel, packLessonBody, unpackLessonBody, type LocalizedText } from '../../lib/localized'
 import {
   deleteLesson,
   lessonCourseIds,
@@ -48,7 +49,7 @@ export function LessonModal({ programId, lesson, nextOrder, onClose, onSaved }: 
   const [title, setTitle] = useState<LocalizedText>(lesson?.title ?? emptyLocalized())
   const [moduleName, setModuleName] = useState<LocalizedText>(lesson?.moduleName ?? emptyLocalized())
   const [contentType, setContentType] = useState<LessonType>(lesson?.contentType ?? 'text')
-  const [contentUrl, setContentUrl] = useState(lesson?.contentUrl ?? '')
+  const [contentUrl, setContentUrl] = useState(unpackLessonBody(lesson?.contentUrl ?? '').vi)
   const [isPublished, setIsPublished] = useState(lesson?.isPublished ?? false)
   const [quizzes, setQuizzes] = useState<QuizRecord[]>([])
   const [quizSettings, setQuizSettings] = useState<LessonQuizSettings>({ passMark: 5, shuffleQuestions: false, shuffleOptions: false })
@@ -110,12 +111,42 @@ export function LessonModal({ programId, lesson, nextOrder, onClose, onSaved }: 
     setPending(true)
     setError('')
     try {
+      const prose = contentType === 'text' || contentType === 'slides'
+      const result = await translateLesson({
+        title: title.vi,
+        module: moduleName.vi,
+        body: prose ? contentUrl : '',
+        quizzes: quizzes.map((quiz) => ({
+          question: quiz.question.vi,
+          options: quiz.isEssay ? [] : quiz.options.map((option) => option.vi),
+        })),
+      }).catch(() => null)
+      const titleText = result ? { vi: title.vi, my: keepCopy(result.my.title, title.my), bn: keepCopy(result.bn.title, title.bn) } : title
+      const moduleText = result ? { vi: moduleName.vi, my: keepCopy(result.my.module, moduleName.my), bn: keepCopy(result.bn.module, moduleName.bn) } : moduleName
+      const storedBody = prose
+        ? packLessonBody(result ? { vi: contentUrl, my: keepCopy(result.my.body, unpackLessonBody(lesson?.contentUrl ?? '').my), bn: keepCopy(result.bn.body, unpackLessonBody(lesson?.contentUrl ?? '').bn) } : { ...unpackLessonBody(lesson?.contentUrl ?? ''), vi: contentUrl })
+        : contentUrl
+      const ready = result
+        ? quizzes.map((quiz, index) => ({
+            ...quiz,
+            question: {
+              vi: quiz.question.vi,
+              my: keepCopy(result.my.quizzes[index]?.question, quiz.question.my),
+              bn: keepCopy(result.bn.quizzes[index]?.question, quiz.question.bn),
+            },
+            options: quiz.options.map((option, optionIndex) => ({
+              vi: option.vi,
+              my: keepCopy(result.my.quizzes[index]?.options[optionIndex], option.my),
+              bn: keepCopy(result.bn.quizzes[index]?.options[optionIndex], option.bn),
+            })),
+          }))
+        : quizzes
       const lessonId = await saveLesson(courseIds[0], {
         id: lesson?.id,
-        title,
-        moduleName,
+        title: titleText,
+        moduleName: moduleText,
         contentType,
-        contentUrl,
+        contentUrl: storedBody,
         isPublished,
         orderIndex,
         quiz: {
@@ -125,7 +156,12 @@ export function LessonModal({ programId, lesson, nextOrder, onClose, onSaved }: 
         },
       })
       await syncLessonCourses(lessonId, courseIds, programId, orderIndex)
-      await saveQuizzes(lessonId, quizzes)
+      await saveQuizzes(lessonId, ready)
+      if (!result) {
+        setError(t('editor.translateMissing'))
+        setPending(false)
+        return
+      }
       onSaved()
     } catch {
       setError(t('programs.saveError'))

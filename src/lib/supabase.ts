@@ -24,6 +24,7 @@ export interface Database {
           language: string | null
           date_of_birth: string | null
           passport: string | null
+          nationality: string | null
           national_id: string | null
           photo_url: string | null
           avatar_url: string | null
@@ -41,6 +42,7 @@ export interface Database {
           language?: string | null
           date_of_birth?: string | null
           passport?: string | null
+          nationality?: string | null
           national_id?: string | null
           photo_url?: string | null
           avatar_url?: string | null
@@ -119,6 +121,16 @@ export interface Database {
           required?: boolean
         }
       >
+      class_teachers: Table<
+        {
+          class_id: string
+          teacher_id: string
+        },
+        {
+          class_id: string
+          teacher_id: string
+        }
+      >
       program_teachers: Table<
         {
           program_id: string
@@ -192,17 +204,41 @@ export interface Database {
       course_classes: Table<
         {
           id: string
-          program_id: string
+          program_id: string | null
           name: string
           starts_on: string | null
           ends_on: string | null
           created_at: string | null
         },
         {
-          program_id: string
+          program_id?: string | null
           name: string
           starts_on?: string | null
           ends_on?: string | null
+        },
+        {
+          program_id?: string | null
+          name?: string
+          starts_on?: string | null
+          ends_on?: string | null
+        }
+      >
+      student_messages: Table<
+        {
+          id: string
+          teacher_id: string
+          student_id: string
+          teacher_name: string
+          kind: string
+          body: string
+          created_at: string
+        },
+        {
+          teacher_id: string
+          student_id: string
+          teacher_name?: string
+          kind: string
+          body: string
         }
       >
     }

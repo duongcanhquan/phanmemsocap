@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { localizedLabel } from '../lib/localized'
 import { loadScoreReport, type ScoreCell, type ScoreReport } from '../lib/reports'
+import { passingScore } from '../lib/student'
 import { isSupabaseConfigured } from '../lib/supabase'
 import { DataTable, FilterBar } from './ui/DataSheet'
 import { ExportButtons } from './ExportButtons'
@@ -103,11 +104,11 @@ export function ReportExport({ programId, studentIds }: ReportExportProps) {
               <tr key={student.id}>
                 <td className="font-medium text-ink">{student.name || t('enrollment.unnamed')}</td>
                 {student.scores.map((score, index) => (
-                  <td key={`${student.id}-${report.lessons[index]?.id ?? index}`} className="tabular-nums">
+                  <td key={`${student.id}-${report.lessons[index]?.id ?? index}`} className={`tabular-nums ${score !== null && score < passingScore ? 'text-danger' : ''}`}>
                     {cellText(score)}
                   </td>
                 ))}
-                <td className="font-semibold tabular-nums">{cellText(student.average)}</td>
+                <td className={`font-semibold tabular-nums ${student.average !== null && student.average < passingScore ? 'text-danger' : ''}`}>{cellText(student.average)}</td>
               </tr>
             ))}
           </tbody>
