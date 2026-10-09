@@ -1,4 +1,4 @@
-import { BookOpen, ClipboardCheck, GraduationCap, LayoutDashboard, NotebookPen, UserCog, Users, type LucideIcon } from 'lucide-react'
+import { BookOpen, ClipboardCheck, GraduationCap, LayoutDashboard, NotebookPen, Sparkles, UserCog, Users, type LucideIcon } from 'lucide-react'
 import type { AppRole } from '../../lib/supabase'
 
 export type NavItem = {
@@ -37,6 +37,7 @@ export const navItems: NavItem[] = [
   },
   { to: '/classes', labelKey: 'nav.classes', icon: GraduationCap, roles: ['superadmin', 'admin'] },
   { to: '/accounts', labelKey: 'nav.accounts', icon: UserCog, roles: ['superadmin', 'admin'] },
+  { to: '/ai', labelKey: 'nav.ai', icon: Sparkles, roles: ['superadmin', 'admin'] },
   { to: '/lessons', labelKey: 'nav.lessons', icon: NotebookPen, roles: ['superadmin', 'admin', 'teacher'] },
 ]
 

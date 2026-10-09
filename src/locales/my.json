@@ -10,7 +10,8 @@
     "courses": "သင်တန်း",
     "classes": "အတန်း",
     "lessons": "သင်ခန်းစာ",
-    "accounts": "အကောင့်"
+    "accounts": "အကောင့်",
+    "ai": "AI မော်ဒယ်"
   },
   "header": {
     "language": "ဘာသာစကား",
@@ -107,6 +108,8 @@
     "passwordRequired": "စကားဝှက် ထည့်ပါ။",
     "passwordShort": "စကားဝှက် အနည်းဆုံး ၆ လုံး လိုသည်။",
     "invalidCredentials": "အီးမေးလ် သို့မဟုတ် စကားဝှက် မမှန်ပါ။",
+    "google": "Antigravity ၏ Google အကောင့်ဖြင့် ဝင်ရန်",
+    "googleFailed": "Supabase တွင် Google ဝင်ရောက်မှု မဖွင့်ရသေးပါ။",
     "missingProfile": "အကောင့်တွင် အခန်းကဏ္ဍ မရှိသေးပါ။",
     "unauthorizedTitle": "ဝင်ခွင့် မရှိပါ",
     "unauthorizedLead": "ဤအကောင့်သည် ထိုစာမျက်နှာကို ဖွင့်၍ မရပါ။",
@@ -175,7 +178,8 @@
     "title": "သင်ခန်းစာ လက်ထောက်",
     "model": "မော်ဒယ်",
     "working": "ရေးနေသည်...",
-    "failed": "အကြောင်းအရာ မဖန်တီးနိုင်ပါ။ ဆာဗာ AI ဂိတ်ဝကို စစ်ပါ။",
+    "failed": "အကြောင်းအရာ မဖန်တီးနိုင်ပါ။ စီမံခန်းတွင် AI ချိတ်ဆက်မှုကို စစ်ပါ။",
+    "noModel": "မော်ဒယ် မဖွင့်ရသေးပါ။ API key ထည့်ပါ။",
     "insert": "သင်ခန်းစာထဲ ထည့်ရန်",
     "previous": "အရင်",
     "next": "နောက်",
@@ -184,6 +188,33 @@
       "terms": "နည်းပညာ စကားလုံး ရှင်းရန်",
       "quiz": "ရွေးချယ်မေးခွန်း ဖန်တီးရန်",
       "slides": "AI ဖြင့် သင်ခန်းစာဆလိုက် ဖန်တီးရန်"
+    }
+  },
+  "aiSettings": {
+    "title": "AI မော်ဒယ် ချိတ်ဆက်ရန်",
+    "lead": "ကုမ္ပဏီတစ်ခုချင်းစီ၏ API key ကိုထည့်ပြီး သင်ခန်းစာရေးရာတွင် သုံးမည့် မော်ဒယ်ကို ရွေးပါ။",
+    "antigravity": "Antigravity သည် Google အကောင့်ကို သုံးသည်။ ထိုအကောင့်ဖြင့် Google AI Studio တွင် Gemini API key ဖန်တီးပြီး Gemini အကွက်ထဲ ထည့်ပါ။ ဝင်ရောက်ရေးစာမျက်နှာရှိ Google ခလုတ်သည် ထိုအကောင့်ကို သုံးသည်။",
+    "loading": "ချိတ်ဆက်မှု ဖွင့်နေသည်...",
+    "enabled": "ဖွင့်ရန်",
+    "apiKey": "API key",
+    "models": "မော်ဒယ်",
+    "keyMissing": "API key မရှိသေးပါ။",
+    "keySaved": "Key {{hint}} သိမ်းပြီးပါပြီ။ မပြောင်းလျှင် ဗလာထားပါ။",
+    "save": "သိမ်းရန်",
+    "saving": "သိမ်းနေသည်...",
+    "saved": "AI ချိတ်ဆက်မှု သိမ်းပြီးပါပြီ။",
+    "providers": {
+      "openai": "OpenAI",
+      "gemini": "Gemini (Google / Antigravity)",
+      "deepseek": "DeepSeek"
+    },
+    "errors": {
+      "failed": "မအောင်မြင်ပါ။ ထပ်ကြိုးစားပါ။",
+      "missing-supabase": "Supabase မချိတ်ရသေးပါ။",
+      "forbidden": "စီမံသူသာ AI ချိတ်ဆက်မှု သိမ်းနိုင်သည်။",
+      "invalid-key": "API key မမှန်ပါ။",
+      "save-failed": "မသိမ်းနိုင်ပါ။",
+      "unauthorized": "ပြန်ဝင်ပါ။"
     }
   },
   "reports": {

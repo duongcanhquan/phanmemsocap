@@ -1,7 +1,7 @@
 import { Sparkles } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { generateLesson, lessonModels, type LessonModel, type LessonTask } from '../../lib/ai'
+import { generateLesson, lessonModelId, listAiConnections, type LessonModel, type LessonTask } from '../../lib/ai'
 import { SlideDeck } from '../slides/SlideDeck'
 
 type AILessonGeneratorProps = {
@@ -20,10 +20,30 @@ const actions: LessonTask[] = ['outline', 'terms', 'quiz', 'slides']
 
 export function AILessonGenerator({ getContent, onInsert }: AILessonGeneratorProps) {
   const { t, i18n } = useTranslation()
-  const [model, setModel] = useState<LessonModel>(lessonModels[0].id)
+  const [choices, setChoices] = useState<{ id: LessonModel; label: string }[]>([])
+  const [model, setModel] = useState<LessonModel>('')
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [pending, setPending] = useState<LessonTask | null>(null)
   const [error, setError] = useState('')
+
+  useEffect(() => {
+    let active = true
+    void listAiConnections()
+      .then((rows) => {
+        if (!active) return
+        const next = rows
+          .filter((row) => row.enabled && row.hasKey)
+          .flatMap((row) => row.models.map((item) => ({ id: lessonModelId(row.provider, item), label: item })))
+        setChoices(next)
+        setModel((current) => current || next[0]?.id || '')
+      })
+      .catch(() => {
+        if (active) setError(t('ai.failed'))
+      })
+    return () => {
+      active = false
+    }
+  }, [t])
 
   async function run(task: LessonTask) {
     setPending(task)
@@ -58,20 +78,21 @@ export function AILessonGenerator({ getContent, onInsert }: AILessonGeneratorPro
           value={model}
           onChange={(event) => setModel(event.target.value as LessonModel)}
         >
-          {lessonModels.map((item) => (
+          {choices.map((item) => (
             <option key={item.id} value={item.id}>
               {item.label}
             </option>
           ))}
         </select>
       </label>
+      {choices.length === 0 ? <p className="text-sm text-muted">{t('ai.noModel')}</p> : null}
       <div className="grid gap-2">
         {actions.map((task) => (
           <button
             key={task}
             type="button"
             className="ui-btn ui-btn-ghost border border-line justify-start"
-            disabled={pending !== null}
+            disabled={pending !== null || !model}
             onClick={() => void run(task)}
           >
             {pending === task ? t('ai.working') : t(`ai.tasks.${task}`)}

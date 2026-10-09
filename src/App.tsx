@@ -21,6 +21,7 @@ const ClassManager = lazy(() =>
   import('./pages/admin/ClassManager').then((module) => ({ default: module.ClassManager })),
 )
 const Accounts = lazy(() => import('./pages/admin/Accounts').then((module) => ({ default: module.Accounts })))
+const AiSettings = lazy(() => import('./pages/admin/AiSettings').then((module) => ({ default: module.AiSettings })))
 const TeacherDashboard = lazy(() =>
   import('./pages/teacher/Dashboard').then((module) => ({ default: module.TeacherDashboard })),
 )
@@ -153,6 +154,14 @@ export default function App() {
                   element={
                     <Suspense fallback={<PageFallback />}>
                       <Accounts />
+                    </Suspense>
+                  }
+                />
+                <Route
+                  path="ai"
+                  element={
+                    <Suspense fallback={<PageFallback />}>
+                      <AiSettings />
                     </Suspense>
                   }
                 />

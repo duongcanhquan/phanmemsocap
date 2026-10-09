@@ -5,6 +5,7 @@ import { Navigate, useNavigate } from 'react-router-dom'
 import { LanguageMenu } from '../components/LanguageMenu'
 import { useAuth } from '../hooks/useAuth'
 import { roleHome } from '../lib/roles'
+import { supabase } from '../lib/supabase'
 
 interface LoginForm {
   email: string
@@ -110,6 +111,26 @@ export function Login() {
             ) : null}
             <button type="submit" className="ui-btn ui-btn-primary" disabled={isSubmitting || isLoading}>
               {isSubmitting ? t('auth.submitting') : t('auth.submit')}
+            </button>
+            <button
+              type="button"
+              className="ui-btn ui-btn-ghost border border-line"
+              onClick={() => {
+                if (!supabase) {
+                  setFormError(t('supabase.missing'))
+                  return
+                }
+                void supabase.auth
+                  .signInWithOAuth({
+                    provider: 'google',
+                    options: { redirectTo: `${window.location.origin}/` },
+                  })
+                  .then(({ error }) => {
+                    if (error) setFormError(t('auth.googleFailed'))
+                  })
+              }}
+            >
+              {t('auth.google')}
             </button>
           </div>
         </form>

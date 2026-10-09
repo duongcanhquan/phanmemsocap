@@ -10,7 +10,8 @@
     "courses": "কোর্স",
     "classes": "ক্লাস",
     "lessons": "পাঠ",
-    "accounts": "অ্যাকাউন্ট"
+    "accounts": "অ্যাকাউন্ট",
+    "ai": "এআই মডেল"
   },
   "header": {
     "language": "ভাষা",
@@ -107,6 +108,8 @@
     "passwordRequired": "পাসওয়ার্ড লিখুন।",
     "passwordShort": "পাসওয়ার্ড কমপক্ষে ৬ অক্ষরের হতে হবে।",
     "invalidCredentials": "ইমেইল বা পাসওয়ার্ড সঠিক নয়।",
+    "google": "Antigravity-এর Google অ্যাকাউন্ট দিয়ে ঢুকুন",
+    "googleFailed": "Supabase-এ Google লগইন চালু নেই।",
     "missingProfile": "এই অ্যাকাউন্টে এখনও কোনো ভূমিকা নেই।",
     "unauthorizedTitle": "প্রবেশাধিকার নেই",
     "unauthorizedLead": "এই অ্যাকাউন্ট সেই পাতা খুলতে পারে না।",
@@ -175,7 +178,8 @@
     "title": "পাঠ সহকারী",
     "model": "মডেল",
     "working": "লেখা হচ্ছে...",
-    "failed": "বিষয় তৈরি হয়নি। সার্ভারের AI গেটওয়ে দেখুন।",
+    "failed": "বিষয় তৈরি হয়নি। ব্যবস্থাপনায় এআই সংযোগ দেখুন।",
+    "noModel": "কোনো মডেল চালু নেই। API key দিন।",
     "insert": "পাঠে বসান",
     "previous": "আগে",
     "next": "পরে",
@@ -184,6 +188,33 @@
       "terms": "কারিগরি শব্দ ব্যাখ্যা",
       "quiz": "বহুনির্বাচনি প্রশ্ন তৈরি",
       "slides": "AI দিয়ে স্লাইড তৈরি"
+    }
+  },
+  "aiSettings": {
+    "title": "এআই মডেল সংযোগ",
+    "lead": "প্রতিটি কোম্পানির API key দিন, তারপর পাঠ তৈরির জন্য মডেল বেছে নিন।",
+    "antigravity": "Antigravity Google অ্যাকাউন্ট ব্যবহার করে। সেই অ্যাকাউন্ট দিয়ে Google AI Studio-তে Gemini API key তৈরি করে Gemini ঘরে বসান। লগইন পাতার Google বোতাম একই অ্যাকাউন্ট ব্যবহার করে।",
+    "loading": "সংযোগ লোড হচ্ছে...",
+    "enabled": "চালু",
+    "apiKey": "API key",
+    "models": "মডেল",
+    "keyMissing": "এখনও API key নেই।",
+    "keySaved": "Key {{hint}} সংরক্ষিত। না বদলালে খালি রাখুন।",
+    "save": "সংরক্ষণ",
+    "saving": "সংরক্ষণ হচ্ছে...",
+    "saved": "এআই সংযোগ সংরক্ষিত হয়েছে।",
+    "providers": {
+      "openai": "OpenAI",
+      "gemini": "Gemini (Google / Antigravity)",
+      "deepseek": "DeepSeek"
+    },
+    "errors": {
+      "failed": "হয়নি। আবার চেষ্টা করুন।",
+      "missing-supabase": "Supabase সংযুক্ত নয়।",
+      "forbidden": "শুধু প্রশাসক এআই সংযোগ সংরক্ষণ করতে পারেন।",
+      "invalid-key": "API key সঠিক নয়।",
+      "save-failed": "সংরক্ষণ হয়নি।",
+      "unauthorized": "আবার প্রবেশ করুন।"
     }
   },
   "reports": {

@@ -10,7 +10,8 @@
     "courses": "Khóa học",
     "classes": "Lớp học",
     "lessons": "Bài giảng",
-    "accounts": "Tài khoản"
+    "accounts": "Tài khoản",
+    "ai": "Mô hình AI"
   },
   "header": {
     "language": "Ngôn ngữ",
@@ -107,6 +108,8 @@
     "passwordRequired": "Nhập mật khẩu.",
     "passwordShort": "Mật khẩu cần ít nhất 6 ký tự.",
     "invalidCredentials": "Email hoặc mật khẩu không đúng.",
+    "google": "Đăng nhập bằng tài khoản Google của Antigravity",
+    "googleFailed": "Chưa bật đăng nhập Google trên Supabase. Thêm Google provider rồi thử lại.",
     "missingProfile": "Tài khoản chưa có vai trò trong hồ sơ.",
     "unauthorizedTitle": "Không có quyền truy cập",
     "unauthorizedLead": "Tài khoản này không được mở trang vừa chọn.",
@@ -180,7 +183,8 @@
     "title": "Trợ lý soạn bài",
     "model": "Mô hình",
     "working": "Đang soạn...",
-    "failed": "Không tạo được nội dung. Kiểm tra cổng AI trên máy chủ.",
+    "failed": "Không tạo được nội dung. Kiểm tra kết nối AI trong phần quản lý.",
+    "noModel": "Chưa bật mô hình nào. Vào Mô hình AI để dán API key.",
     "insert": "Chèn vào bài giảng",
     "previous": "Trước",
     "next": "Sau",
@@ -189,6 +193,33 @@
       "terms": "Giải thích thuật ngữ kỹ thuật",
       "quiz": "Tạo câu hỏi trắc nghiệm",
       "slides": "Tạo slide bài giảng bằng AI"
+    }
+  },
+  "aiSettings": {
+    "title": "Kết nối mô hình AI",
+    "lead": "Dán API key của từng hãng rồi chọn mô hình được phép dùng khi soạn bài.",
+    "antigravity": "Antigravity dùng tài khoản Google. Tạo API key Gemini trong Google AI Studio bằng đúng tài khoản đó, rồi dán vào ô Gemini. Nút đăng nhập Google trên trang đăng nhập dùng cùng tài khoản.",
+    "loading": "Đang tải kết nối...",
+    "enabled": "Bật",
+    "apiKey": "API key",
+    "models": "Mô hình",
+    "keyMissing": "Chưa có API key.",
+    "keySaved": "Đã lưu key {{hint}}. Để trống nếu giữ nguyên.",
+    "save": "Lưu kết nối",
+    "saving": "Đang lưu...",
+    "saved": "Đã lưu kết nối AI.",
+    "providers": {
+      "openai": "OpenAI",
+      "gemini": "Gemini (Google / Antigravity)",
+      "deepseek": "DeepSeek"
+    },
+    "errors": {
+      "failed": "Không thực hiện được. Hãy thử lại.",
+      "missing-supabase": "Chưa kết nối Supabase.",
+      "forbidden": "Chỉ quản trị mới lưu kết nối AI.",
+      "invalid-key": "API key chưa đúng.",
+      "save-failed": "Không lưu được kết nối.",
+      "unauthorized": "Hãy đăng nhập lại."
     }
   },
   "reports": {
