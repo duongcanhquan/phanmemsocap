@@ -1,0 +1,26 @@
+---
+description: Tailwind and UI conventions for the light training console
+globs: src/**/*.{tsx,css}
+alwaysApply: false
+---
+
+# Tailwind UI
+
+- Style with Tailwind utilities and the tokens in `src/index.css` (`bg-canvas`, `bg-surface`, `text-ink`, `text-muted`, `border-line`, `bg-accent`).
+- Mobile-first. Add `sm:`, `lg:` only to enhance. Phone navigation is the bottom bar (max 5 items). Desktop uses the sidebar.
+- Interactive controls are at least 44px (`h-11`), use `cursor-pointer`, and a 200ms transition.
+- Use Lucide icons. Do not use emoji as icons.
+- Buttons use `ui-btn`, `ui-btn-primary`, or `ui-btn-ghost`. Cards use `ui-card`.
+- Do not convey state by color alone: pair color with weight, an icon, or a text label.
+- Images use a set width and height or `aspect-ratio`, and `loading="lazy"` when below the fold.
+
+```tsx
+// ❌ BAD
+<button className="bg-[#0369A1] p-1">🚀</button>
+
+// ✅ GOOD
+<button type="button" className="ui-btn ui-btn-primary">
+  <Plus aria-hidden="true" className="size-4" />
+  {t('editor.insert')}
+</button>
+```

@@ -1,0 +1,29 @@
+---
+description: TypeScript and React conventions for phanmemsocap
+globs: src/**/*.{ts,tsx}
+alwaysApply: false
+---
+
+# TypeScript and React
+
+- Functional components and hooks only. Type props with an interface. Do not use classes or `React.FC`.
+- Prefer `interface` for object shapes. Do not add enums; use a union or a const map.
+- Name booleans with `is`, `has`, or `can` (`isLoading`, `hasError`).
+- Use the `function` keyword for helpers. Always use curly braces on conditionals.
+- Named exports. One component per file, with its props interface in that file.
+- Put reusable state in `src/hooks`. Keep pages in `src/pages` and shared UI in `src/components`.
+- New directories use lowercase kebab-case (`components/lesson-editor`).
+
+```tsx
+// ❌ BAD
+export const Card: React.FC<{ title: string }> = ({ title }) => <h2>{title}</h2>
+
+// ✅ GOOD
+interface CardProps {
+  title: string
+}
+
+export function Card({ title }: CardProps) {
+  return <h2>{title}</h2>
+}
+```

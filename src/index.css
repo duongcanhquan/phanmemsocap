@@ -1,0 +1,152 @@
+@import 'tailwindcss';
+@plugin '@tailwindcss/typography';
+
+@theme {
+  --font-sans:
+    'Noto Sans', 'Noto Sans Myanmar', 'Noto Sans Bengali', ui-sans-serif, system-ui,
+    sans-serif;
+  --color-canvas: #f8fafc;
+  --color-surface: #ffffff;
+  --color-ink: #0f172a;
+  --color-muted: #64748b;
+  --color-line: #e2e8f0;
+  --color-accent: #0369a1;
+  --color-danger: #b91c1c;
+  --color-warning: #92400e;
+  --color-warning-bg: #fffbeb;
+}
+
+@layer base {
+  html {
+    @apply bg-canvas text-base text-ink antialiased;
+    font-family: var(--font-sans);
+    color-scheme: light;
+  }
+
+  body {
+    @apply m-0 min-h-dvh;
+  }
+
+  button,
+  a,
+  select {
+    touch-action: manipulation;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+  }
+}
+
+@layer components {
+  .ui-page {
+    @apply mx-auto flex w-full max-w-5xl flex-col gap-4;
+  }
+
+  .ui-title {
+    @apply text-2xl font-semibold tracking-tight text-ink;
+  }
+
+  .ui-lead {
+    @apply mt-1 max-w-2xl text-base leading-relaxed text-muted;
+  }
+
+  .ui-card {
+    @apply rounded-2xl bg-surface p-5 text-ink shadow-sm;
+  }
+
+  .ui-btn {
+    @apply inline-flex h-11 cursor-pointer items-center justify-center gap-2 rounded-xl px-4 text-sm font-medium transition duration-200 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .ui-btn-primary {
+    @apply bg-ink text-white hover:bg-ink/90;
+  }
+
+  .ui-btn-ghost {
+    @apply bg-surface text-ink hover:bg-canvas;
+  }
+
+  .ui-field {
+    @apply h-11 rounded-xl border border-line bg-surface px-3 text-base text-ink;
+  }
+}
+
+.lesson-editor .lesson-prose h2 {
+  margin: 1rem 0 0.5rem;
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.lesson-editor .lesson-prose h3 {
+  margin: 0.75rem 0 0.5rem;
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+
+.lesson-editor .lesson-prose p,
+.lesson-editor .lesson-prose li {
+  line-height: 1.7;
+}
+
+.lesson-editor .lesson-prose p {
+  margin: 0.5rem 0;
+}
+
+.lesson-editor .lesson-prose ul {
+  list-style: disc;
+  padding-left: 1.25rem;
+}
+
+.lesson-editor .lesson-prose ol {
+  list-style: decimal;
+  padding-left: 1.25rem;
+}
+
+.lesson-editor .lesson-prose img,
+.lesson-editor iframe {
+  max-width: 100%;
+  border-radius: 1rem;
+}
+
+.lesson-editor iframe {
+  aspect-ratio: 16 / 9;
+  width: 100%;
+  border: 0;
+}
+
+.lesson-article [data-example] {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--color-accent);
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 4px;
+}
+
+.lesson-article iframe[src*='youtube'] {
+  aspect-ratio: 16 / 9;
+  width: 100%;
+  height: auto;
+  border: 0;
+  border-radius: 1rem;
+}
+
+.lesson-article iframe.lesson-pdf {
+  width: 100%;
+  min-height: 24rem;
+  border: 0;
+  border-radius: 1rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

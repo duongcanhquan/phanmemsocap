@@ -1,0 +1,15 @@
+---
+description: Project-wide rules for phanmemsocap from the React Vite TypeScript Tailwind cursorrules set
+alwaysApply: true
+---
+
+# phanmemsocap
+
+Follow the React + Vite + TypeScript + Tailwind conventions in `.cursor/rules/`. Do not apply Vue, Next.js, DaisyUI, or unrelated stacks from the cursorrules topic.
+
+- Keep changes small. Do not delete existing code, comments, or reformat unrelated imports.
+- User-facing copy goes through `react-i18next` (`vi` default, `my`, `bn`). Do not hardcode new UI strings.
+- Never put `service_role` or other server secrets in client code. `VITE_` values are public.
+- Supabase access from the browser uses the publishable key in `src/lib/supabase.ts`.
+- New routes stay inside `AppLayout`. Heavy pages load with `React.lazy` and `Suspense`.
+- Design tokens live in `src/index.css` and `design-system/phanmemsocap/MASTER.md`: light canvas, white cards, ink buttons, accent `#0369A1`.

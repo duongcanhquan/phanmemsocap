@@ -1,0 +1,174 @@
+import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+
+export const appRoles = ['admin', 'teacher', 'student'] as const
+
+export type AppRole = (typeof appRoles)[number]
+
+export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[]
+
+type Table<Row extends Record<string, unknown>, Insert, Update = Partial<Insert>> = {
+  Row: Row
+  Insert: Insert
+  Update: Update
+  Relationships: []
+}
+
+export interface Database {
+  public: {
+    Tables: {
+      profiles: Table<
+        {
+          id: string
+          role: AppRole
+          full_name: string | null
+          language: string | null
+          created_at: string | null
+        },
+        {
+          id: string
+          role?: AppRole
+          full_name?: string | null
+          language?: string | null
+        }
+      >
+      programs: Table<
+        {
+          id: string
+          title: Json | null
+          category: string | null
+          description: Json | null
+          cover_image_url: string | null
+          teacher_id: string | null
+          is_active: boolean | null
+          created_at: string | null
+        },
+        {
+          title?: Json | null
+          category?: string | null
+          description?: Json | null
+          cover_image_url?: string | null
+          teacher_id?: string | null
+          is_active?: boolean | null
+        }
+      >
+      lessons: Table<
+        {
+          id: string
+          program_id: string | null
+          module_name: Json | null
+          title: Json | null
+          content_type: string | null
+          content_url: string | null
+          order_index: number | null
+          is_published: boolean | null
+          created_at: string | null
+        },
+        {
+          program_id?: string | null
+          module_name?: Json | null
+          title?: Json | null
+          content_type?: string | null
+          content_url?: string | null
+          order_index?: number | null
+          is_published?: boolean | null
+        }
+      >
+      quizzes: Table<
+        {
+          id: string
+          lesson_id: string | null
+          question: Json | null
+          options: Json | null
+          correct_option_index: number | null
+          is_essay: boolean | null
+          created_at: string | null
+        },
+        {
+          lesson_id?: string | null
+          question?: Json | null
+          options?: Json | null
+          correct_option_index?: number | null
+          is_essay?: boolean | null
+        }
+      >
+      quiz_submissions: Table<
+        {
+          id: string
+          student_id: string | null
+          quiz_id: string | null
+          selected_option_index: number | null
+          essay_answer: string | null
+          is_correct: boolean | null
+          score: number | null
+          teacher_feedback: string | null
+          submitted_at: string | null
+        },
+        {
+          student_id?: string | null
+          quiz_id?: string | null
+          selected_option_index?: number | null
+          essay_answer?: string | null
+          is_correct?: boolean | null
+          score?: number | null
+          teacher_feedback?: string | null
+        }
+      >
+      program_enrollments: Table<
+        {
+          id: string
+          student_id: string | null
+          program_id: string | null
+          enrollment_date: string | null
+          status: string | null
+        },
+        {
+          student_id?: string | null
+          program_id?: string | null
+          status?: string | null
+        }
+      >
+    }
+    Views: Record<string, never>
+    Functions: {
+      get_lesson_questions: {
+        Args: { lesson_id: string }
+        Returns: Json
+      }
+      submit_lesson_quiz: {
+        Args: { lesson_id: string; answers: Json }
+        Returns: Json
+      }
+      program_lesson_state: {
+        Args: { program_id: string }
+        Returns: Json
+      }
+    }
+  }
+}
+
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+const supabasePublishableKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY
+
+export const supabase: SupabaseClient<Database> | null =
+  supabaseUrl && supabasePublishableKey
+    ? createClient<Database>(supabaseUrl, supabasePublishableKey)
+    : null
+
+export const isSupabaseConfigured = supabase !== null
+
+export function isAppRole(value: string | null | undefined): value is AppRole {
+  return value === 'admin' || value === 'teacher' || value === 'student'
+}
+
+export async function fetchProfileRole(userId: string): Promise<AppRole | null> {
+  if (!supabase) {
+    return null
+  }
+
+  const { data, error } = await supabase.from('profiles').select('role').eq('id', userId).maybeSingle()
+  if (error || !isAppRole(data?.role)) {
+    return null
+  }
+
+  return data.role
+}
