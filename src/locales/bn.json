@@ -230,6 +230,7 @@
     "correct": "সঠিক উত্তর",
     "essay": "রচনামূলক",
     "remove": "মুছুন",
+    "confirmRemove": "মুছে ফেলা নিশ্চিত",
     "cancel": "বাতিল",
     "untitled": "নামহীন",
     "types": { "pdf": "PDF", "video": "ভিডিও", "text": "লেখা", "slides": "স্লাইড", "quiz": "কুইজ" }

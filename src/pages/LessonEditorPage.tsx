@@ -11,6 +11,7 @@ import { useAuth } from '../hooks/useAuth'
 import { emptyLocalized, localizedLabel } from '../lib/localized'
 import {
   lessonTypes,
+  deleteLesson,
   listLessons,
   listPrograms,
   listTeachers,
@@ -200,6 +201,7 @@ function LessonComposer({
   const [authorId, setAuthorId] = useState(lesson?.authorId || selfId)
   const [pane, setPane] = useState('write')
   const [pending, setPending] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
   const [error, setError] = useState('')
 
   async function onSubmit() {
@@ -221,6 +223,23 @@ function LessonComposer({
         orderIndex,
         authorId: authorId || selfId,
       })
+      onSaved(courseId)
+    } catch {
+      setError(t('programs.saveError'))
+      setPending(false)
+    }
+  }
+
+  async function onDelete() {
+    if (!lesson) return
+    if (!confirmDelete) {
+      setConfirmDelete(true)
+      return
+    }
+    setPending(true)
+    setError('')
+    try {
+      await deleteLesson(lesson.id)
       onSaved(courseId)
     } catch {
       setError(t('programs.saveError'))
@@ -322,6 +341,11 @@ function LessonComposer({
         ) : null}
         {error ? <p role="alert" className="text-sm text-danger">{error}</p> : null}
         <div className="ui-dialog-foot">
+          {lesson ? (
+            <button type="button" className="ui-inline bg-danger text-white" disabled={pending} onClick={() => void onDelete()}>
+              {confirmDelete ? t('programs.confirmRemove') : t('programs.remove')}
+            </button>
+          ) : null}
           <button type="button" className="ui-inline ui-btn-ghost" onClick={onClose}>{t('programs.cancel')}</button>
           <button type="button" className="ui-inline ui-btn-primary" disabled={pending} onClick={() => void onSubmit()}>
             {pending ? t('programs.saving') : t('programs.save')}

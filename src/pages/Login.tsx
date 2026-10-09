@@ -50,11 +50,11 @@ export function Login() {
 
   return (
     <div className="min-h-dvh lg:grid lg:grid-cols-2">
-      <aside className="login-stage">
+      <aside className="login-stage" aria-label={t('auth.stageTitle')}>
         <div className="factory" aria-hidden="true">
           <div className="factory-floor" />
           <div className="factory-beam" />
-          <svg className="factory-svg" viewBox="0 0 640 780" preserveAspectRatio="xMidYMin meet">
+          <svg className="factory-svg" viewBox="0 0 640 900" preserveAspectRatio="xMidYMid slice">
             <defs>
               <linearGradient id="bay" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor="#16384a" />
@@ -65,7 +65,7 @@ export function Login() {
                 <stop offset="100%" stopColor="#0369a1" />
               </linearGradient>
               <clipPath id="belt-window">
-                <rect x="48" y="430" width="544" height="120" rx="16" />
+                <rect x="48" y="500" width="544" height="130" rx="16" />
               </clipPath>
             </defs>
             <g className="factory-rail">
@@ -103,11 +103,11 @@ export function Login() {
               <circle className="factory-led" cx="420" cy="318" r="6" fill="#38bdf8" style={{ animationDelay: '0.4s' }} />
             </g>
             <g clipPath="url(#belt-window)">
-              <rect x="48" y="430" width="544" height="120" rx="16" fill="#0b1822" stroke="#155e75" strokeOpacity="0.5" />
-              <rect x="70" y="500" width="500" height="22" rx="6" fill="#142633" />
+              <rect x="48" y="500" width="544" height="130" rx="16" fill="#0b1822" stroke="#155e75" strokeOpacity="0.5" />
+              <rect x="70" y="572" width="500" height="22" rx="6" fill="#142633" />
               <g className="factory-belt">
                 {[0, 1, 2, 3, 4, 5].map((index) => (
-                  <g key={index} transform={`translate(${70 + index * 130} 452)`}>
+                  <g key={index} transform={`translate(${70 + index * 130} 524)`}>
                     <rect width="96" height="64" rx="8" fill="#0e7490" />
                     <rect x="10" y="12" width="28" height="16" rx="3" fill="#ecfeff" />
                     <rect x="46" y="12" width="38" height="8" rx="2" fill="#67e8f9" />
@@ -120,21 +120,30 @@ export function Login() {
               </g>
             </g>
             <g className="factory-sparks">
-              <circle cx="180" cy="410" r="3" fill="#fde68a" />
-              <circle cx="420" cy="414" r="2.5" fill="#a5f3fc" />
-              <circle cx="300" cy="408" r="2" fill="#86efac" />
+              <circle cx="180" cy="480" r="3" fill="#fde68a" />
+              <circle cx="420" cy="484" r="2.5" fill="#a5f3fc" />
+              <circle cx="300" cy="476" r="2" fill="#86efac" />
+            </g>
+            <g>
+              <rect x="56" y="670" width="528" height="180" rx="18" fill="url(#bay)" stroke="#38bdf8" strokeOpacity="0.28" />
+              <rect x="80" y="698" width="480" height="8" rx="4" fill="#0b2230" />
+              <g className="factory-probe">
+                <rect x="96" y="688" width="18" height="54" rx="6" fill="#e0f2fe" />
+                <circle cx="105" cy="748" r="5" className="factory-led" fill="#22d3ee" />
+              </g>
+              {[0, 1, 2, 3, 4, 5, 6, 7].map((index) => (
+                <circle
+                  key={index}
+                  className="factory-led"
+                  cx={160 + index * 48}
+                  cy={760}
+                  r="7"
+                  fill={index % 3 === 0 ? '#34d399' : index % 3 === 1 ? '#fbbf24' : '#38bdf8'}
+                  style={{ animationDelay: `${index * 0.18}s` }}
+                />
+              ))}
             </g>
           </svg>
-        </div>
-        <div className="factory-copy">
-          <p className="text-sm font-semibold tracking-wide text-sky-200">{t('brand.school')}</p>
-          <h2 className="text-4xl font-semibold leading-tight">{t('auth.stageTitle')}</h2>
-          <p className="max-w-md text-lg leading-relaxed text-sky-100/90">{t('auth.stageLead')}</p>
-          <ol className="grid max-w-md gap-2">
-            <li className="factory-chip">{t('auth.stageLessons')}</li>
-            <li className="factory-chip">{t('auth.stagePractice')}</li>
-            <li className="factory-chip">{t('auth.stagePath')}</li>
-          </ol>
         </div>
       </aside>
       <div className="relative flex min-h-dvh items-center justify-center px-4 py-20">

@@ -8,7 +8,7 @@ import { DataTable, FilterBar, SelectFilter } from '../../components/ui/DataShee
 import { Dialog } from '../../components/ui/Dialog'
 import { PageHeader } from '../../components/ui/PageHeader'
 import { emptyLocalized, hasLocalizedText, localizedLabel, type LocalizedText } from '../../lib/localized'
-import { createProgram, listProgramTeacherIds, listPrograms, listTeachers, saveProgramTeachers, updateProgram, type ProgramRecord, type StudentRecord } from '../../lib/programs'
+import { createProgram, deleteProgram, listProgramTeacherIds, listPrograms, listTeachers, saveProgramTeachers, updateProgram, type ProgramRecord, type StudentRecord } from '../../lib/programs'
 import { isSupabaseConfigured } from '../../lib/supabase'
 
 export function ProgramManager() {
@@ -168,6 +168,10 @@ export function ProgramManager() {
             setTeacherMap((current) => ({ ...current, [saved.id]: staffIds }))
             setEditing(null)
           }}
+          onDeleted={(programId) => {
+            setPrograms((current) => current.filter((item) => item.id !== programId))
+            setEditing(null)
+          }}
         />
       ) : null}
     </div>
@@ -192,12 +196,14 @@ function ProgramDialog({
   teacherIds,
   onClose,
   onSaved,
+  onDeleted,
 }: {
   program: ProgramRecord | null
   teachers: StudentRecord[]
   teacherIds: string[]
   onClose: () => void
   onSaved: (program: ProgramRecord, teacherIds: string[]) => void
+  onDeleted?: (programId: string) => void
 }) {
   const { t } = useTranslation()
   const [title, setTitle] = useState<LocalizedText>(program?.title ?? emptyLocalized())
@@ -208,6 +214,7 @@ function ProgramDialog({
   const [isActive, setIsActive] = useState(program?.isActive ?? true)
   const [error, setError] = useState('')
   const [pending, setPending] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault()
@@ -222,6 +229,23 @@ function ProgramDialog({
       if (program) await updateProgram(program.id, input)
       await saveProgramTeachers(id, staffIds)
       onSaved({ ...(program ?? { id }), ...input, id }, staffIds)
+    } catch {
+      setError(t('programs.saveError'))
+      setPending(false)
+    }
+  }
+
+  async function onDelete() {
+    if (!program || !onDeleted) return
+    if (!confirmDelete) {
+      setConfirmDelete(true)
+      return
+    }
+    setPending(true)
+    setError('')
+    try {
+      await deleteProgram(program.id)
+      onDeleted(program.id)
     } catch {
       setError(t('programs.saveError'))
       setPending(false)
@@ -284,6 +308,11 @@ function ProgramDialog({
             </p>
           ) : null}
           <div className="ui-dialog-foot lg:col-span-2">
+            {program && onDeleted ? (
+              <button type="button" className="ui-btn bg-danger text-white" disabled={pending} onClick={() => void onDelete()}>
+                {confirmDelete ? t('programs.confirmRemove') : t('programs.remove')}
+              </button>
+            ) : null}
             <button type="button" className="ui-btn ui-btn-ghost border border-line" onClick={onClose}>
               {t('programs.cancel')}
             </button>

@@ -201,6 +201,11 @@ export async function saveLessonContent(lessonId: string, contentUrl: string): P
   if (error) throw error
 }
 
+export async function deleteProgram(programId: string): Promise<void> {
+  const { error } = await client().from('programs').delete().eq('id', programId)
+  if (error) throw error
+}
+
 export async function deleteLesson(lessonId: string): Promise<void> {
   const db = client()
   const quizzes = await db.from('quizzes').delete().eq('lesson_id', lessonId)
