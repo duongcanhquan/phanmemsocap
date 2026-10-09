@@ -50,16 +50,90 @@ export function Login() {
 
   return (
     <div className="min-h-dvh lg:grid lg:grid-cols-2">
-      <aside className="login-stage px-10 xl:px-16">
-        <div className="login-orbit" aria-hidden="true" />
-        <div className="relative z-10 grid max-w-lg gap-6">
+      <aside className="login-stage">
+        <div className="factory" aria-hidden="true">
+          <div className="factory-floor" />
+          <div className="factory-beam" />
+          <svg className="factory-svg" viewBox="0 0 640 780" preserveAspectRatio="xMidYMin meet">
+            <defs>
+              <linearGradient id="bay" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#16384a" />
+                <stop offset="100%" stopColor="#0c1e2b" />
+              </linearGradient>
+              <linearGradient id="copper" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stopColor="#67e8f9" />
+                <stop offset="100%" stopColor="#0369a1" />
+              </linearGradient>
+              <clipPath id="belt-window">
+                <rect x="48" y="430" width="544" height="120" rx="16" />
+              </clipPath>
+            </defs>
+            <g className="factory-rail">
+              <rect x="48" y="78" width="544" height="10" rx="5" fill="#1b3344" />
+              <rect x="48" y="118" width="544" height="4" rx="2" fill="#0ea5e9" opacity="0.35" />
+            </g>
+            <g>
+              <rect x="56" y="150" width="250" height="250" rx="18" fill="url(#bay)" stroke="#38bdf8" strokeOpacity="0.35" />
+              <rect x="78" y="172" width="206" height="10" rx="5" fill="#0b2230" />
+              <path d="M90 250 H150 M150 250 V300 H210 M110 280 H190" fill="none" stroke="#22d3ee" strokeOpacity="0.45" strokeWidth="2" />
+              <circle cx="150" cy="250" r="4" fill="#67e8f9" />
+              <circle cx="210" cy="300" r="4" fill="#fbbf24" />
+              <g className="factory-head">
+                <rect x="86" y="164" width="46" height="18" rx="6" fill="#e0f2fe" />
+                <rect x="102" y="182" width="14" height="36" rx="4" fill="#7dd3fc" />
+                <circle cx="109" cy="224" r="5" className="factory-led" fill="#22d3ee" />
+              </g>
+              <g className="factory-arm">
+                <path d="M250 210 H310" stroke="#7dd3fc" strokeWidth="6" strokeLinecap="round" />
+                <circle cx="318" cy="210" r="10" fill="#0369a1" stroke="#a5f3fc" />
+              </g>
+            </g>
+            <g>
+              <rect x="334" y="150" width="250" height="250" rx="18" fill="url(#bay)" stroke="#38bdf8" strokeOpacity="0.28" />
+              <rect x="358" y="178" width="202" height="120" rx="12" fill="#07141d" stroke="#164e63" />
+              <path
+                className="factory-trace"
+                d="M372 250 C400 190 430 300 458 230 S520 200 546 248"
+                fill="none"
+                stroke="url(#copper)"
+                strokeWidth="3"
+              />
+              <circle className="factory-led" cx="372" cy="318" r="6" fill="#34d399" />
+              <circle className="factory-led factory-led-late" cx="396" cy="318" r="6" fill="#fbbf24" />
+              <circle className="factory-led" cx="420" cy="318" r="6" fill="#38bdf8" style={{ animationDelay: '0.4s' }} />
+            </g>
+            <g clipPath="url(#belt-window)">
+              <rect x="48" y="430" width="544" height="120" rx="16" fill="#0b1822" stroke="#155e75" strokeOpacity="0.5" />
+              <rect x="70" y="500" width="500" height="22" rx="6" fill="#142633" />
+              <g className="factory-belt">
+                {[0, 1, 2, 3, 4, 5].map((index) => (
+                  <g key={index} transform={`translate(${70 + index * 130} 452)`}>
+                    <rect width="96" height="64" rx="8" fill="#0e7490" />
+                    <rect x="10" y="12" width="28" height="16" rx="3" fill="#ecfeff" />
+                    <rect x="46" y="12" width="38" height="8" rx="2" fill="#67e8f9" />
+                    <rect x="46" y="28" width="28" height="8" rx="2" fill="#0369a1" />
+                    <circle cx="22" cy="46" r="5" fill="#fbbf24" />
+                    <circle cx="42" cy="46" r="5" fill="#34d399" />
+                    <circle cx="70" cy="46" r="5" fill="#38bdf8" />
+                  </g>
+                ))}
+              </g>
+            </g>
+            <g className="factory-sparks">
+              <circle cx="180" cy="410" r="3" fill="#fde68a" />
+              <circle cx="420" cy="414" r="2.5" fill="#a5f3fc" />
+              <circle cx="300" cy="408" r="2" fill="#86efac" />
+            </g>
+          </svg>
+        </div>
+        <div className="factory-copy">
           <p className="text-sm font-semibold tracking-wide text-sky-200">{t('brand.school')}</p>
           <h2 className="text-4xl font-semibold leading-tight">{t('auth.stageTitle')}</h2>
-          <p className="text-lg leading-relaxed text-sky-100/90">{t('auth.stageLead')}</p>
-          <ol className="grid gap-3">
-            <li className="login-float rounded-2xl border border-white/20 bg-white/10 px-4 py-3 backdrop-blur-md">{t('auth.stageLessons')}</li>
-            <li className="login-float login-float-late rounded-2xl border border-white/20 bg-white/10 px-4 py-3 backdrop-blur-md">{t('auth.stagePractice')}</li>
-            <li className="login-float rounded-2xl border border-white/20 bg-white/10 px-4 py-3 backdrop-blur-md" style={{ animationDelay: '2.1s' }}>{t('auth.stagePath')}</li>
+          <p className="max-w-md text-lg leading-relaxed text-sky-100/90">{t('auth.stageLead')}</p>
+          <ol className="grid max-w-md gap-2">
+            <li className="factory-chip">{t('auth.stageLessons')}</li>
+            <li className="factory-chip">{t('auth.stagePractice')}</li>
+            <li className="factory-chip">{t('auth.stagePath')}</li>
           </ol>
         </div>
       </aside>
