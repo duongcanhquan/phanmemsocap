@@ -28,9 +28,20 @@
   "dashboard": {
     "title": "Tổng quan",
     "subtitle": "Theo dõi học viên, khóa học và lớp học sơ cấp.",
-    "learners": "Học viên",
+    "learners": "Học viên đang học",
     "courses": "Khóa học",
     "classes": "Lớp đang mở",
+    "completion": "Tỷ lệ hoàn thành",
+    "inactive": "Im hơn {{days}} ngày",
+    "inactiveTitle": "Học viên im hơn {{days}} ngày",
+    "inactiveLead": "Tính từ lần nộp bài hoặc lần học gần nhất. Người mới ghi danh trong khoảng này không bị tính.",
+    "inactiveEmpty": "Không có học viên nào im quá hạn.",
+    "student": "Học viên",
+    "program": "Chương trình",
+    "lastSeen": "Lần học gần nhất",
+    "never": "Chưa có",
+    "unnamed": "Chưa có tên",
+    "loadError": "Không tải được tổng quan.",
     "emptyValue": "—"
   },
   "pages": {

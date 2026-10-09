@@ -27,6 +27,7 @@ export interface Database {
           national_id: string | null
           photo_url: string | null
           phone: string | null
+          status: string | null
           created_at: string | null
         },
         {
@@ -150,6 +151,10 @@ export interface Database {
       }
       program_lesson_state: {
         Args: { program_id: string }
+        Returns: Json
+      }
+      school_overview: {
+        Args: Record<string, never>
         Returns: Json
       }
     }
