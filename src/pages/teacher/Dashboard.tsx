@@ -9,6 +9,7 @@ import { Tabs } from '../../components/ui/Tabs'
 import { useAuth } from '../../hooks/useAuth'
 import { localizedLabel } from '../../lib/localized'
 import { listClasses, listPrograms, type CourseClass, type ProgramRecord } from '../../lib/programs'
+import { countsInClass, studyStatuses } from '../../lib/accounts'
 import { isSchoolAdmin } from '../../lib/roles'
 import { isSupabaseConfigured } from '../../lib/supabase'
 import { listTeacherRoster, type RosterRow } from '../../lib/teacher'
@@ -24,6 +25,7 @@ export function TeacherDashboard() {
   const [tab, setTab] = useState<'class' | 'course'>('class')
   const [query, setQuery] = useState('')
   const [courseFilter, setCourseFilter] = useState('all')
+  const [studyFilter, setStudyFilter] = useState('studying')
   const [selectedClass, setSelectedClass] = useState('')
   const [selectedCourse, setSelectedCourse] = useState<string | null>(null)
 
@@ -49,7 +51,7 @@ export function TeacherDashboard() {
   }, [t, user, role])
 
   const classes = catalog.map((item) => {
-    const members = rows.filter((row) => row.classId === item.id)
+    const members = rows.filter((row) => row.classId === item.id && countsInClass(row.studyStatus))
     const program = programs.find((row) => row.id === item.programId)
     const scores = members.map((row) => row.averageScore).filter((score): score is number => score !== null)
     const progress = members.length === 0 ? 0 : Math.round(members.reduce((sum, row) => sum + row.progress, 0) / members.length)
@@ -83,7 +85,10 @@ export function TeacherDashboard() {
     return matchesCourse && title.includes(needle)
   })
   const visibleCourses = courses.filter((item) => localizedLabel(item.title, i18n.language).toLowerCase().includes(needle))
-  const classRows = rows.filter((row) => row.classId === selectedClass && row.studentName.toLowerCase().includes(needle))
+  const classRows = rows.filter((row) => {
+    const matchesStudy = studyFilter === 'all' || row.studyStatus === studyFilter
+    return row.classId === selectedClass && matchesStudy && row.studentName.toLowerCase().includes(needle)
+  })
   const openClass = classes.find((item) => item.id === selectedClass)
 
   return (
@@ -165,11 +170,27 @@ export function TeacherDashboard() {
             </p>
             <Link to={`/programs/${openClass.programId}`} className="ui-inline ui-btn-primary">{t('classesPage.manage')}</Link>
           </div>
-          <FilterBar query={query} onQuery={setQuery} count={classRows.length} />
+          <FilterBar query={query} onQuery={setQuery} count={classRows.length}>
+            <SelectFilter
+              id="class-study"
+              label={t('accounts.studyStatus')}
+              value={studyFilter}
+              onChange={setStudyFilter}
+              options={[
+                { value: 'studying', label: t('accounts.study.studying') },
+                { value: 'all', label: t('filters.all') },
+                ...studyStatuses.filter((status) => status !== 'studying').map((status) => ({
+                  value: status,
+                  label: t(`accounts.study.${status}`),
+                })),
+              ]}
+            />
+          </FilterBar>
           <DataTable>
             <thead>
               <tr>
                 <th>{t('teacher.student')}</th>
+                <th>{t('accounts.studyStatus')}</th>
                 <th>{t('teacher.progress')}</th>
                 <th>{t('teacher.average')}</th>
                 <th>{t('teacher.action')}</th>
@@ -179,6 +200,7 @@ export function TeacherDashboard() {
               {classRows.map((row) => (
                 <tr key={row.studentId}>
                   <td className="font-medium text-ink">{row.studentName || t('enrollment.unnamed')}</td>
+                  <td>{t(`accounts.study.${row.studyStatus}`, { defaultValue: row.studyStatus })}</td>
                   <td className="tabular-nums">{row.progress}%</td>
                   <td className="tabular-nums">{row.averageScore === null ? t('teacher.noScore') : row.averageScore.toFixed(1)}</td>
                   <td>

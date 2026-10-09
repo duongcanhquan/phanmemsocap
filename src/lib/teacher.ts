@@ -11,6 +11,7 @@ export type RosterRow = {
   className: string
   progress: number
   averageScore: number | null
+  studyStatus: string
 }
 
 export type StudyEntry = {
@@ -73,8 +74,8 @@ export async function listTeacherRoster(): Promise<RosterRow[]> {
   ]
   const profiles =
     studentIds.length === 0
-      ? { data: [], error: null }
-      : await db.from('profiles').select('id, full_name').in('id', studentIds)
+      ? { data: [] as { id: string; full_name: string | null; status: string | null }[], error: null }
+      : await db.from('profiles').select('id, full_name, status').in('id', studentIds)
   if (profiles.error) throw profiles.error
 
   const quizIds = (quizzes.data ?? []).map((quiz) => quiz.id)
@@ -102,6 +103,7 @@ export async function listTeacherRoster(): Promise<RosterRow[]> {
   if (classRows.error) throw classRows.error
   const classNames = new Map((classRows.data ?? []).map((item) => [item.id, item.name]))
   const names = new Map((profiles.data ?? []).map((profile) => [profile.id, profile.full_name ?? '']))
+  const studyByStudent = new Map((profiles.data ?? []).map((profile) => [profile.id, profile.status || 'studying']))
   const titles = new Map(programRows.map((program) => [program.id, asLocalized(program.title)]))
   const categories = new Map(programRows.map((program) => [program.id, program.category ?? '']))
 
@@ -126,6 +128,7 @@ export async function listTeacherRoster(): Promise<RosterRow[]> {
         category: categories.get(programId) ?? '',
         classId: row.class_id as string,
         className: classNames.get(row.class_id as string) ?? '',
+        studyStatus: studyByStudent.get(studentId) ?? 'studying',
         progress,
         averageScore,
       }

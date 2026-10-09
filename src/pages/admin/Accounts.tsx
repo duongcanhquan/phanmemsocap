@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ExportButtons } from '../../components/ExportButtons'
-import { DataTable, FilterBar } from '../../components/ui/DataSheet'
+import { DataTable, FilterBar, SelectFilter } from '../../components/ui/DataSheet'
 import { Dialog } from '../../components/ui/Dialog'
 import { PageHeader } from '../../components/ui/PageHeader'
 import { Tabs } from '../../components/ui/Tabs'
@@ -16,9 +16,13 @@ import {
   listAccounts,
   parseAccountCsv,
   rolesFor,
+  studyStatuses,
   updateAccount,
+  visaStatuses,
   type AccountInput,
   type AccountPerson,
+  type StudyStatus,
+  type VisaStatus,
 } from '../../lib/accounts'
 import { isR2Configured, uploadToR2 } from '../../lib/r2'
 import { isSupabaseConfigured, type AppRole } from '../../lib/supabase'
@@ -34,6 +38,10 @@ const emptyPerson = (role: AppRole): AccountInput => ({
   nationalId: '',
   phone: '',
   photoUrl: '',
+  studyStatus: 'studying',
+  isForeign: false,
+  visaStatus: '',
+  visaExpiresOn: '',
 })
 
 export function Accounts() {
@@ -41,6 +49,7 @@ export function Accounts() {
   const { user, role } = useAuth()
   const [people, setPeople] = useState<AccountPerson[]>([])
   const [query, setQuery] = useState('')
+  const [studyFilter, setStudyFilter] = useState('all')
   const [loading, setLoading] = useState(isSupabaseConfigured)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
@@ -81,7 +90,8 @@ export function Accounts() {
   const visible = people.filter((person) => {
     const inTab = tab === 'manager' ? person.role === 'admin' || person.role === 'superadmin' : person.role === tab
     const haystack = `${person.fullName} ${person.email} ${person.phone} ${person.nationalId} ${person.passport}`.toLowerCase()
-    return inTab && haystack.includes(query.trim().toLowerCase())
+    const matchesStudy = tab !== 'student' || studyFilter === 'all' || person.studyStatus === studyFilter
+    return inTab && matchesStudy && haystack.includes(query.trim().toLowerCase())
   })
 
   return (
@@ -92,15 +102,29 @@ export function Accounts() {
           <ExportButtons
             filename={`tai-khoan-${tab}`}
             title={t(`accounts.tabs.${tab}`)}
-            headers={[t('accounts.name'), t('accounts.email'), t('accounts.role'), t('accounts.dateOfBirth'), t('accounts.phone'), t('accounts.nationalId'), t('accounts.passport')]}
+            headers={[
+              t('accounts.name'),
+              t('accounts.email'),
+              t('accounts.role'),
+              t('accounts.studyStatus'),
+              t('accounts.dateOfBirth'),
+              t('accounts.phone'),
+              t('accounts.nationalId'),
+              t('accounts.passport'),
+              t('accounts.visaStatus'),
+              t('accounts.visaExpires'),
+            ]}
             rows={visible.map((person) => [
               person.fullName || t('accounts.unnamed'),
               person.email,
               t(`accounts.roles.${person.role}`),
+              person.role === 'student' ? t(`accounts.study.${person.studyStatus}`) : '',
               person.dateOfBirth,
               person.phone,
               person.nationalId,
               person.passport,
+              person.isForeign && person.visaStatus ? t(`accounts.visa.${person.visaStatus}`) : '',
+              person.isForeign ? person.visaExpiresOn : '',
             ])}
           />
         }
@@ -124,6 +148,18 @@ export function Accounts() {
       />
       <div className="ui-fill flex flex-col">
       <FilterBar query={query} onQuery={setQuery} count={visible.length}>
+        {tab === 'student' ? (
+          <SelectFilter
+            id="student-study"
+            label={t('accounts.studyStatus')}
+            value={studyFilter}
+            onChange={setStudyFilter}
+            options={[
+              { value: 'all', label: t('filters.all') },
+              ...studyStatuses.map((status) => ({ value: status, label: t(`accounts.study.${status}`) })),
+            ]}
+          />
+        ) : null}
         {canCreate ? (
           <button type="button" className="ui-inline ui-btn-primary shrink-0" onClick={() => setCreating(true)}>
             {t('accounts.create')}
@@ -149,7 +185,9 @@ export function Accounts() {
               <th className="px-3 py-3 font-medium">{t('accounts.dateOfBirth')}</th>
               <th className="px-3 py-3 font-medium">{t('accounts.phone')}</th>
               <th className="px-3 py-3 font-medium">{t('accounts.nationalId')}</th>
+              {tab === 'student' ? <th className="px-3 py-3 font-medium">{t('accounts.studyStatus')}</th> : null}
               <th className="px-3 py-3 font-medium">{t('accounts.passport')}</th>
+              {tab === 'student' ? <th className="px-3 py-3 font-medium">{t('accounts.visaExpires')}</th> : null}
               <th className="px-3 py-3 font-medium">{t('teacher.action')}</th>
             </tr>
           </thead>
@@ -173,7 +211,11 @@ export function Accounts() {
                 <td className="px-3 py-2 text-ink">{person.dateOfBirth}</td>
                 <td className="px-3 py-2 text-ink">{person.phone}</td>
                 <td className="px-3 py-2 text-ink">{person.nationalId}</td>
+                {tab === 'student' ? <td className="px-3 py-2 text-ink">{t(`accounts.study.${person.studyStatus}`)}</td> : null}
                 <td className="px-3 py-2 text-ink">{person.passport}</td>
+                {tab === 'student' ? (
+                  <td className="px-3 py-2 text-ink">{person.isForeign ? person.visaExpiresOn || '—' : '—'}</td>
+                ) : null}
                 <td className="px-3 py-2">
                   {canEditPerson(role, person, user?.id) ? (
                     <span className="inline-flex gap-2" onClick={(event) => event.stopPropagation()}>
@@ -262,6 +304,10 @@ export function Accounts() {
               nationalId: editing.nationalId,
               phone: editing.phone,
               photoUrl: editing.photoUrl,
+              studyStatus: editing.studyStatus,
+              isForeign: editing.isForeign,
+              visaStatus: editing.visaStatus,
+              visaExpiresOn: editing.visaExpiresOn,
             }}
             allowed={editing.id === user?.id ? [editing.role] : allowed}
             emailLocked
@@ -348,6 +394,58 @@ function PersonForm({
       <TextField id={`${title}-phone`} label={t('accounts.phone')} value={draft.phone} onChange={(value) => setField('phone', value)} />
       <TextField id={`${title}-id`} label={t('accounts.nationalId')} value={draft.nationalId} onChange={(value) => setField('nationalId', value)} />
       <TextField id={`${title}-passport`} label={t('accounts.passport')} value={draft.passport} onChange={(value) => setField('passport', value)} />
+      {draft.role === 'student' ? (
+        <>
+          <label className="grid gap-1 text-sm font-medium text-ink" htmlFor={`${title}-study`}>
+            {t('accounts.studyStatus')}
+            <select
+              id={`${title}-study`}
+              className="ui-field"
+              value={draft.studyStatus}
+              onChange={(event) => setField('studyStatus', event.target.value as StudyStatus)}
+            >
+              {studyStatuses.map((status) => (
+                <option key={status} value={status}>{t(`accounts.study.${status}`)}</option>
+              ))}
+            </select>
+          </label>
+          <label className="flex min-h-11 items-center gap-2 text-sm font-medium text-ink" htmlFor={`${title}-foreign`}>
+            <input
+              id={`${title}-foreign`}
+              type="checkbox"
+              className="size-4"
+              checked={draft.isForeign}
+              onChange={(event) => setDraft((current) => ({ ...current, isForeign: event.target.checked }))}
+            />
+            {t('accounts.foreign')}
+          </label>
+          {draft.isForeign ? (
+            <>
+              <label className="grid gap-1 text-sm font-medium text-ink" htmlFor={`${title}-visa`}>
+                {t('accounts.visaStatus')}
+                <select
+                  id={`${title}-visa`}
+                  className="ui-field"
+                  value={draft.visaStatus}
+                  onChange={(event) => setField('visaStatus', event.target.value as VisaStatus | '')}
+                >
+                  <option value="">{t('accounts.visaUnset')}</option>
+                  {visaStatuses.map((status) => (
+                    <option key={status} value={status}>{t(`accounts.visa.${status}`)}</option>
+                  ))}
+                </select>
+              </label>
+              <TextField
+                id={`${title}-visa-date`}
+                label={t('accounts.visaExpires')}
+                type="date"
+                value={draft.visaExpiresOn}
+                onChange={(value) => setField('visaExpiresOn', value)}
+              />
+            </>
+          ) : null}
+        </>
+      ) : null}
       <div className="ui-dialog-foot sm:col-span-2">
         {onCancel ? (
           <button type="button" className="ui-btn ui-btn-ghost border border-line" onClick={onCancel}>{t('accounts.cancel')}</button>

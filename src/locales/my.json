@@ -441,6 +441,22 @@
     "phone": "ဖုန်း",
     "nationalId": "မှတ်ပုံတင်",
     "passport": "ပတ်စပို့",
+    "studyStatus": "ပညာသင် အခြေအနေ",
+    "foreign": "နိုင်ငံခြား ကျောင်းသား",
+    "visaStatus": "ဗီဇာ အခြေအနေ",
+    "visaExpires": "ဗီဇာ ကုန်ဆုံးရက်",
+    "visaUnset": "မဖြည့်ရသေး",
+    "study": {
+      "studying": "တက်ရောက်ဆဲ",
+      "paused": "ခေတ္တရပ်",
+      "dropped": "ပျက်ကွက်",
+      "withdrawn": "ထွက်ခွာ"
+    },
+    "visa": {
+      "valid": "သက်တမ်းရှိ",
+      "pending": "လျှောက်ထားဆဲ",
+      "expired": "သက်တမ်းကုန်"
+    },
     "photo": "ဓာတ်ပုံ",
     "uploadPhoto": "ဓာတ်ပုံ တင်ရန်",
     "photoUrl": "https ဓာတ်ပုံလင့်",

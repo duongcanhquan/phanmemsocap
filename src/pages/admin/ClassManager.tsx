@@ -6,6 +6,7 @@ import { Dialog } from '../../components/ui/Dialog'
 import { DataTable, FilterBar, SelectFilter } from '../../components/ui/DataSheet'
 import { PageHeader } from '../../components/ui/PageHeader'
 import { localizedLabel } from '../../lib/localized'
+import { countsInClass } from '../../lib/accounts'
 import { createClass, listClasses, listPrograms, type CourseClass, type ProgramRecord } from '../../lib/programs'
 import { isSupabaseConfigured } from '../../lib/supabase'
 import { listTeacherRoster } from '../../lib/teacher'
@@ -36,7 +37,7 @@ export function ClassManager() {
         setClasses(classRows)
         const nextCounts: Record<string, number> = {}
         const buckets: Record<string, number[]> = {}
-        for (const row of roster) {
+        for (const row of roster.filter((item) => countsInClass(item.studyStatus))) {
           nextCounts[row.classId] = (nextCounts[row.classId] ?? 0) + 1
           const list = buckets[row.classId] ?? []
           list.push(row.progress)

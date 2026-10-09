@@ -441,6 +441,22 @@
     "phone": "ফোন",
     "nationalId": "জাতীয় পরিচয়পত্র",
     "passport": "পাসপোর্ট",
+    "studyStatus": "পড়ালেখার অবস্থা",
+    "foreign": "বিদেশি শিক্ষার্থী",
+    "visaStatus": "ভিসার অবস্থা",
+    "visaExpires": "ভিসার শেষ তারিখ",
+    "visaUnset": "এখনও নেই",
+    "study": {
+      "studying": "পড়ছে",
+      "paused": "সাময়িক বন্ধ",
+      "dropped": "পড়া ছাড়া",
+      "withdrawn": "পড়ালেখা ছেড়েছে"
+    },
+    "visa": {
+      "valid": "মেয়াদ আছে",
+      "pending": "আবেদন চলছে",
+      "expired": "মেয়াদ শেষ"
+    },
     "photo": "ছবি",
     "uploadPhoto": "ছবি আপলোড",
     "photoUrl": "https ছবির লিংক",

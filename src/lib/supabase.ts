@@ -28,6 +28,9 @@ export interface Database {
           photo_url: string | null
           phone: string | null
           status: string | null
+          is_foreign: boolean
+          visa_status: string | null
+          visa_expires_on: string | null
           created_at: string | null
         },
         {
@@ -40,6 +43,10 @@ export interface Database {
           national_id?: string | null
           photo_url?: string | null
           phone?: string | null
+          status?: string | null
+          is_foreign?: boolean
+          visa_status?: string | null
+          visa_expires_on?: string | null
         }
       >
       programs: Table<

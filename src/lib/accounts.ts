@@ -1,5 +1,14 @@
 import { isAppRole, supabase, type AppRole } from './supabase'
 
+export const studyStatuses = ['studying', 'paused', 'dropped', 'withdrawn'] as const
+export type StudyStatus = (typeof studyStatuses)[number]
+export const visaStatuses = ['valid', 'pending', 'expired'] as const
+export type VisaStatus = (typeof visaStatuses)[number]
+
+export function countsInClass(status: string) {
+  return status === 'studying'
+}
+
 export type AccountPerson = {
   id: string
   email: string
@@ -11,6 +20,10 @@ export type AccountPerson = {
   nationalId: string
   phone: string
   photoUrl: string
+  studyStatus: StudyStatus
+  isForeign: boolean
+  visaStatus: VisaStatus | ''
+  visaExpiresOn: string
 }
 
 export type AccountInput = {
@@ -24,6 +37,10 @@ export type AccountInput = {
   nationalId: string
   phone: string
   photoUrl: string
+  studyStatus: StudyStatus
+  isForeign: boolean
+  visaStatus: VisaStatus | ''
+  visaExpiresOn: string
 }
 
 export type ImportFailure = {
@@ -121,6 +138,10 @@ export function parseAccountCsv(text: string, role: AppRole): AccountInput[] {
       nationalId: cell('national_id'),
       phone: cell('phone'),
       photoUrl: cell('photo_url'),
+      studyStatus: studyStatusOf(cell('study_status')),
+      isForeign: cell('is_foreign') === '1' || cell('is_foreign').toLowerCase() === 'true',
+      visaStatus: visaStatusOf(cell('visa_status')),
+      visaExpiresOn: cell('visa_expires_on'),
     }
   })
 }
@@ -147,4 +168,12 @@ function splitCsvLine(line: string) {
   }
   cells.push(current)
   return cells
+}
+
+function studyStatusOf(value: string): StudyStatus {
+  return studyStatuses.includes(value as StudyStatus) ? (value as StudyStatus) : 'studying'
+}
+
+function visaStatusOf(value: string): VisaStatus | '' {
+  return visaStatuses.includes(value as VisaStatus) ? (value as VisaStatus) : ''
 }

@@ -2,6 +2,8 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
 
 const roles = new Set(['superadmin', 'admin', 'teacher', 'student'])
 const languages = new Set(['vi', 'my', 'bn'])
+const studyStatuses = new Set(['studying', 'paused', 'dropped', 'withdrawn'])
+const visaStatuses = new Set(['valid', 'pending', 'expired'])
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -20,6 +22,10 @@ type PersonInput = {
   nationalId?: string
   phone?: string
   photoUrl?: string
+  studyStatus?: string
+  isForeign?: boolean
+  visaStatus?: string
+  visaExpiresOn?: string
 }
 
 type AccountBody = {
@@ -174,6 +180,10 @@ function readPerson(input: PersonInput | undefined) {
     nationalId: (input?.nationalId ?? '').trim().slice(0, 20),
     phone: (input?.phone ?? '').trim().slice(0, 20),
     photoUrl: httpsUrl(input?.photoUrl ?? ''),
+    studyStatus: studyStatuses.has(input?.studyStatus ?? '') ? input?.studyStatus ?? 'studying' : 'studying',
+    isForeign: input?.isForeign === true,
+    visaStatus: visaStatuses.has(input?.visaStatus ?? '') ? input?.visaStatus ?? '' : '',
+    visaExpiresOn: /^\d{4}-\d{2}-\d{2}$/.test(input?.visaExpiresOn ?? '') ? input?.visaExpiresOn ?? '' : '',
   }
 }
 
@@ -188,6 +198,10 @@ function profileRow(id: string, person: ReturnType<typeof readPerson>) {
     national_id: person.nationalId || null,
     phone: person.phone || null,
     photo_url: person.photoUrl || null,
+    status: person.role === 'student' ? person.studyStatus : 'active',
+    is_foreign: person.role === 'student' && person.isForeign,
+    visa_status: person.role === 'student' && person.isForeign ? person.visaStatus || null : null,
+    visa_expires_on: person.role === 'student' && person.isForeign ? person.visaExpiresOn || null : null,
   }
 }
 
@@ -213,7 +227,7 @@ async function listPeople(admin: ReturnType<typeof createClient>) {
   if (users.error) throw users.error
   const profiles = await admin
     .from('profiles')
-    .select('id, role, full_name, language, date_of_birth, passport, national_id, phone, photo_url')
+    .select('id, role, full_name, language, date_of_birth, passport, national_id, phone, photo_url, status, is_foreign, visa_status, visa_expires_on')
   if (profiles.error) throw profiles.error
   const byId = new Map((profiles.data ?? []).map((row) => [row.id, row]))
   return (users.data.users ?? [])
@@ -231,6 +245,10 @@ async function listPeople(admin: ReturnType<typeof createClient>) {
         nationalId: profile?.national_id ?? '',
         phone: profile?.phone ?? '',
         photoUrl: profile?.photo_url ?? '',
+        studyStatus: studyStatuses.has(profile?.status ?? '') ? profile?.status : 'studying',
+        isForeign: profile?.is_foreign === true,
+        visaStatus: visaStatuses.has(profile?.visa_status ?? '') ? profile?.visa_status : '',
+        visaExpiresOn: profile?.visa_expires_on ?? '',
       }
     })
     .sort((a, b) => a.fullName.localeCompare(b.fullName) || a.email.localeCompare(b.email))

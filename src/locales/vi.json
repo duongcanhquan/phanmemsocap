@@ -434,6 +434,22 @@
     "phone": "Số điện thoại",
     "nationalId": "CCCD",
     "passport": "Hộ chiếu",
+    "studyStatus": "Tình trạng học",
+    "foreign": "Sinh viên nước ngoài",
+    "visaStatus": "Tình trạng visa",
+    "visaExpires": "Hạn cuối visa",
+    "visaUnset": "Chưa khai",
+    "study": {
+      "studying": "Đang học",
+      "paused": "Tạm dừng",
+      "dropped": "Nghỉ học",
+      "withdrawn": "Thôi học"
+    },
+    "visa": {
+      "valid": "Còn hạn",
+      "pending": "Đang xin",
+      "expired": "Hết hạn"
+    },
     "photo": "Ảnh chân dung",
     "uploadPhoto": "Tải ảnh lên",
     "photoUrl": "Hoặc dán link ảnh https",
