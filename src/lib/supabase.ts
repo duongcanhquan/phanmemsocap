@@ -157,6 +157,10 @@ export interface Database {
         Args: Record<string, never>
         Returns: Json
       }
+      set_my_language: {
+        Args: { next_language: string }
+        Returns: undefined
+      }
     }
   }
 }
@@ -215,4 +219,20 @@ export async function fetchProfileRole(userId: string, accessToken?: string): Pr
   const rows = (await response.json()) as { role?: string }[]
   const role = rows[0]?.role
   return isAppRole(role) ? role : null
+}
+
+export async function fetchProfileLanguage(userId: string, accessToken: string): Promise<string | null> {
+  const response = await fetch(
+    `${supabaseUrl}/rest/v1/profiles?select=language&id=eq.${encodeURIComponent(userId)}`,
+    {
+      headers: {
+        apikey: supabasePublishableKey,
+        Authorization: `Bearer ${accessToken}`,
+        Accept: 'application/json',
+      },
+    },
+  )
+  if (!response.ok) return null
+  const rows = (await response.json()) as { language?: string | null }[]
+  return rows[0]?.language ?? null
 }

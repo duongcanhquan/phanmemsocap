@@ -44,7 +44,8 @@ export function LessonViewer({ programId, lessonId }: LessonViewerProps) {
   const nextLesson = (() => {
     if (!lesson) return null
     const index = lessons.findIndex((item) => item.id === lesson.id)
-    return lessons[index + 1]?.id ?? null
+    const following = lessons[index + 1]
+    return following && !following.locked ? following.id : null
   })()
 
   return (
@@ -114,9 +115,9 @@ function LessonBody({ lesson }: { lesson: LessonPathItem }) {
   }
 
   return (
-    <section className="overflow-hidden rounded-2xl bg-white shadow-sm" aria-label={t('student.content')}>
+    <section className="ui-card overflow-hidden p-0" aria-label={t('student.content')}>
       {slides ? (
-        <div className="sticky top-0 z-10 flex gap-2 border-b border-line bg-white p-2">
+        <div className="sticky top-0 z-10 flex gap-2 border-b border-line bg-white/80 p-2 backdrop-blur-xl">
           <button
             type="button"
             className={mode === 'article' ? 'ui-btn ui-btn-primary flex-1' : 'ui-btn ui-btn-ghost flex-1 border border-line'}

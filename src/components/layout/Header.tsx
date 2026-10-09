@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth'
 import { isAppLanguage, type AppLanguage } from '../../lib/i18n'
-import { isSupabaseConfigured } from '../../lib/supabase'
+import { isSupabaseConfigured, supabase } from '../../lib/supabase'
 
 const languages: AppLanguage[] = ['vi', 'my', 'bn']
 
@@ -46,7 +46,9 @@ export function Header() {
             value={currentLanguage}
             onChange={(event) => {
               const next = event.target.value
-              if (isAppLanguage(next)) void i18n.changeLanguage(next)
+              if (!isAppLanguage(next)) return
+              void i18n.changeLanguage(next)
+              if (supabase && user) void supabase.rpc('set_my_language', { next_language: next })
             }}
             className="ui-field max-w-36 cursor-pointer px-2 text-sm"
           >

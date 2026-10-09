@@ -37,13 +37,15 @@ export function AiSettings() {
       {notice ? <p role="status" className="text-sm font-medium text-accent">{notice}</p> : null}
       {error ? <p role="alert" className="text-sm text-danger">{error}</p> : null}
       <div className="grid gap-3">
-        {aiCatalog.map((item) => (
+        {aiCatalog.map((item) => {
+          const connection = connections.find((row) => row.provider === item.provider)
+          return (
           <ProviderCard
-            key={item.provider}
+            key={`${item.provider}:${connection?.enabled}:${connection?.models.join(',')}:${connection?.hasKey}`}
             provider={item.provider}
             label={t(item.labelKey)}
             models={item.models}
-            connection={connections.find((row) => row.provider === item.provider)}
+            connection={connection}
             onSaved={(rows) => {
               setConnections(rows)
               setNotice(t('aiSettings.saved'))
@@ -51,7 +53,8 @@ export function AiSettings() {
             }}
             onError={(message) => setError(message)}
           />
-        ))}
+          )
+        })}
       </div>
     </div>
   )
@@ -77,11 +80,6 @@ function ProviderCard({
   const [enabled, setEnabled] = useState(connection?.enabled ?? false)
   const [selected, setSelected] = useState<string[]>(connection?.models ?? [])
   const [pending, setPending] = useState(false)
-
-  useEffect(() => {
-    setEnabled(connection?.enabled ?? false)
-    setSelected(connection?.models ?? [])
-  }, [connection])
 
   function toggle(model: string) {
     setSelected((current) => (current.includes(model) ? current.filter((item) => item !== model) : [...current, model]))

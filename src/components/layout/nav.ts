@@ -17,7 +17,7 @@ export type NavItem = {
 }
 
 export const navItems: NavItem[] = [
-  { to: '/', labelKey: 'nav.dashboard', icon: LayoutDashboard, roles: ['superadmin', 'admin', 'teacher', 'student'], end: true, mobile: true, teacherTo: '/teacher' },
+  { to: '/', labelKey: 'nav.dashboard', icon: LayoutDashboard, roles: ['superadmin', 'admin', 'teacher', 'student'], end: true, mobile: true, teacherTo: '/teacher', studentTo: '/student' },
   {
     to: '/teacher',
     labelKey: 'nav.review',

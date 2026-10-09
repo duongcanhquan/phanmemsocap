@@ -1,7 +1,7 @@
 import { BookOpen, Clock, GraduationCap, Users } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Link } from 'react-router-dom'
+import { Link, Navigate } from 'react-router-dom'
 import { Card } from '../components/ui/Card'
 import { PageHeader } from '../components/ui/PageHeader'
 import { useAuth } from '../hooks/useAuth'
@@ -31,6 +31,9 @@ export function DashboardPage() {
       active = false
     }
   }, [linked, t])
+
+  if (role === 'student') return <Navigate to="/student" replace />
+  if (role === 'teacher') return <Navigate to="/teacher" replace />
 
   const cards = [
     { label: t('dashboard.learners'), value: overview ? String(overview.activeStudents) : t('dashboard.emptyValue'), icon: Users, href: '/accounts' },

@@ -126,7 +126,7 @@ function LessonTimeline({ programId }: { programId: string }) {
           if (lesson.locked) {
             return (
               <li key={lesson.id}>
-                <div className="flex min-h-16 items-center gap-3 rounded-2xl bg-white px-3 py-3 opacity-50 shadow-sm" aria-disabled="true">
+                <div className="ui-card flex min-h-16 items-center gap-3 py-3 opacity-60" aria-disabled="true">
                   {body}
                 </div>
               </li>
@@ -136,7 +136,7 @@ function LessonTimeline({ programId }: { programId: string }) {
             <li key={lesson.id}>
               <Link
                 to={`/student/${programId}/${lesson.id}`}
-                className="flex min-h-16 items-center gap-3 rounded-2xl bg-white px-3 py-3 shadow-sm transition duration-200 hover:ring-2 hover:ring-accent"
+                className="ui-card flex min-h-16 items-center gap-3 py-3 transition duration-200 hover:ring-2 hover:ring-accent"
               >
                 {body}
               </Link>

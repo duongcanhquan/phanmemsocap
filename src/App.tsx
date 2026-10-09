@@ -1,11 +1,11 @@
 import { lazy, Suspense } from 'react'
-import { BrowserRouter, Route, Routes } from 'react-router-dom'
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { AppLayout } from './components/layout/AppLayout'
 import { AuthProvider } from './context/AuthContext'
 import { DashboardPage } from './pages/DashboardPage'
 import { Login } from './pages/Login'
-import { PlaceholderPage } from './pages/PlaceholderPage'
+import { useAuth } from './hooks/useAuth'
 import { Unauthorized } from './pages/Unauthorized'
 
 const LessonEditorPage = lazy(() =>
@@ -40,6 +40,13 @@ const studentRoles = ['student'] as const
 
 function PageFallback() {
   return <p className="px-1 text-muted">…</p>
+}
+
+function CoursesRedirect() {
+  const { role } = useAuth()
+  if (role === 'student') return <Navigate to="/student" replace />
+  if (role === 'teacher') return <Navigate to="/teacher" replace />
+  return <Navigate to="/programs" replace />
 }
 
 export default function App() {
@@ -162,12 +169,7 @@ export default function App() {
                   }
                 />
               </Route>
-              <Route
-                path="courses"
-                element={
-                  <PlaceholderPage titleKey="pages.courses.title" descriptionKey="pages.courses.description" />
-                }
-              />
+              <Route path="courses" element={<CoursesRedirect />} />
             </Route>
           </Route>
         </Routes>
