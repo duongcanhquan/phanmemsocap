@@ -1,6 +1,9 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
+import { ExportButtons } from '../../components/ExportButtons'
+import { DataTable, FilterBar } from '../../components/ui/DataSheet'
 import { PageHeader } from '../../components/ui/PageHeader'
+import { Tabs } from '../../components/ui/Tabs'
 import { useAuth } from '../../hooks/useAuth'
 import {
   accountCsvHeader,
@@ -18,8 +21,6 @@ import {
 } from '../../lib/accounts'
 import { isR2Configured, uploadToR2 } from '../../lib/r2'
 import { isSupabaseConfigured, type AppRole } from '../../lib/supabase'
-
-const languages = ['vi', 'my', 'bn'] as const
 
 const emptyPerson = (role: AppRole): AccountInput => ({
   email: '',
@@ -43,8 +44,14 @@ export function Accounts() {
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
   const [editing, setEditing] = useState<AccountPerson | null>(null)
+  const [creating, setCreating] = useState(false)
+  const [importing, setImporting] = useState(false)
+  const [passwordOpen, setPasswordOpen] = useState(false)
   const [pendingDelete, setPendingDelete] = useState('')
+  const [tab, setTab] = useState<'student' | 'teacher' | 'manager'>('student')
   const allowed = rolesFor(role)
+  const tabRole: AppRole = tab === 'manager' ? 'admin' : tab
+  const canCreate = allowed.includes(tabRole)
 
   useEffect(() => {
     if (!isSupabaseConfigured) return
@@ -71,95 +78,175 @@ export function Accounts() {
   }
 
   const visible = people.filter((person) => {
-    const haystack = `${person.fullName} ${person.email} ${person.nationalId} ${person.passport}`.toLowerCase()
-    return haystack.includes(query.trim().toLowerCase())
+    const inTab = tab === 'manager' ? person.role === 'admin' || person.role === 'superadmin' : person.role === tab
+    const haystack = `${person.fullName} ${person.email} ${person.phone} ${person.nationalId} ${person.passport}`.toLowerCase()
+    return inTab && haystack.includes(query.trim().toLowerCase())
   })
 
   return (
     <div className="ui-page">
       <PageHeader title={t('accounts.title')} description={t('accounts.lead')} />
-      <OwnPassword email={user?.email ?? ''} onSaved={() => setNotice(t('accounts.passwordSaved'))} onError={setError} />
-      <PersonForm
-        title={t('accounts.createTitle')}
-        person={emptyPerson(allowed[0] ?? 'student')}
-        allowed={allowed}
-        requirePassword
-        submitLabel={t('accounts.create')}
-        onSubmit={async (person) => {
-          const rows = await createAccount(person)
-          applyPeople(rows, t('accounts.created'))
-        }}
-        onError={setError}
-      />
-      <ImportPeople
-        allowed={allowed}
-        onDone={(rows, failed) => {
-          setPeople(rows)
-          setError('')
-          setNotice(failed.length > 0 ? t('accounts.importedPartial', { count: failed.length }) : t('accounts.imported'))
-        }}
-        onError={setError}
-      />
-      <label className="grid gap-1 text-sm font-medium text-ink" htmlFor="account-search">
-        {t('accounts.search')}
-        <input id="account-search" className="ui-field" value={query} onChange={(event) => setQuery(event.target.value)} />
-      </label>
       {loading ? <p role="status">{t('accounts.loading')}</p> : null}
       {notice ? <p role="status" className="text-sm font-medium text-accent">{notice}</p> : null}
       {error ? <p role="alert" className="text-sm text-danger">{error}</p> : null}
-      {!loading && visible.length === 0 ? <p className="text-muted">{t('accounts.empty')}</p> : null}
-      <ul className="grid gap-3">
-        {visible.map((person) => (
-          <li key={person.id} className="ui-card grid gap-3 sm:grid-cols-[auto_minmax(0,1fr)]">
-            <Photo photoUrl={person.photoUrl} name={person.fullName} />
-            <div className="grid min-w-0 gap-3">
-              <div>
-                <p className="truncate text-base font-semibold text-ink">{person.fullName || t('accounts.unnamed')}</p>
-                <p className="truncate text-sm text-muted">{person.email}</p>
-                <p className="mt-1 text-sm text-ink">{t(`accounts.roles.${person.role}`)}</p>
-              </div>
-              <dl className="grid gap-2 text-sm sm:grid-cols-2">
-                <Fact label={t('accounts.dateOfBirth')} value={person.dateOfBirth} />
-                <Fact label={t('accounts.phone')} value={person.phone} />
-                <Fact label={t('accounts.nationalId')} value={person.nationalId} />
-                <Fact label={t('accounts.passport')} value={person.passport} />
-              </dl>
-              {canEditPerson(role, person, user?.id) ? (
-                <div className="grid grid-cols-2 gap-2">
-                  <button type="button" className="ui-btn ui-btn-ghost border border-line" onClick={() => setEditing(person)}>
-                    {t('accounts.edit')}
-                  </button>
-                  {person.id === user?.id ? (
-                    <p className="flex items-center justify-center text-sm text-muted">{t('accounts.you')}</p>
-                  ) : pendingDelete === person.id ? (
-                    <button
-                      type="button"
-                      className="ui-btn bg-danger text-white"
-                      onClick={() => {
-                        void deleteAccount(person.id)
-                          .then((rows) => {
-                            applyPeople(rows, t('accounts.removed'))
-                            setPendingDelete('')
-                          })
-                          .catch((reason: unknown) => setError(accountError(t, reason)))
-                      }}
-                    >
-                      {t('accounts.confirmRemove')}
-                    </button>
-                  ) : (
-                    <button type="button" className="ui-btn text-danger" onClick={() => setPendingDelete(person.id)}>
-                      {t('accounts.remove')}
-                    </button>
-                  )}
-                </div>
-              ) : null}
-            </div>
-          </li>
-        ))}
-      </ul>
+      <Tabs
+        label={t('panels.label')}
+        value={tab}
+        onChange={(id) => {
+          setTab(id as 'student' | 'teacher' | 'manager')
+          setQuery('')
+          setPendingDelete('')
+        }}
+        tabs={[
+          { id: 'student', label: t('accounts.tabs.student') },
+          { id: 'teacher', label: t('accounts.tabs.teacher') },
+          { id: 'manager', label: t('accounts.tabs.manager') },
+        ]}
+      />
+      <div className="ui-fill flex flex-col">
+      <FilterBar query={query} onQuery={setQuery} count={visible.length}>
+        {canCreate ? (
+          <button type="button" className="ui-inline ui-btn-primary shrink-0" onClick={() => setCreating(true)}>
+            {t('accounts.create')}
+          </button>
+        ) : null}
+        {canCreate && tab !== 'manager' ? (
+          <button type="button" className="ui-inline ui-btn-ghost shrink-0" onClick={() => setImporting(true)}>
+            {t('accounts.importTitle')}
+          </button>
+        ) : null}
+        <button type="button" className="ui-inline ui-btn-ghost shrink-0" onClick={() => setPasswordOpen(true)}>
+          {t('accounts.savePassword')}
+        </button>
+        <ExportButtons
+          filename={`tai-khoan-${tab}`}
+          title={t(`accounts.tabs.${tab}`)}
+          headers={[t('accounts.name'), t('accounts.email'), t('accounts.role'), t('accounts.dateOfBirth'), t('accounts.phone'), t('accounts.nationalId'), t('accounts.passport')]}
+          rows={visible.map((person) => [
+            person.fullName || t('accounts.unnamed'),
+            person.email,
+            t(`accounts.roles.${person.role}`),
+            person.dateOfBirth,
+            person.phone,
+            person.nationalId,
+            person.passport,
+          ])}
+        />
+      </FilterBar>
+      {!loading && people.length === 0 ? <p className="text-muted">{t('accounts.empty')}</p> : null}
+      {!loading && people.length > 0 && visible.length === 0 ? <p className="text-muted">{t('filters.noMatch')}</p> : null}
+      <DataTable className="min-h-0 flex-1">
+          <thead>
+            <tr>
+              <th className="px-3 py-3 font-medium">{t('accounts.name')}</th>
+              <th className="px-3 py-3 font-medium">{t('accounts.email')}</th>
+              <th className="px-3 py-3 font-medium">{t('accounts.role')}</th>
+              <th className="px-3 py-3 font-medium">{t('accounts.dateOfBirth')}</th>
+              <th className="px-3 py-3 font-medium">{t('accounts.phone')}</th>
+              <th className="px-3 py-3 font-medium">{t('accounts.nationalId')}</th>
+              <th className="px-3 py-3 font-medium">{t('accounts.passport')}</th>
+              <th className="px-3 py-3 font-medium">{t('teacher.action')}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {visible.map((person) => (
+              <tr key={person.id} className="border-b border-line last:border-0">
+                <td className="px-3 py-2 font-medium text-ink">
+                  <span className="inline-flex items-center gap-2">
+                    <Photo photoUrl={person.photoUrl} name={person.fullName} />
+                    {person.fullName || t('accounts.unnamed')}
+                  </span>
+                </td>
+                <td className="px-3 py-2 text-ink">{person.email}</td>
+                <td className="px-3 py-2 text-ink">{t(`accounts.roles.${person.role}`)}</td>
+                <td className="px-3 py-2 text-ink">{person.dateOfBirth}</td>
+                <td className="px-3 py-2 text-ink">{person.phone}</td>
+                <td className="px-3 py-2 text-ink">{person.nationalId}</td>
+                <td className="px-3 py-2 text-ink">{person.passport}</td>
+                <td className="px-3 py-2">
+                  {canEditPerson(role, person, user?.id) ? (
+                    <span className="inline-flex gap-2">
+                      <button type="button" className="ui-inline ui-btn-ghost" onClick={() => setEditing(person)}>
+                        {t('accounts.edit')}
+                      </button>
+                      {person.id === user?.id ? (
+                        <span className="flex items-center text-sm text-muted">{t('accounts.you')}</span>
+                      ) : pendingDelete === person.id ? (
+                        <button
+                          type="button"
+                          className="ui-inline bg-danger text-white"
+                          onClick={() => {
+                            void deleteAccount(person.id)
+                              .then((rows) => {
+                                applyPeople(rows, t('accounts.removed'))
+                                setPendingDelete('')
+                              })
+                              .catch((reason: unknown) => setError(accountError(t, reason)))
+                          }}
+                        >
+                          {t('accounts.confirmRemove')}
+                        </button>
+                      ) : (
+                        <button type="button" className="ui-inline text-danger" onClick={() => setPendingDelete(person.id)}>
+                          {t('accounts.remove')}
+                        </button>
+                      )}
+                    </span>
+                  ) : null}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+      </DataTable>
+      </div>
+      {creating ? (
+        <div className="fixed inset-0 z-40 flex items-end justify-center bg-ink/40 p-4 sm:items-center">
+          <div className="ui-card max-h-[90dvh] w-full max-w-3xl overflow-y-auto">
+            <PersonForm
+              title={t('accounts.createTitle')}
+              person={emptyPerson(tabRole)}
+              allowed={[tabRole]}
+              requirePassword
+              submitLabel={t('accounts.create')}
+              onSubmit={async (person) => {
+                const rows = await createAccount(person)
+                applyPeople(rows, t('accounts.created'))
+                setCreating(false)
+              }}
+              onError={setError}
+              onCancel={() => setCreating(false)}
+            />
+          </div>
+        </div>
+      ) : null}
+      {importing ? (
+        <div className="fixed inset-0 z-40 flex items-end justify-center bg-ink/40 p-4 sm:items-center">
+          <div className="ui-card max-h-[90dvh] w-full max-w-3xl overflow-y-auto">
+            <ImportPeople
+              allowed={[tabRole]}
+              onDone={(rows, failed) => {
+                setPeople(rows)
+                setError('')
+                setNotice(failed.length > 0 ? t('accounts.importedPartial', { count: failed.length }) : t('accounts.imported'))
+                setImporting(false)
+              }}
+              onError={setError}
+            />
+            <button type="button" className="ui-btn ui-btn-ghost mt-3" onClick={() => setImporting(false)}>{t('accounts.cancel')}</button>
+          </div>
+        </div>
+      ) : null}
+      {passwordOpen ? (
+        <div className="fixed inset-0 z-40 flex items-end justify-center bg-ink/40 p-4 sm:items-center">
+          <div className="ui-card w-full max-w-lg">
+            <OwnPassword email={user?.email ?? ''} onSaved={() => { setNotice(t('accounts.passwordSaved')); setPasswordOpen(false) }} onError={setError} />
+            <button type="button" className="ui-btn ui-btn-ghost mt-3" onClick={() => setPasswordOpen(false)}>{t('accounts.cancel')}</button>
+          </div>
+        </div>
+      ) : null}
       {editing ? (
         <div className="fixed inset-0 z-40 flex items-end justify-center bg-ink/40 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:items-center">
-          <div key={editing.id} className="max-h-[90dvh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-5 shadow-xl">
+          <div key={editing.id} className="ui-card max-h-[90dvh] w-full max-w-3xl overflow-y-auto">
             <PersonForm
               title={editing.email}
               person={{
@@ -248,20 +335,12 @@ function PersonForm({
         required={requirePassword}
         onChange={(value) => setField('password', value)}
       />
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid gap-3 lg:grid-cols-3">
         <label className="grid gap-1 text-sm font-medium text-ink" htmlFor={`${title}-role`}>
           {t('accounts.role')}
           <select id={`${title}-role`} className="ui-field" value={draft.role} onChange={(event) => setField('role', event.target.value)}>
             {allowed.map((item) => (
               <option key={item} value={item}>{t(`accounts.roles.${item}`)}</option>
-            ))}
-          </select>
-        </label>
-        <label className="grid gap-1 text-sm font-medium text-ink" htmlFor={`${title}-language`}>
-          {t('accounts.language')}
-          <select id={`${title}-language`} className="ui-field" value={draft.language} onChange={(event) => setField('language', event.target.value)}>
-            {languages.map((item) => (
-              <option key={item} value={item}>{t(`languages.${item}`)}</option>
             ))}
           </select>
         </label>
@@ -398,18 +477,9 @@ function PhotoField({
 }
 
 function Photo({ photoUrl, name }: { photoUrl: string; name: string }) {
-  if (photoUrl) return <img src={photoUrl} alt="" className="size-16 rounded-2xl object-cover" />
+  if (photoUrl) return <img src={photoUrl} alt="" className="size-9 rounded-xl object-cover" />
   const initial = name.trim().charAt(0).toUpperCase() || '•'
-  return <span className="flex size-16 items-center justify-center rounded-2xl bg-canvas text-lg font-semibold text-ink">{initial}</span>
-}
-
-function Fact({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <dt className="text-muted">{label}</dt>
-      <dd className="font-medium text-ink">{value || '—'}</dd>
-    </div>
-  )
+  return <span className="flex size-9 items-center justify-center rounded-xl bg-canvas text-sm font-semibold text-ink">{initial}</span>
 }
 
 function TextField({

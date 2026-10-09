@@ -8,12 +8,12 @@ type PageHeaderProps = {
 
 export function PageHeader({ title, description, action }: PageHeaderProps) {
   return (
-    <header className="flex flex-col gap-3 px-1 sm:flex-row sm:items-end sm:justify-between">
-      <div>
+    <header className="flex shrink-0 items-center justify-between gap-3">
+      <div className="min-w-0">
         <h1 className="ui-title">{title}</h1>
         {description ? <p className="ui-lead">{description}</p> : null}
       </div>
-      {action}
+      {action ? <div className="shrink-0">{action}</div> : null}
     </header>
   )
 }

@@ -23,6 +23,8 @@ export function EnrollmentManager({ programId }: EnrollmentManagerProps) {
   const [error, setError] = useState('')
   const [pending, setPending] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [availableQuery, setAvailableQuery] = useState('')
+  const [enrolledQuery, setEnrolledQuery] = useState('')
 
   useEffect(() => {
     let active = true
@@ -105,6 +107,8 @@ export function EnrollmentManager({ programId }: EnrollmentManagerProps) {
           title={t('enrollment.available')}
           empty={t('enrollment.emptyAvailable')}
           students={available}
+          query={availableQuery}
+          onQuery={setAvailableQuery}
           selected={availableSelection}
           onChange={setAvailableSelection}
           nameOf={nameOf}
@@ -135,6 +139,8 @@ export function EnrollmentManager({ programId }: EnrollmentManagerProps) {
           title={t('enrollment.enrolled')}
           empty={t('enrollment.emptyEnrolled')}
           students={enrolled.map((item) => item.student as StudentRecord)}
+          query={enrolledQuery}
+          onQuery={setEnrolledQuery}
           selected={enrolledSelection}
           onChange={setEnrolledSelection}
           nameOf={nameOf}
@@ -148,23 +154,35 @@ type StudentColumnProps = {
   title: string
   empty: string
   students: StudentRecord[]
+  query: string
+  onQuery: (value: string) => void
   selected: string[]
   onChange: (ids: string[]) => void
   nameOf: (student: StudentRecord | undefined) => string
 }
 
-function StudentColumn({ title, empty, students, selected, onChange, nameOf }: StudentColumnProps) {
+function StudentColumn({ title, empty, students, query, onQuery, selected, onChange, nameOf }: StudentColumnProps) {
+  const { t } = useTranslation()
+  const shown = students.filter((student) => nameOf(student).toLowerCase().includes(query.trim().toLowerCase()))
   return (
     <div className="grid gap-2">
       <p className="text-sm font-medium text-ink" id={`${title}-label`}>
-        {title}
+        {title} · {shown.length}
       </p>
+      <input
+        className="ui-field"
+        value={query}
+        placeholder={t('filters.search')}
+        onChange={(event) => onQuery(event.target.value)}
+        aria-label={t('filters.search')}
+      />
       <ul
         aria-labelledby={`${title}-label`}
         className="min-h-48 rounded-2xl border border-line bg-canvas p-2"
       >
         {students.length === 0 ? <li className="px-2 py-3 text-sm text-muted">{empty}</li> : null}
-        {students.map((student) => {
+        {students.length > 0 && shown.length === 0 ? <li className="px-2 py-3 text-sm text-muted">{t('filters.noMatch')}</li> : null}
+        {shown.map((student) => {
           const active = selected.includes(student.id)
           return (
             <li key={student.id}>

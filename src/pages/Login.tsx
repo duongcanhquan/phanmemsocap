@@ -5,7 +5,7 @@ import { Navigate, useNavigate } from 'react-router-dom'
 import { LanguageMenu } from '../components/LanguageMenu'
 import { useAuth } from '../hooks/useAuth'
 import { roleHome } from '../lib/roles'
-import { supabase } from '../lib/supabase'
+import { rememberedEmail, rememberEmail, rememberLoginEnabled } from '../lib/supabase'
 
 interface LoginForm {
   email: string
@@ -17,11 +17,12 @@ export function Login() {
   const navigate = useNavigate()
   const { user, role, isLoading, login } = useAuth()
   const [formError, setFormError] = useState('')
+  const [remember, setRemember] = useState(rememberLoginEnabled)
   const {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
-  } = useForm<LoginForm>({ defaultValues: { email: '', password: '' } })
+  } = useForm<LoginForm>({ defaultValues: { email: rememberedEmail(), password: '' } })
 
   if (!isLoading && user && role) {
     return <Navigate to={roleHome[role]} replace />
@@ -29,6 +30,7 @@ export function Login() {
 
   async function onSubmit(values: LoginForm) {
     setFormError('')
+    rememberEmail(values.email.trim(), remember)
     try {
       const nextRole = await login(values.email.trim(), values.password)
       if (!nextRole) {
@@ -47,19 +49,20 @@ export function Login() {
   }
 
   return (
-    <div className="min-h-dvh bg-canvas lg:grid lg:grid-cols-2">
-      <div className="relative hidden min-h-dvh lg:block">
-        <img src="/login-cover.svg" alt={t('auth.coverAlt')} className="h-full w-full object-cover" />
+    <div className="min-h-dvh lg:grid lg:grid-cols-2">
+      <div className="relative hidden min-h-dvh items-center justify-center bg-[#0b1f33] px-10 lg:flex">
+        <img src="/logo-vietmy-red.png" alt={t('brand.school')} className="w-[min(36rem,88%)]" />
       </div>
       <div className="relative flex min-h-dvh items-center justify-center px-4 py-20">
-        <div className="absolute top-4 right-4 z-10 pt-[env(safe-area-inset-top)]">
-          <LanguageMenu />
-        </div>
         <form
           className="ui-card w-full max-w-md sm:p-8"
           onSubmit={handleSubmit(onSubmit)}
           noValidate
         >
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <img src="/logo-vietmy-blue.png" alt={t('brand.school')} className="h-16 w-auto" />
+            <LanguageMenu />
+          </div>
           <h1 className="ui-title">{t('auth.loginTitle')}</h1>
           <p className="ui-lead">{t('auth.loginLead')}</p>
           <div className="mt-6 grid gap-4">
@@ -104,6 +107,16 @@ export function Login() {
                 {t(`auth.${errors.password.message}`)}
               </p>
             ) : null}
+            <label className="flex min-h-11 items-center gap-2 text-sm font-medium text-ink" htmlFor="remember-login">
+              <input
+                id="remember-login"
+                type="checkbox"
+                className="size-4"
+                checked={remember}
+                onChange={(event) => setRemember(event.target.checked)}
+              />
+              {t('auth.remember')}
+            </label>
             {formError ? (
               <p role="alert" className="text-sm text-danger">
                 {formError}
@@ -111,26 +124,6 @@ export function Login() {
             ) : null}
             <button type="submit" className="ui-btn ui-btn-primary" disabled={isSubmitting || isLoading}>
               {isSubmitting ? t('auth.submitting') : t('auth.submit')}
-            </button>
-            <button
-              type="button"
-              className="ui-btn ui-btn-ghost border border-line"
-              onClick={() => {
-                if (!supabase) {
-                  setFormError(t('supabase.missing'))
-                  return
-                }
-                void supabase.auth
-                  .signInWithOAuth({
-                    provider: 'google',
-                    options: { redirectTo: `${window.location.origin}/` },
-                  })
-                  .then(({ error }) => {
-                    if (error) setFormError(t('auth.googleFailed'))
-                  })
-              }}
-            >
-              {t('auth.google')}
             </button>
           </div>
         </form>

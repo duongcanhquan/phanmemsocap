@@ -4,6 +4,7 @@ import { useEffect, useId, useState, type KeyboardEvent as ReactKeyboardEvent, t
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { QuizEngine } from '../../components/student/QuizEngine'
+import { Tabs } from '../../components/ui/Tabs'
 import { SlideDeck } from '../../components/slides/SlideDeck'
 import { localizedLabel } from '../../lib/localized'
 import { isSlideDeck, markdownToHtml } from '../../lib/markdown'
@@ -25,6 +26,7 @@ export function LessonViewer({ programId, lessonId }: LessonViewerProps) {
   const { t } = useTranslation()
   const [lessons, setLessons] = useState<LessonPathItem[]>([])
   const [error, setError] = useState('')
+  const [tab, setTab] = useState('content')
 
   useEffect(() => {
     let active = true
@@ -49,8 +51,8 @@ export function LessonViewer({ programId, lessonId }: LessonViewerProps) {
   })()
 
   return (
-    <div className="grid gap-3">
-      <Link to={`/student/${programId}`} className="ui-btn ui-btn-ghost w-fit px-2">
+    <div className="ui-page">
+      <Link to={`/student/${programId}`} className="ui-btn ui-btn-ghost w-fit shrink-0 px-2">
         <ArrowLeft aria-hidden="true" className="size-4" />
         {t('student.backPath')}
       </Link>
@@ -61,20 +63,30 @@ export function LessonViewer({ programId, lessonId }: LessonViewerProps) {
       ) : null}
       {lesson?.locked ? <p className="text-muted">{t('student.locked')}</p> : null}
       {lesson && !lesson.locked ? (
-        <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_22rem]">
-          <LessonBody lesson={lesson} />
-          <section className="ui-card lg:sticky lg:top-4" aria-label={t('student.practice')}>
-            <h2 className="text-lg font-semibold text-ink">{t('student.practice')}</h2>
-            <div className="mt-3">
-              <QuizEngine lessonId={lesson.id} programId={programId} nextLessonId={nextLesson} />
-              {!lesson.hasQuiz && nextLesson ? (
-                <Link to={`/student/${programId}/${nextLesson}`} className="ui-btn ui-btn-primary mt-3 w-full">
-                  {t('student.continue')}
-                </Link>
-              ) : null}
-            </div>
-          </section>
-        </div>
+        <>
+          <Tabs
+            label={t('panels.label')}
+            value={tab}
+            onChange={setTab}
+            tabs={[
+              { id: 'content', label: t('panels.content') },
+              { id: 'practice', label: t('panels.practice') },
+            ]}
+          />
+          <div className="ui-fill">
+            {tab === 'content' ? <LessonBody lesson={lesson} /> : null}
+            {tab === 'practice' ? (
+              <section className="ui-card" aria-label={t('student.practice')}>
+                <QuizEngine lessonId={lesson.id} programId={programId} nextLessonId={nextLesson} />
+                {!lesson.hasQuiz && nextLesson ? (
+                  <Link to={`/student/${programId}/${nextLesson}`} className="ui-btn ui-btn-primary mt-3">
+                    {t('student.continue')}
+                  </Link>
+                ) : null}
+              </section>
+            ) : null}
+          </div>
+        </>
       ) : null}
     </div>
   )
@@ -115,7 +127,7 @@ function LessonBody({ lesson }: { lesson: LessonPathItem }) {
   }
 
   return (
-    <section className="ui-card overflow-hidden p-0" aria-label={t('student.content')}>
+    <section className="ui-card h-full overflow-auto p-0" aria-label={t('student.content')}>
       {slides ? (
         <div className="sticky top-0 z-10 flex gap-2 border-b border-line bg-white/80 p-2 backdrop-blur-xl">
           <button
@@ -137,12 +149,12 @@ function LessonBody({ lesson }: { lesson: LessonPathItem }) {
         </div>
       ) : null}
       {mode === 'slides' && slides ? (
-        <div className="h-[70dvh] lg:h-[36rem]">
+        <div className="h-full min-h-[70dvh]">
           <SlideDeck markdown={lesson.contentUrl} />
         </div>
       ) : (
         <article
-          className="lesson-article prose prose-slate mx-auto max-w-3xl px-4 py-6 sm:px-8 sm:py-8"
+          className="lesson-article prose prose-slate max-w-none px-5 py-6 sm:px-8"
           onClick={onClick}
           onKeyDown={onKeyDown}
         >

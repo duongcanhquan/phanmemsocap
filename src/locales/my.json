@@ -1,5 +1,8 @@
 {
   "appName": "အခြေခံသင်တန်း စီမံခန့်ခွဲမှု",
+  "brand": {
+    "school": "Cao đẳng Việt Mỹ Hà Nội"
+  },
   "skipToContent": "လမ်းညွှန်ကို ကျော်ရန်",
   "nav": {
     "label": "အဓိက လမ်းညွှန်",
@@ -19,6 +22,44 @@
     "logout": "ထွက်ရန်",
     "account": "အကောင့်",
     "guest": "ဧည့်သည်"
+  },
+  "content": {
+    "authorNote": "Soạn bằng tiếng Việt. Khi đã nối mô hình, hệ thống dịch các ngôn ngữ khác tự động."
+  },
+  "filters": {
+    "search": "Tìm kiếm",
+    "all": "Tất cả",
+    "role": "Vai trò",
+    "status": "Trạng thái",
+    "category": "Nhóm",
+    "program": "Chương trình",
+    "type": "Loại bài",
+    "score": "Điểm",
+    "hasScore": "Đã có điểm",
+    "noScore": "Chưa có điểm",
+    "done": "Đã xong",
+    "submitted": "Ngày nộp",
+    "count": "{{count}} dòng",
+    "noMatch": "Không có dòng nào khớp bộ lọc."
+  },
+  "panels": {
+    "label": "Phần nội dung",
+    "list": "Danh sách",
+    "create": "Thêm mới",
+    "import": "Nhập file",
+    "password": "Mật khẩu",
+    "info": "Thông tin",
+    "lessons": "Bài giảng",
+    "class": "Lớp",
+    "report": "Báo cáo",
+    "metrics": "Số liệu",
+    "inactive": "Học viên im",
+    "shortcuts": "Lối tắt",
+    "roster": "Sĩ số",
+    "write": "Soạn bài",
+    "assist": "Trợ lý",
+    "content": "Nội dung",
+    "practice": "Luyện tập"
   },
   "languages": {
     "vi": "Tiếng Việt",
@@ -120,6 +161,7 @@
     "passwordRequired": "စကားဝှက် ထည့်ပါ။",
     "passwordShort": "စကားဝှက် အနည်းဆုံး ၆ လုံး လိုသည်။",
     "invalidCredentials": "အီးမေးလ် သို့မဟုတ် စကားဝှက် မမှန်ပါ။",
+    "remember": "ဤကွန်ပျူတာတွင် ဝင်ထားသည်ကို မှတ်ထားရန်",
     "google": "Antigravity ၏ Google အကောင့်ဖြင့် ဝင်ရန်",
     "googleFailed": "Supabase တွင် Google ဝင်ရောက်မှု မဖွင့်ရသေးပါ။",
     "missingProfile": "အကောင့်တွင် အခန်းကဏ္ဍ မရှိသေးပါ။",
@@ -205,7 +247,7 @@
   "aiSettings": {
     "title": "AI မော်ဒယ် ချိတ်ဆက်ရန်",
     "lead": "ကုမ္ပဏီတစ်ခုချင်းစီ၏ API key ကိုထည့်ပြီး သင်ခန်းစာရေးရာတွင် သုံးမည့် မော်ဒယ်ကို ရွေးပါ။",
-    "antigravity": "Antigravity သည် Google အကောင့်ကို သုံးသည်။ ထိုအကောင့်ဖြင့် Google AI Studio တွင် Gemini API key ဖန်တီးပြီး Gemini အကွက်ထဲ ထည့်ပါ။ ဝင်ရောက်ရေးစာမျက်နှာရှိ Google ခလုတ်သည် ထိုအကောင့်ကို သုံးသည်။",
+    "antigravity": "Antigravity သည် Google API နှင့် AI သုံးရန် Google အကောင့်ဖြစ်သည်။ Google AI Studio တွင် Gemini API key ဖန်တီးပြီး Gemini အကွက်ထဲ ထည့်ပါ။",
     "loading": "ချိတ်ဆက်မှု ဖွင့်နေသည်...",
     "enabled": "ဖွင့်ရန်",
     "apiKey": "API key",
@@ -232,7 +274,7 @@
   "reports": {
     "title": "အမှတ်စာရင်း",
     "lead": "သင်ရိုးထဲရှိ သင်ခန်းစာအလိုက် ကျောင်းသားအမှတ်။",
-    "schoolName": "အခြေခံသင်တန်း ကျောင်း",
+    "schoolName": "Cao đẳng Việt Mỹ Hà Nội",
     "className": "အတန်း",
     "exportedAt": "ထုတ်သည့်နေ့",
     "student": "ကျောင်းသားအမည်",
@@ -246,6 +288,15 @@
     "exporting": "ထုတ်နေသည်...",
     "excel": "Excel ထုတ်ရန်",
     "pdf": "PDF ထုတ်ရန်"
+  },
+  "transcript": {
+    "title": "Báo cáo kết quả khóa học",
+    "lead": "Bản in gửi sinh viên: thông tin, điểm từng bài, điểm tổng kết và nhận xét của giáo viên.",
+    "lesson": "Bài học",
+    "score": "Điểm",
+    "comment": "Nhận xét giáo viên",
+    "noComment": "Chưa có nhận xét",
+    "summary": "Điểm tổng kết"
   },
   "student": {
     "homeTitle": "ကျွန်ုပ်၏ သင်ရိုး",
@@ -321,6 +372,11 @@
   },
   "accounts": {
     "title": "အကောင့်များ",
+    "tabs": {
+      "student": "ကျောင်းသား",
+      "teacher": "ဆရာ",
+      "manager": "စီမံသူ"
+    },
     "lead": "အကောင့်ဖန်တီး၊ စကားဝှက်ပြောင်း၊ လူဖယ်ရှားပါ။",
     "ownTitle": "ကျွန်ုပ်၏ စကားဝှက်ပြောင်းရန်",
     "createTitle": "လူထည့်ရန်",

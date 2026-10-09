@@ -171,9 +171,52 @@ const projectPublishableKey = 'sb_publishable_8K-KEqjdSzzdCvyggyEx3w_TmbyYgaJ'
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || projectUrl
 const supabasePublishableKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || projectPublishableKey
 
+const rememberFlag = 'phanmemsocap.remember'
+const rememberedEmailKey = 'phanmemsocap.email'
+
+export function rememberLoginEnabled() {
+  try {
+    return localStorage.getItem(rememberFlag) !== '0'
+  } catch {
+    return true
+  }
+}
+
+export function rememberedEmail() {
+  try {
+    return rememberLoginEnabled() ? (localStorage.getItem(rememberedEmailKey) ?? '') : ''
+  } catch {
+    return ''
+  }
+}
+
+export function rememberEmail(email: string, enabled: boolean) {
+  localStorage.setItem(rememberFlag, enabled ? '1' : '0')
+  if (enabled) localStorage.setItem(rememberedEmailKey, email)
+  else localStorage.removeItem(rememberedEmailKey)
+}
+
+const authStorage = {
+  getItem(key: string) {
+    return (rememberLoginEnabled() ? localStorage : sessionStorage).getItem(key)
+  },
+  setItem(key: string, value: string) {
+    const keep = rememberLoginEnabled() ? localStorage : sessionStorage
+    const drop = keep === localStorage ? sessionStorage : localStorage
+    drop.removeItem(key)
+    keep.setItem(key, value)
+  },
+  removeItem(key: string) {
+    localStorage.removeItem(key)
+    sessionStorage.removeItem(key)
+  },
+}
+
 export const supabase: SupabaseClient<Database> | null =
   supabaseUrl && supabasePublishableKey
-    ? createClient<Database>(supabaseUrl, supabasePublishableKey)
+    ? createClient<Database>(supabaseUrl, supabasePublishableKey, {
+        auth: { storage: authStorage, persistSession: true, autoRefreshToken: true },
+      })
     : null
 
 export const isSupabaseConfigured = supabase !== null

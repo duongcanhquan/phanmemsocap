@@ -3,6 +3,8 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useNavigate } from 'react-router-dom'
 import { LocalizedFields } from '../../components/admin/LocalizedFields'
+import { ExportButtons } from '../../components/ExportButtons'
+import { DataTable, FilterBar, SelectFilter } from '../../components/ui/DataSheet'
 import { PageHeader } from '../../components/ui/PageHeader'
 import { emptyLocalized, hasLocalizedText, localizedLabel, type LocalizedText } from '../../lib/localized'
 import { createProgram, listPrograms, type ProgramRecord } from '../../lib/programs'
@@ -15,6 +17,9 @@ export function ProgramManager() {
   const [loading, setLoading] = useState(isSupabaseConfigured)
   const [error, setError] = useState('')
   const [creating, setCreating] = useState(false)
+  const [query, setQuery] = useState('')
+  const [status, setStatus] = useState('all')
+  const [category, setCategory] = useState('all')
 
   useEffect(() => {
     if (!isSupabaseConfigured) return
@@ -33,6 +38,15 @@ export function ProgramManager() {
       active = false
     }
   }, [t])
+
+  const categories = [...new Set(programs.map((program) => program.category).filter(Boolean))]
+  const visiblePrograms = programs.filter((program) => {
+    const title = localizedLabel(program.title, i18n.language).toLowerCase()
+    const matchesQuery = `${title} ${program.category}`.toLowerCase().includes(query.trim().toLowerCase())
+    const matchesStatus = status === 'all' || (status === 'active' ? program.isActive : !program.isActive)
+    const matchesCategory = category === 'all' || program.category === category
+    return matchesQuery && matchesStatus && matchesCategory
+  })
 
   return (
     <div className="ui-page">
@@ -60,37 +74,67 @@ export function ProgramManager() {
       {!loading && programs.length === 0 && isSupabaseConfigured ? (
         <p className="text-muted">{t('programs.empty')}</p>
       ) : null}
-      <div className="grid gap-4 sm:grid-cols-2">
-        {programs.map((program) => {
-          const title = localizedLabel(program.title, i18n.language) || t('programs.untitled')
-          return (
-            <Link
-              key={program.id}
-              to={`/programs/${program.id}`}
-              className="ui-card grid gap-3 transition duration-200 hover:ring-2 hover:ring-accent"
-            >
-              {program.coverImageUrl ? (
-                <img
-                  src={program.coverImageUrl}
-                  alt=""
-                  className="aspect-video w-full rounded-xl object-cover"
-                  loading="lazy"
-                />
-              ) : (
-                <div className="aspect-video w-full rounded-xl bg-canvas" />
-              )}
-              <h2 className="text-lg font-semibold text-ink">{title}</h2>
-              <div className="flex flex-wrap gap-2">
-                {program.category ? (
-                  <span className="rounded-full bg-canvas px-3 py-1 text-sm font-medium text-ink">{program.category}</span>
-                ) : null}
-                <span className="rounded-full bg-canvas px-3 py-1 text-sm font-semibold text-ink">
-                  {program.isActive ? t('programs.active') : t('programs.inactive')}
-                </span>
-              </div>
-            </Link>
-          )
-        })}
+      <div className="ui-fill">
+        <FilterBar query={query} onQuery={setQuery} count={visiblePrograms.length}>
+          <SelectFilter
+            id="program-category"
+            label={t('filters.category')}
+            value={category}
+            onChange={setCategory}
+            options={[{ value: 'all', label: t('filters.all') }, ...categories.map((item) => ({ value: item, label: item }))]}
+          />
+          <SelectFilter
+            id="program-status"
+            label={t('filters.status')}
+            value={status}
+            onChange={setStatus}
+            options={[
+              { value: 'all', label: t('filters.all') },
+              { value: 'active', label: t('programs.active') },
+              { value: 'inactive', label: t('programs.inactive') },
+            ]}
+          />
+        </FilterBar>
+        {programs.length > 0 && visiblePrograms.length === 0 ? <p className="text-muted">{t('filters.noMatch')}</p> : null}
+        <div className="mb-3 flex justify-end">
+          <ExportButtons
+            filename="khoa-hoc"
+            title={t('programs.title')}
+            headers={[t('programs.name'), t('programs.category'), t('filters.status')]}
+            rows={visiblePrograms.map((program) => [
+              localizedLabel(program.title, i18n.language) || t('programs.untitled'),
+              program.category || '—',
+              program.isActive ? t('programs.active') : t('programs.inactive'),
+            ])}
+          />
+        </div>
+        <DataTable>
+          <thead>
+            <tr>
+              <th>{t('programs.name')}</th>
+              <th>{t('programs.category')}</th>
+              <th>{t('filters.status')}</th>
+              <th>{t('teacher.action')}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {visiblePrograms.map((program) => {
+              const title = localizedLabel(program.title, i18n.language) || t('programs.untitled')
+              return (
+                <tr key={program.id}>
+                  <td className="font-semibold text-ink">{title}</td>
+                  <td>{program.category || '—'}</td>
+                  <td>{program.isActive ? t('programs.active') : t('programs.inactive')}</td>
+                  <td>
+                    <Link to={`/programs/${program.id}`} className="ui-inline ui-btn-primary">
+                      {t('classesPage.manage')}
+                    </Link>
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </DataTable>
       </div>
       {creating ? (
         <CreateProgramDialog
@@ -134,7 +178,7 @@ function CreateProgramDialog({ onClose, onCreated }: { onClose: () => void; onCr
         role="dialog"
         aria-modal="true"
         aria-labelledby="create-program-title"
-        className="max-h-[90dvh] w-full max-w-xl overflow-y-auto rounded-2xl bg-white p-5 shadow-xl"
+        className="ui-card max-h-[90dvh] w-full max-w-xl overflow-y-auto"
         onSubmit={(event) => void onSubmit(event)}
       >
         <h2 id="create-program-title" className="text-lg font-semibold">

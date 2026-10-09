@@ -1,5 +1,8 @@
 {
   "appName": "Quản lý đào tạo sơ cấp",
+  "brand": {
+    "school": "Cao đẳng Việt Mỹ Hà Nội"
+  },
   "skipToContent": "Bỏ qua điều hướng",
   "nav": {
     "label": "Điều hướng chính",
@@ -24,6 +27,44 @@
     "vi": "Tiếng Việt",
     "my": "မြန်မာ",
     "bn": "বাংলা"
+  },
+  "content": {
+    "authorNote": "Soạn bằng tiếng Việt. Khi đã nối mô hình, hệ thống dịch các ngôn ngữ khác tự động."
+  },
+  "filters": {
+    "search": "Tìm kiếm",
+    "all": "Tất cả",
+    "role": "Vai trò",
+    "status": "Trạng thái",
+    "category": "Nhóm",
+    "program": "Chương trình",
+    "type": "Loại bài",
+    "score": "Điểm",
+    "hasScore": "Đã có điểm",
+    "noScore": "Chưa có điểm",
+    "done": "Đã xong",
+    "submitted": "Ngày nộp",
+    "count": "{{count}} dòng",
+    "noMatch": "Không có dòng nào khớp bộ lọc."
+  },
+  "panels": {
+    "label": "Phần nội dung",
+    "list": "Danh sách",
+    "create": "Thêm mới",
+    "import": "Nhập file",
+    "password": "Mật khẩu",
+    "info": "Thông tin",
+    "lessons": "Bài giảng",
+    "class": "Lớp",
+    "report": "Báo cáo",
+    "metrics": "Số liệu",
+    "inactive": "Học viên im",
+    "shortcuts": "Lối tắt",
+    "roster": "Sĩ số",
+    "write": "Soạn bài",
+    "assist": "Trợ lý",
+    "content": "Nội dung",
+    "practice": "Luyện tập"
   },
   "dashboard": {
     "title": "Tổng quan",
@@ -120,6 +161,7 @@
     "passwordRequired": "Nhập mật khẩu.",
     "passwordShort": "Mật khẩu cần ít nhất 6 ký tự.",
     "invalidCredentials": "Email hoặc mật khẩu không đúng.",
+    "remember": "Nhớ đăng nhập trên máy này",
     "google": "Đăng nhập bằng tài khoản Google của Antigravity",
     "googleFailed": "Chưa bật đăng nhập Google trên Supabase. Thêm Google provider rồi thử lại.",
     "missingProfile": "Tài khoản chưa có vai trò trong hồ sơ.",
@@ -210,7 +252,7 @@
   "aiSettings": {
     "title": "Kết nối mô hình AI",
     "lead": "Dán API key của từng hãng rồi chọn mô hình được phép dùng khi soạn bài.",
-    "antigravity": "Antigravity dùng tài khoản Google. Tạo API key Gemini trong Google AI Studio bằng đúng tài khoản đó, rồi dán vào ô Gemini. Nút đăng nhập Google trên trang đăng nhập dùng cùng tài khoản.",
+    "antigravity": "Antigravity là đăng nhập tài khoản Google để dùng API và mô hình AI của Google. Tạo API key Gemini trong Google AI Studio, rồi dán vào ô Gemini.",
     "loading": "Đang tải kết nối...",
     "enabled": "Bật",
     "apiKey": "API key",
@@ -237,7 +279,7 @@
   "reports": {
     "title": "Bảng điểm",
     "lead": "Điểm từng bài học của sinh viên trong chương trình.",
-    "schoolName": "Trường đào tạo sơ cấp",
+    "schoolName": "Cao đẳng Việt Mỹ Hà Nội",
     "className": "Lớp học",
     "exportedAt": "Ngày xuất",
     "student": "Tên sinh viên",
@@ -250,7 +292,17 @@
     "exportError": "Không xuất được báo cáo. Hãy thử lại.",
     "exporting": "Đang xuất...",
     "excel": "Xuất Excel",
-    "pdf": "Xuất PDF"
+    "pdf": "Xuất PDF",
+    "fileDate": "Ngày xuất"
+  },
+  "transcript": {
+    "title": "Báo cáo kết quả khóa học",
+    "lead": "Bản in gửi sinh viên: thông tin, điểm từng bài, điểm tổng kết và nhận xét của giáo viên.",
+    "lesson": "Bài học",
+    "score": "Điểm",
+    "comment": "Nhận xét giáo viên",
+    "noComment": "Chưa có nhận xét",
+    "summary": "Điểm tổng kết"
   },
   "student": {
     "homeTitle": "Chương trình của tôi",
@@ -326,6 +378,11 @@
   },
   "accounts": {
     "title": "Tài khoản",
+    "tabs": {
+      "student": "Sinh viên",
+      "teacher": "Giảng viên",
+      "manager": "Quản lý"
+    },
     "lead": "Super admin tạo quản trị. Quản trị tạo giáo viên và nhập sinh viên. Có thể sửa, xóa và đổi mật khẩu.",
     "ownTitle": "Đổi mật khẩu của tôi",
     "createTitle": "Thêm người",

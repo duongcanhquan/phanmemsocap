@@ -8,6 +8,7 @@ import { LessonModal } from '../../components/admin/LessonModal'
 import { LessonSorter } from '../../components/admin/LessonSorter'
 import { LocalizedFields } from '../../components/admin/LocalizedFields'
 import { PageHeader } from '../../components/ui/PageHeader'
+import { Tabs } from '../../components/ui/Tabs'
 import { emptyLocalized, hasLocalizedText, localizedLabel, type LocalizedText } from '../../lib/localized'
 import { getProgram, listLessons, saveLessonOrder, updateProgram, type LessonRecord } from '../../lib/programs'
 
@@ -26,6 +27,7 @@ export function ProgramDetail() {
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
   const [pending, setPending] = useState(false)
+  const [tab, setTab] = useState(() => (window.location.hash === '#class' ? 'class' : 'info'))
 
   async function loadLessons() {
     setLessons(await listLessons(programId))
@@ -101,7 +103,20 @@ export function ProgramDetail() {
       {missing ? <p role="status">{t('programs.missing')}</p> : null}
       {!loading && !missing ? (
         <>
-          <form className="ui-card grid gap-4" onSubmit={(event) => void onSave(event)}>
+          <Tabs
+            label={t('panels.label')}
+            value={tab}
+            onChange={setTab}
+            tabs={[
+              { id: 'info', label: t('panels.info') },
+              { id: 'lessons', label: t('panels.lessons') },
+              { id: 'class', label: t('panels.class') },
+              { id: 'report', label: t('panels.report') },
+            ]}
+          />
+          <div className="ui-fill">
+          {tab === 'info' ? (
+          <form className="ui-card grid gap-4 lg:grid-cols-2" onSubmit={(event) => void onSave(event)}>
             <LocalizedFields id="program-title" label={t('programs.name')} value={title} onChange={setTitle} />
             <LocalizedFields
               id="program-description"
@@ -145,10 +160,12 @@ export function ProgramDetail() {
                 {error}
               </p>
             ) : null}
-            <button type="submit" className="ui-btn ui-btn-primary w-fit" disabled={pending}>
+            <button type="submit" className="ui-btn ui-btn-primary w-fit lg:col-span-2" disabled={pending}>
               {pending ? t('programs.saving') : t('programs.save')}
             </button>
           </form>
+          ) : null}
+          {tab === 'lessons' ? (
           <section className="ui-card grid gap-3">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <h2 className="text-lg font-semibold text-ink">{t('programs.lessons')}</h2>
@@ -160,8 +177,10 @@ export function ProgramDetail() {
             {lessons.length === 0 ? <p className="text-sm text-muted">{t('programs.lessonEmpty')}</p> : null}
             <LessonSorter lessons={lessons} onReorder={(next) => void onReorder(next)} onEdit={setEditing} />
           </section>
-          <EnrollmentManager programId={programId} />
-          <ReportExport key={programId} programId={programId} />
+          ) : null}
+          {tab === 'class' ? <EnrollmentManager programId={programId} /> : null}
+          {tab === 'report' ? <ReportExport key={programId} programId={programId} /> : null}
+          </div>
         </>
       ) : null}
       {editing !== undefined ? (

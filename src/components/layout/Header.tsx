@@ -1,21 +1,18 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
+import { LanguageMenu } from '../LanguageMenu'
 import { useAuth } from '../../hooks/useAuth'
-import { isAppLanguage, type AppLanguage } from '../../lib/i18n'
-import { isSupabaseConfigured, supabase } from '../../lib/supabase'
-
-const languages: AppLanguage[] = ['vi', 'my', 'bn']
+import { isSupabaseConfigured } from '../../lib/supabase'
 
 export function Header() {
-  const { t, i18n } = useTranslation()
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const { user, logout } = useAuth()
   const [logoutMessage, setLogoutMessage] = useState('')
 
   const displayName = user?.email ?? t('header.guest')
   const initial = displayName.trim().charAt(0).toUpperCase() || '•'
-  const currentLanguage = isAppLanguage(i18n.language) ? i18n.language : 'vi'
 
   async function handleLogout() {
     setLogoutMessage('')
@@ -32,32 +29,13 @@ export function Header() {
   }
 
   return (
-    <header className="sticky top-0 z-10 border-b border-white/70 bg-white/70 pt-[env(safe-area-inset-top)] backdrop-blur-xl">
+    <header className="ui-chrome sticky top-0 z-10 border-b pt-[env(safe-area-inset-top)]">
       <div className="flex items-center gap-2 px-4 py-3 sm:px-6">
-        <p className="min-w-0 flex-1 truncate text-base font-semibold text-ink lg:sr-only">
-          {t('appName')}
-        </p>
+        <img src="/logo-vietmy-blue.png" alt={t('brand.school')} className="h-10 w-auto lg:hidden" />
+        <p className="sr-only">{t('brand.school')}</p>
+        <span className="min-w-0 flex-1" />
         <div className="flex shrink-0 items-center gap-2">
-          <label className="sr-only" htmlFor="language">
-            {t('header.language')}
-          </label>
-          <select
-            id="language"
-            value={currentLanguage}
-            onChange={(event) => {
-              const next = event.target.value
-              if (!isAppLanguage(next)) return
-              void i18n.changeLanguage(next)
-              if (supabase && user) void supabase.rpc('set_my_language', { next_language: next })
-            }}
-            className="ui-field max-w-36 cursor-pointer px-2 text-sm"
-          >
-            {languages.map((language) => (
-              <option key={language} value={language}>
-                {t(`languages.${language}`)}
-              </option>
-            ))}
-          </select>
+          <LanguageMenu />
           <span
             className="inline-flex size-11 items-center justify-center rounded-full bg-accent text-sm font-semibold text-white"
             aria-label={`${t('header.account')}: ${displayName}`}

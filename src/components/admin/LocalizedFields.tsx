@@ -11,35 +11,27 @@ type LocalizedFieldsProps = {
 
 export function LocalizedFields({ id, label, value, onChange, multiline = false }: LocalizedFieldsProps) {
   const { t } = useTranslation()
-  const languages = ['vi', 'my', 'bn'] as const
+  const shared = 'ui-field w-full'
 
   return (
-    <fieldset className="grid gap-2">
-      <legend className="text-sm font-medium text-ink">{label}</legend>
-      {languages.map((language) => {
-        const fieldId = `${id}-${language}`
-        const shared = 'ui-field w-full'
-        return (
-          <label key={language} className="grid gap-1 text-sm text-muted" htmlFor={fieldId}>
-            {t(`languages.${language}`)}
-            {multiline ? (
-              <textarea
-                id={fieldId}
-                className={`${shared} min-h-24 py-2`}
-                value={value[language]}
-                onChange={(event) => onChange({ ...value, [language]: event.target.value })}
-              />
-            ) : (
-              <input
-                id={fieldId}
-                className={shared}
-                value={value[language]}
-                onChange={(event) => onChange({ ...value, [language]: event.target.value })}
-              />
-            )}
-          </label>
-        )
-      })}
-    </fieldset>
+    <label className="grid gap-1 text-sm font-medium text-ink" htmlFor={id}>
+      {label}
+      {multiline ? (
+        <textarea
+          id={id}
+          className={`${shared} min-h-24 py-2`}
+          value={value.vi}
+          onChange={(event) => onChange({ ...value, vi: event.target.value })}
+        />
+      ) : (
+        <input
+          id={id}
+          className={shared}
+          value={value.vi}
+          onChange={(event) => onChange({ ...value, vi: event.target.value })}
+        />
+      )}
+      <span className="text-sm font-normal text-muted">{t('content.authorNote')}</span>
+    </label>
   )
 }

@@ -1,6 +1,8 @@
 import { X } from 'lucide-react'
 import { useEffect, useState, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
+import { ExportButtons } from '../../components/ExportButtons'
+import { DataTable, FilterBar } from '../../components/ui/DataSheet'
 import { PageHeader } from '../../components/ui/PageHeader'
 import { localizedLabel } from '../../lib/localized'
 import { isSupabaseConfigured } from '../../lib/supabase'
@@ -15,6 +17,7 @@ export function Grading() {
   const [loading, setLoading] = useState(isSupabaseConfigured)
   const [pending, setPending] = useState(false)
   const [error, setError] = useState('')
+  const [query, setQuery] = useState('')
 
   useEffect(() => {
     if (!isSupabaseConfigured) return
@@ -62,6 +65,12 @@ export function Grading() {
     }
   }
 
+  const visible = rows.filter((row) => {
+    const lesson = localizedLabel(row.lessonTitle, i18n.language)
+    const question = localizedLabel(row.question, i18n.language)
+    return `${row.studentName} ${lesson} ${question}`.toLowerCase().includes(query.trim().toLowerCase())
+  })
+
   return (
     <div className="ui-page">
       <PageHeader title={t('teacher.gradingTitle')} description={t('teacher.gradingLead')} />
@@ -77,32 +86,56 @@ export function Grading() {
         </p>
       ) : null}
       {!loading && rows.length === 0 && isSupabaseConfigured ? <p className="text-muted">{t('teacher.emptyGrading')}</p> : null}
-      <ul className="ui-card overflow-hidden p-0">
-        {rows.map((row) => (
-          <li key={row.id} className="border-b border-line last:border-0">
-            <button
-              type="button"
-              className="flex min-h-14 w-full items-center justify-between gap-3 px-4 py-3 text-left transition duration-200 hover:bg-canvas"
-              onClick={() => openRow(row)}
-            >
-              <span>
-                <span className="block font-medium text-ink">{row.studentName || t('enrollment.unnamed')}</span>
-                <span className="text-sm text-muted">
-                  {localizedLabel(row.lessonTitle, i18n.language) || t('programs.untitled')}
-                </span>
-              </span>
-              <span className="text-sm font-medium text-accent">{t('teacher.grade')}</span>
-            </button>
-          </li>
-        ))}
-      </ul>
+      <div className="ui-fill">
+        <FilterBar query={query} onQuery={setQuery} count={visible.length} />
+        {rows.length > 0 && visible.length === 0 ? <p className="text-muted">{t('filters.noMatch')}</p> : null}
+        <div className="mb-3 flex justify-end">
+          <ExportButtons
+            filename="cham-bai"
+            title={t('teacher.gradingTitle')}
+            headers={[t('teacher.student'), t('programs.lessons'), t('teacher.question'), t('filters.submitted')]}
+            rows={visible.map((row) => [
+              row.studentName || t('enrollment.unnamed'),
+              localizedLabel(row.lessonTitle, i18n.language) || t('programs.untitled'),
+              localizedLabel(row.question, i18n.language),
+              row.submittedAt ? new Date(row.submittedAt).toLocaleString(i18n.language) : '—',
+            ])}
+          />
+        </div>
+        <DataTable>
+          <thead>
+            <tr>
+              <th>{t('teacher.student')}</th>
+              <th>{t('programs.lessons')}</th>
+              <th>{t('teacher.question')}</th>
+              <th>{t('filters.submitted')}</th>
+              <th>{t('teacher.action')}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {visible.map((row) => (
+              <tr key={row.id}>
+                <td className="font-medium text-ink">{row.studentName || t('enrollment.unnamed')}</td>
+                <td>{localizedLabel(row.lessonTitle, i18n.language) || t('programs.untitled')}</td>
+                <td className="max-w-xs truncate">{localizedLabel(row.question, i18n.language)}</td>
+                <td>{row.submittedAt ? new Date(row.submittedAt).toLocaleString(i18n.language) : '—'}</td>
+                <td>
+                  <button type="button" className="ui-inline ui-btn-primary" onClick={() => openRow(row)}>
+                    {t('teacher.grade')}
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </DataTable>
+      </div>
       {selected ? (
         <div className="fixed inset-0 z-40 flex justify-end bg-ink/40">
           <form
             role="dialog"
             aria-modal="true"
             aria-labelledby="grade-title"
-            className="ui-card flex h-full w-full max-w-md flex-col gap-4 overflow-y-auto"
+            className="ui-card flex h-[min(90dvh,100%)] w-full max-w-5xl flex-col gap-4 overflow-y-auto"
             onSubmit={(event) => void onSave(event)}
           >
             <div className="flex items-start justify-between gap-3">

@@ -15,7 +15,9 @@ import {
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { AlignLeft, FileText, GripVertical, ListChecks, Pencil, Video, type LucideIcon } from 'lucide-react'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { FilterBar, SelectFilter } from '../ui/DataSheet'
 import { localizedLabel } from '../../lib/localized'
 import type { LessonRecord, LessonType } from '../../lib/programs'
 
@@ -33,6 +35,10 @@ type LessonSorterProps = {
 }
 
 export function LessonSorter({ lessons, onReorder, onEdit }: LessonSorterProps) {
+  const { t, i18n } = useTranslation()
+  const [query, setQuery] = useState('')
+  const [typeFilter, setTypeFilter] = useState('all')
+  const [statusFilter, setStatusFilter] = useState('all')
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
@@ -50,16 +56,67 @@ export function LessonSorter({ lessons, onReorder, onEdit }: LessonSorterProps) 
     onReorder(next)
   }
 
+  const shown = lessons.filter((lesson) => {
+    const title = localizedLabel(lesson.title, i18n.language).toLowerCase()
+    const matchesQuery = title.includes(query.trim().toLowerCase())
+    const matchesType = typeFilter === 'all' || lesson.contentType === typeFilter
+    const matchesStatus =
+      statusFilter === 'all' || (statusFilter === 'published' ? lesson.isPublished : !lesson.isPublished)
+    return matchesQuery && matchesType && matchesStatus
+  })
+
   return (
-    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
-      <SortableContext items={lessons.map((lesson) => lesson.id)} strategy={verticalListSortingStrategy}>
-        <ul className="grid gap-2">
-          {lessons.map((lesson) => (
-            <SortableLesson key={lesson.id} lesson={lesson} onEdit={onEdit} />
-          ))}
-        </ul>
-      </SortableContext>
-    </DndContext>
+    <div>
+      <FilterBar query={query} onQuery={setQuery} count={shown.length}>
+        <SelectFilter
+          id="lesson-type"
+          label={t('filters.type')}
+          value={typeFilter}
+          onChange={setTypeFilter}
+          options={[
+            { value: 'all', label: t('filters.all') },
+            { value: 'text', label: t('programs.types.text') },
+            { value: 'video', label: t('programs.types.video') },
+            { value: 'pdf', label: t('programs.types.pdf') },
+            { value: 'quiz', label: t('programs.types.quiz') },
+          ]}
+        />
+        <SelectFilter
+          id="lesson-status"
+          label={t('filters.status')}
+          value={statusFilter}
+          onChange={setStatusFilter}
+          options={[
+            { value: 'all', label: t('filters.all') },
+            { value: 'published', label: t('programs.published') },
+            { value: 'draft', label: t('programs.draft') },
+          ]}
+        />
+      </FilterBar>
+      {lessons.length > 0 && shown.length === 0 ? <p className="mb-3 text-muted">{t('filters.noMatch')}</p> : null}
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
+        <SortableContext items={shown.map((lesson) => lesson.id)} strategy={verticalListSortingStrategy}>
+          <div className="ui-card overflow-auto p-0">
+            <table className="ui-grid">
+              <thead>
+                <tr>
+                  <th>{t('programs.reorder')}</th>
+                  <th>{t('programs.name')}</th>
+                  <th>{t('filters.type')}</th>
+                  <th>{t('filters.status')}</th>
+                  <th>{t('teacher.action')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {shown.map((lesson) => (
+                  <SortableLesson key={lesson.id} lesson={lesson} onEdit={onEdit} />
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </SortableContext>
+      </DndContext>
+    </div>
   )
 }
 
@@ -70,31 +127,32 @@ function SortableLesson({ lesson, onEdit }: { lesson: LessonRecord; onEdit: (les
   const title = localizedLabel(lesson.title, i18n.language) || t('programs.untitled')
 
   return (
-    <li
-      ref={setNodeRef}
-      style={{ transform: CSS.Transform.toString(transform), transition }}
-      className="flex items-center gap-2 rounded-2xl border border-line bg-surface p-2"
-    >
-      <button
-        type="button"
-        className="ui-btn ui-btn-ghost"
-        aria-label={t('programs.reorder')}
-        {...attributes}
-        {...listeners}
-      >
-        <GripVertical aria-hidden="true" className="size-4" />
-      </button>
-      <Icon aria-hidden="true" className="size-5 shrink-0 text-accent" />
-      <div className="min-w-0 flex-1">
-        <p className="truncate font-medium text-ink">{title}</p>
-        <p className="text-sm text-muted">
-          {t(`programs.types.${lesson.contentType}`)} · {lesson.isPublished ? t('programs.published') : t('programs.draft')}
-        </p>
-      </div>
-      <button type="button" className="ui-btn ui-btn-ghost border border-line" onClick={() => onEdit(lesson)}>
-        <Pencil aria-hidden="true" className="size-4" />
-        {t('programs.edit')}
-      </button>
-    </li>
+    <tr ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition }}>
+      <td>
+        <button
+          type="button"
+          className="ui-btn ui-btn-ghost"
+          aria-label={t('programs.reorder')}
+          {...attributes}
+          {...listeners}
+        >
+          <GripVertical aria-hidden="true" className="size-4" />
+        </button>
+      </td>
+      <td className="font-medium text-ink">
+        <span className="inline-flex items-center gap-2">
+          <Icon aria-hidden="true" className="size-4 shrink-0 text-accent" />
+          {title}
+        </span>
+      </td>
+      <td>{t(`programs.types.${lesson.contentType}`)}</td>
+      <td>{lesson.isPublished ? t('programs.published') : t('programs.draft')}</td>
+      <td>
+        <button type="button" className="ui-inline ui-btn-ghost" onClick={() => onEdit(lesson)}>
+          <Pencil aria-hidden="true" className="size-4" />
+          {t('programs.edit')}
+        </button>
+      </td>
+    </tr>
   )
 }

@@ -8,7 +8,7 @@ The skill search mixed a dark analytics palette, claymorphism, and Fira fonts. T
 
 ## Style
 
-Minimal Swiss admin. Canvas `#F8FAFC`, white cards, one navy primary, one blue accent. No clay shadows, no dark theme, no emoji icons.
+Light glass. The page background is a fixed wash of sky, teal, amber, and indigo. Panels are translucent (`ui-card`, `ui-chrome`) so those colors show through. Text stays ink on the glass. No clay shadows, no dark theme, no emoji icons. The interface language is Vietnamese. Lesson titles are written in Vietnamese; other languages are for later automatic translation.
 
 ## Color
 

@@ -13,7 +13,7 @@ export function BottomNav() {
   return (
     <nav
       aria-label={t('nav.label')}
-      className="fixed inset-x-0 bottom-0 z-20 border-t border-white/70 bg-white/75 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl lg:hidden"
+      className="ui-chrome fixed inset-x-0 bottom-0 z-20 border-t pb-[env(safe-area-inset-bottom)] lg:hidden"
     >
       <ul className="grid" style={{ gridTemplateColumns: `repeat(${Math.max(items.length, 1)}, minmax(0, 1fr))` }}>
         {items.map((item) => {

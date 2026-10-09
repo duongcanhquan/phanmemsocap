@@ -7,7 +7,7 @@ import { navItemsForRole } from './nav'
 const linkClass = ({ isActive }: { isActive: boolean }) =>
   [
     'flex min-h-11 items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-colors duration-200',
-    isActive ? 'bg-accent text-white' : 'text-ink hover:bg-white/70',
+    isActive ? 'bg-accent text-white shadow-[0_8px_20px_rgb(3_105_161/0.28)]' : 'text-ink hover:bg-white/45',
   ].join(' ')
 
 export function Sidebar() {
@@ -15,10 +15,11 @@ export function Sidebar() {
   const { role } = useAuth()
 
   return (
-    <aside className="hidden border-r border-white/70 bg-white/60 backdrop-blur-xl lg:flex lg:min-h-dvh lg:flex-col">
-      <div className="px-5 py-6">
-        <p className="text-xs font-medium tracking-wide text-muted uppercase">phanmemsocap</p>
-        <p className="mt-1 text-lg leading-snug font-semibold text-ink">{t('appName')}</p>
+    <aside className="ui-chrome hidden h-full overflow-y-auto border-r lg:flex lg:flex-col">
+      <div className="px-5 py-5">
+        <img src="/logo-vietmy-blue.png" alt={t('brand.school')} className="h-16 w-auto" />
+        <p className="mt-3 text-sm leading-snug font-semibold text-ink">{t('brand.school')}</p>
+        <p className="mt-1 text-xs text-muted">{t('appName')}</p>
       </div>
       <nav aria-label={t('nav.label')} className="flex flex-1 flex-col gap-1 px-3 pb-6">
         {navItemsForRole(role).map((item) => {

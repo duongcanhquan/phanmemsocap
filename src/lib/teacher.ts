@@ -16,6 +16,7 @@ export type StudyEntry = {
   question: LocalizedText
   essayAnswer: string
   score: number | null
+  feedback: string
   submittedAt: string | null
 }
 
@@ -137,7 +138,7 @@ export async function listStudyLog(studentId: string, programId: string): Promis
 
   const submissions = await db
     .from('quiz_submissions')
-    .select('id, quiz_id, essay_answer, score, submitted_at')
+    .select('id, quiz_id, essay_answer, score, teacher_feedback, submitted_at')
     .eq('student_id', studentId)
     .in(
       'quiz_id',
@@ -162,6 +163,7 @@ export async function listStudyLog(studentId: string, programId: string): Promis
       question: meta?.question ?? { vi: '', my: '', bn: '' },
       essayAnswer: submission.essay_answer ?? '',
       score: asScore(submission.score),
+      feedback: submission.teacher_feedback ?? '',
       submittedAt: submission.submitted_at,
     }
   })

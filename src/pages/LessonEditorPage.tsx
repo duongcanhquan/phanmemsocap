@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { AILessonGenerator } from '../components/editor/AILessonGenerator'
 import { AdvancedEditor, type AdvancedEditorHandle } from '../components/editor/AdvancedEditor'
 import { PageHeader } from '../components/ui/PageHeader'
+import { Tabs } from '../components/ui/Tabs'
 import { localizedLabel } from '../lib/localized'
 import { listLessons, listPrograms, saveLessonContent, type LessonRecord, type ProgramRecord } from '../lib/programs'
 import { isSupabaseConfigured } from '../lib/supabase'
@@ -11,6 +12,7 @@ import { isSupabaseConfigured } from '../lib/supabase'
 export function LessonEditorPage() {
   const { t, i18n } = useTranslation()
   const [mode, setMode] = useState<'teacher' | 'student'>('teacher')
+  const [pane, setPane] = useState('write')
   const [content, setContent] = useState<JSONContent | string | undefined>()
   const [programs, setPrograms] = useState<ProgramRecord[]>([])
   const [lessons, setLessons] = useState<LessonRecord[]>([])
@@ -92,7 +94,7 @@ export function LessonEditorPage() {
   }
 
   return (
-    <div className="flex min-h-0 w-full flex-1 flex-col gap-3">
+    <div className="ui-page">
       <PageHeader
         title={t('editor.title')}
         description={t('editor.subtitle')}
@@ -111,8 +113,8 @@ export function LessonEditorPage() {
           {t('supabase.missing')}
         </p>
       ) : null}
-      <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] sm:items-end">
-        <label className="grid gap-1 text-sm font-medium text-ink" htmlFor="editor-program">
+      <div className="flex shrink-0 items-end gap-3 overflow-x-auto">
+        <label className="grid min-w-56 flex-1 gap-1 text-sm font-medium text-ink" htmlFor="editor-program">
           {t('editor.program')}
           <select
             id="editor-program"
@@ -134,7 +136,7 @@ export function LessonEditorPage() {
             ))}
           </select>
         </label>
-        <label className="grid gap-1 text-sm font-medium text-ink" htmlFor="editor-lesson">
+        <label className="grid min-w-56 flex-1 gap-1 text-sm font-medium text-ink" htmlFor="editor-lesson">
           {t('editor.lesson')}
           <select
             id="editor-lesson"
@@ -151,29 +153,43 @@ export function LessonEditorPage() {
             ))}
           </select>
         </label>
-        <button type="button" className="ui-btn ui-btn-primary" disabled={pending || !selectedLessonId} onClick={() => void onSave()}>
+        <button type="button" className="ui-btn ui-btn-primary shrink-0" disabled={pending || !selectedLessonId} onClick={() => void onSave()}>
           {pending ? t('editor.saving') : t('editor.save')}
         </button>
       </div>
-      <p className="text-sm text-muted">{t('editor.textOnly')}</p>
+      <p className="shrink-0 truncate text-sm text-muted">{t('editor.textOnly')}</p>
+      <Tabs
+        label={t('panels.label')}
+        value={pane}
+        onChange={setPane}
+        tabs={[
+          { id: 'write', label: t('panels.write') },
+          { id: 'assist', label: t('panels.assist') },
+        ]}
+      />
       {notice ? <p role="status" className="text-sm font-medium text-accent">{notice}</p> : null}
       {error ? (
         <p role="alert" className="text-sm text-danger">
           {error}
         </p>
       ) : null}
-      <div className="grid min-h-0 flex-1 items-stretch gap-3 lg:grid-cols-[minmax(0,1fr)_22rem]">
-        <AdvancedEditor
-          key={`${selectedLessonId}-${mode}`}
-          mode={mode}
-          content={content}
-          onChange={setContent}
-          editorRef={editorRef}
-        />
-        {mode === 'teacher' ? (
+      <div className="ui-fill">
+        <div className={pane === 'write' || mode !== 'teacher' ? 'h-full min-h-0' : 'hidden'}>
+          <AdvancedEditor
+            key={`${selectedLessonId}-${mode}`}
+            mode={mode}
+            content={content}
+            onChange={setContent}
+            editorRef={editorRef}
+          />
+        </div>
+        {pane === 'assist' && mode === 'teacher' ? (
           <AILessonGenerator
             getContent={() => editorRef.current?.getText() ?? ''}
-            onInsert={(markdown) => editorRef.current?.insertMarkdown(markdown)}
+            onInsert={(markdown) => {
+              setPane('write')
+              editorRef.current?.insertMarkdown(markdown)
+            }}
           />
         ) : null}
       </div>

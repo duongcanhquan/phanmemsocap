@@ -106,7 +106,7 @@ export function LessonModal({ programId, lesson, nextOrder, onClose, onSaved }: 
         role="dialog"
         aria-modal="true"
         aria-labelledby="lesson-dialog-title"
-        className="max-h-[90dvh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-5 shadow-xl"
+        className="ui-card max-h-[90dvh] w-full max-w-2xl overflow-y-auto"
         onSubmit={(event) => void onSubmit(event)}
       >
         <h2 id="lesson-dialog-title" className="text-lg font-semibold text-ink">

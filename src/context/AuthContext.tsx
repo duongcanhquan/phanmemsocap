@@ -1,6 +1,6 @@
 import type { Session, User } from '@supabase/supabase-js'
 import { createContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import i18n, { isAppLanguage } from '../lib/i18n'
+import i18n, { isAppLanguage, rememberedLanguage, rememberLanguage } from '../lib/i18n'
 import { fetchProfileLanguage, fetchProfileRole, isSupabaseConfigured, supabase, type AppRole } from '../lib/supabase'
 
 interface AuthContextValue {
@@ -55,8 +55,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
           }
           setRole(nextRole)
           setIsLoading(false)
+          if (rememberedLanguage()) return
           void fetchProfileLanguage(userId, accessToken).then((language) => {
-            if (language && isAppLanguage(language)) void i18n.changeLanguage(language)
+            if (!language || !isAppLanguage(language) || rememberedLanguage()) return
+            rememberLanguage(language)
+            void i18n.changeLanguage(language)
           })
         })
       }, 0)

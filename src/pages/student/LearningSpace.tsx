@@ -54,7 +54,7 @@ function ProgramList() {
         </p>
       ) : null}
       {!loading && programs.length === 0 && isSupabaseConfigured ? <p className="text-muted">{t('student.emptyPrograms')}</p> : null}
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="ui-fill grid content-start gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {programs.map((program) => (
           <Link key={program.id} to={`/student/${program.id}`} className="ui-card grid gap-3">
             {program.coverImageUrl ? (
@@ -107,7 +107,7 @@ function LessonTimeline({ programId }: { programId: string }) {
           {error}
         </p>
       ) : null}
-      <ol className="grid gap-2">
+      <ol className="ui-fill grid content-start gap-2">
         {lessons.map((lesson, index) => {
           const title = localizedLabel(lesson.title, i18n.language) || t('programs.untitled')
           const body = (

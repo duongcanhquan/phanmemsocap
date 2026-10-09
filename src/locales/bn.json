@@ -1,5 +1,8 @@
 {
   "appName": "প্রাথমিক প্রশিক্ষণ ব্যবস্থাপনা",
+  "brand": {
+    "school": "Cao đẳng Việt Mỹ Hà Nội"
+  },
   "skipToContent": "নেভিগেশন এড়িয়ে যান",
   "nav": {
     "label": "মূল নেভিগেশন",
@@ -19,6 +22,44 @@
     "logout": "প্রস্থান",
     "account": "অ্যাকাউন্ট",
     "guest": "অতিথি"
+  },
+  "content": {
+    "authorNote": "Soạn bằng tiếng Việt. Khi đã nối mô hình, hệ thống dịch các ngôn ngữ khác tự động."
+  },
+  "filters": {
+    "search": "Tìm kiếm",
+    "all": "Tất cả",
+    "role": "Vai trò",
+    "status": "Trạng thái",
+    "category": "Nhóm",
+    "program": "Chương trình",
+    "type": "Loại bài",
+    "score": "Điểm",
+    "hasScore": "Đã có điểm",
+    "noScore": "Chưa có điểm",
+    "done": "Đã xong",
+    "submitted": "Ngày nộp",
+    "count": "{{count}} dòng",
+    "noMatch": "Không có dòng nào khớp bộ lọc."
+  },
+  "panels": {
+    "label": "Phần nội dung",
+    "list": "Danh sách",
+    "create": "Thêm mới",
+    "import": "Nhập file",
+    "password": "Mật khẩu",
+    "info": "Thông tin",
+    "lessons": "Bài giảng",
+    "class": "Lớp",
+    "report": "Báo cáo",
+    "metrics": "Số liệu",
+    "inactive": "Học viên im",
+    "shortcuts": "Lối tắt",
+    "roster": "Sĩ số",
+    "write": "Soạn bài",
+    "assist": "Trợ lý",
+    "content": "Nội dung",
+    "practice": "Luyện tập"
   },
   "languages": {
     "vi": "Tiếng Việt",
@@ -120,6 +161,7 @@
     "passwordRequired": "পাসওয়ার্ড লিখুন।",
     "passwordShort": "পাসওয়ার্ড কমপক্ষে ৬ অক্ষরের হতে হবে।",
     "invalidCredentials": "ইমেইল বা পাসওয়ার্ড সঠিক নয়।",
+    "remember": "এই কম্পিউটারে লগইন মনে রাখুন",
     "google": "Antigravity-এর Google অ্যাকাউন্ট দিয়ে ঢুকুন",
     "googleFailed": "Supabase-এ Google লগইন চালু নেই।",
     "missingProfile": "এই অ্যাকাউন্টে এখনও কোনো ভূমিকা নেই।",
@@ -205,7 +247,7 @@
   "aiSettings": {
     "title": "এআই মডেল সংযোগ",
     "lead": "প্রতিটি কোম্পানির API key দিন, তারপর পাঠ তৈরির জন্য মডেল বেছে নিন।",
-    "antigravity": "Antigravity Google অ্যাকাউন্ট ব্যবহার করে। সেই অ্যাকাউন্ট দিয়ে Google AI Studio-তে Gemini API key তৈরি করে Gemini ঘরে বসান। লগইন পাতার Google বোতাম একই অ্যাকাউন্ট ব্যবহার করে।",
+    "antigravity": "Antigravity হলো Google অ্যাকাউন্ট দিয়ে Google-এর API ও AI ব্যবহার করা। Google AI Studio-তে Gemini API key তৈরি করে Gemini ঘরে বসান।",
     "loading": "সংযোগ লোড হচ্ছে...",
     "enabled": "চালু",
     "apiKey": "API key",
@@ -232,7 +274,7 @@
   "reports": {
     "title": "নম্বরপত্র",
     "lead": "পাঠ্যক্রমের প্রতিটি পাঠে শিক্ষার্থীর নম্বর।",
-    "schoolName": "প্রাথমিক প্রশিক্ষণ বিদ্যালয়",
+    "schoolName": "Cao đẳng Việt Mỹ Hà Nội",
     "className": "ক্লাস",
     "exportedAt": "তৈরির তারিখ",
     "student": "শিক্ষার্থীর নাম",
@@ -246,6 +288,15 @@
     "exporting": "তৈরি হচ্ছে...",
     "excel": "Excel নিন",
     "pdf": "PDF নিন"
+  },
+  "transcript": {
+    "title": "Báo cáo kết quả khóa học",
+    "lead": "Bản in gửi sinh viên: thông tin, điểm từng bài, điểm tổng kết và nhận xét của giáo viên.",
+    "lesson": "Bài học",
+    "score": "Điểm",
+    "comment": "Nhận xét giáo viên",
+    "noComment": "Chưa có nhận xét",
+    "summary": "Điểm tổng kết"
   },
   "student": {
     "homeTitle": "আমার পাঠ্যক্রম",
@@ -321,6 +372,11 @@
   },
   "accounts": {
     "title": "অ্যাকাউন্ট",
+    "tabs": {
+      "student": "শিক্ষার্থী",
+      "teacher": "শিক্ষক",
+      "manager": "প্রশাসক"
+    },
     "lead": "অ্যাকাউন্ট তৈরি, পাসওয়ার্ড বদল এবং মানুষ সরান।",
     "ownTitle": "আমার পাসওয়ার্ড বদলান",
     "createTitle": "মানুষ যোগ করুন",

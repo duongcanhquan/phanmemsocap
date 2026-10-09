@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { PageHeader } from '../../components/ui/PageHeader'
+import { Tabs } from '../../components/ui/Tabs'
 import { aiCatalog, listAiConnections, saveAiConnection, type AiConnection, type AiProvider } from '../../lib/ai'
 import { isSupabaseConfigured } from '../../lib/supabase'
 
@@ -10,6 +11,7 @@ export function AiSettings() {
   const [loading, setLoading] = useState(isSupabaseConfigured)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
+  const [provider, setProvider] = useState<AiProvider>('openai')
 
   useEffect(() => {
     if (!isSupabaseConfigured) return
@@ -36,8 +38,14 @@ export function AiSettings() {
       {loading ? <p role="status">{t('aiSettings.loading')}</p> : null}
       {notice ? <p role="status" className="text-sm font-medium text-accent">{notice}</p> : null}
       {error ? <p role="alert" className="text-sm text-danger">{error}</p> : null}
-      <div className="grid gap-3">
-        {aiCatalog.map((item) => {
+      <Tabs
+        label={t('panels.label')}
+        value={provider}
+        onChange={(id) => setProvider(id as AiProvider)}
+        tabs={aiCatalog.map((item) => ({ id: item.provider, label: t(item.labelKey) }))}
+      />
+      <div className="ui-fill">
+        {aiCatalog.filter((item) => item.provider === provider).map((item) => {
           const connection = connections.find((row) => row.provider === item.provider)
           return (
           <ProviderCard
@@ -122,10 +130,10 @@ function ProviderCard({
           onChange={(event) => setApiKey(event.target.value)}
         />
       </label>
-      <fieldset className="grid gap-2">
+      <fieldset className="flex gap-4 overflow-x-auto">
         <legend className="text-sm font-medium text-ink">{t('aiSettings.models')}</legend>
         {models.map((model) => (
-          <label key={model.id} className="flex items-center gap-2 text-sm text-ink">
+          <label key={model.id} className="flex shrink-0 items-center gap-2 text-sm whitespace-nowrap text-ink">
             <input type="checkbox" checked={selected.includes(model.id)} onChange={() => toggle(model.id)} />
             {model.label}
           </label>
