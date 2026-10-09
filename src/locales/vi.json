@@ -66,7 +66,9 @@
     "write": "Soạn bài",
     "assist": "Trợ lý",
     "content": "Nội dung",
-    "practice": "Luyện tập"
+    "practice": "Luyện tập",
+    "studyPath": "Lộ trình",
+    "studyHistory": "Lịch sử bài"
   },
   "dashboard": {
     "title": "Tổng quan",
@@ -145,6 +147,11 @@
     "lesson": "Bài giảng",
     "pickProgram": "Chọn chương trình",
     "pickLesson": "Chọn bài dạng văn bản",
+    "newLesson": "Tạo bài giảng",
+    "sortOrder": "Theo thứ tự",
+    "sortTime": "Theo thời gian",
+    "assignCourse": "Gán vào khóa",
+    "createdAt": "Thời gian tạo",
     "textOnly": "Chỉ bài dạng văn bản được lưu từ đây. PDF và video giữ liên kết riêng.",
     "save": "Lưu vào bài học",
     "saving": "Đang lưu...",
@@ -153,6 +160,11 @@
   },
   "auth": {
     "loginTitle": "Đăng nhập",
+    "stageTitle": "Tri thức mở theo từng bước",
+    "stageLead": "Học bài, luyện tập, rồi đi tiếp trên đúng lộ trình của mình.",
+    "stageLessons": "Bài học rõ ràng",
+    "stagePractice": "Luyện tập có điểm",
+    "stagePath": "Lộ trình có thứ tự",
     "loginLead": "Dành cho quản trị, giáo viên và học viên.",
     "email": "Email",
     "password": "Mật khẩu",
@@ -204,8 +216,12 @@
     "edit": "Sửa",
     "editLesson": "Sửa bài học",
     "editProgram": "Sửa chương trình",
+    "teacher": "Giảng viên phụ trách",
+    "unassigned": "Chưa gán",
     "contentType": "Loại bài",
     "contentUrl": "Liên kết hoặc nội dung",
+    "slideBody": "Nội dung slide, ngăn cách mỗi trang bằng một dòng ---",
+    "author": "Giảng viên soạn",
     "module": "Học phần",
     "published": "Đã xuất bản",
     "draft": "Bản nháp",
@@ -222,6 +238,7 @@
       "pdf": "PDF",
       "video": "Video",
       "text": "Văn bản",
+      "slides": "Slide",
       "quiz": "Trắc nghiệm"
     }
   },
@@ -334,7 +351,14 @@
     "correct": "Đúng",
     "incorrect": "Sai",
     "waiting": "Đang chờ chấm",
-    "continue": "Tiếp tục"
+    "continue": "Tiếp tục",
+    "progress": "{{done}}/{{total}} bài",
+    "completed": "Đã học xong",
+    "statusPassed": "Đã đạt",
+    "statusOpen": "Đang học",
+    "statusWaiting": "Chờ chấm",
+    "statusReady": "Sẵn sàng",
+    "historyEmpty": "Chưa có bài nào đã nộp."
   },
   "teacher": {
     "schoolTitle": "Kiểm tra, kiểm soát và tổng kết",
@@ -380,7 +404,10 @@
   },
   "classesPage": {
     "title": "Lớp học",
-    "lead": "Mỗi chương trình là một lớp. Mở lớp để gán sinh viên.",
+    "className": "Tên lớp",
+    "add": "Thêm lớp",
+    "pickCourse": "Chọn khóa học",
+    "untitled": "Lớp chưa đặt tên",
     "students": "Sinh viên",
     "manage": "Gán sinh viên",
     "empty": "Chưa có lớp."
@@ -408,6 +435,7 @@
     "nationalId": "CCCD",
     "passport": "Hộ chiếu",
     "photo": "Ảnh chân dung",
+    "uploadPhoto": "Tải ảnh lên",
     "photoUrl": "Hoặc dán link ảnh https",
     "search": "Tìm theo tên, email, CCCD hoặc hộ chiếu",
     "importTitle": "Nhập danh sách",

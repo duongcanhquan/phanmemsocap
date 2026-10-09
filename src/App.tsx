@@ -127,20 +127,22 @@ export default function App() {
                   }
                 />
               </Route>
+              <Route element={<ProtectedRoute allowedRoles={[...adminRoles, 'teacher']} />}>
+                <Route
+                  path="programs/:programId"
+                  element={
+                    <Suspense fallback={<PageFallback />}>
+                      <ProgramDetail />
+                    </Suspense>
+                  }
+                />
+              </Route>
               <Route element={<ProtectedRoute allowedRoles={[...adminRoles]} />}>
                 <Route
                   path="programs"
                   element={
                     <Suspense fallback={<PageFallback />}>
                       <ProgramManager />
-                    </Suspense>
-                  }
-                />
-                <Route
-                  path="programs/:programId"
-                  element={
-                    <Suspense fallback={<PageFallback />}>
-                      <ProgramDetail />
                     </Suspense>
                   }
                 />

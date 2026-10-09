@@ -9,17 +9,22 @@ import { LessonSorter } from '../../components/admin/LessonSorter'
 import { LocalizedFields } from '../../components/admin/LocalizedFields'
 import { PageHeader } from '../../components/ui/PageHeader'
 import { Tabs } from '../../components/ui/Tabs'
+import { useAuth } from '../../hooks/useAuth'
 import { emptyLocalized, hasLocalizedText, localizedLabel, type LocalizedText } from '../../lib/localized'
+import { isSchoolAdmin } from '../../lib/roles'
 import { getProgram, listLessons, saveLessonOrder, updateProgram, type LessonRecord } from '../../lib/programs'
 
 export function ProgramDetail() {
   const { t, i18n } = useTranslation()
+  const { role } = useAuth()
+  const admin = isSchoolAdmin(role)
   const { programId = '' } = useParams()
   const [title, setTitle] = useState<LocalizedText>(emptyLocalized())
   const [description, setDescription] = useState<LocalizedText>(emptyLocalized())
   const [category, setCategory] = useState('')
   const [coverImageUrl, setCoverImageUrl] = useState('')
   const [isActive, setIsActive] = useState(true)
+  const [teacherId, setTeacherId] = useState('')
   const [lessons, setLessons] = useState<LessonRecord[]>([])
   const [editing, setEditing] = useState<LessonRecord | null | undefined>(undefined)
   const [loading, setLoading] = useState(true)
@@ -27,7 +32,7 @@ export function ProgramDetail() {
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
   const [pending, setPending] = useState(false)
-  const [tab, setTab] = useState(() => (window.location.hash === '#class' ? 'class' : 'info'))
+  const [tab, setTab] = useState(() => (window.location.hash === '#class' ? 'class' : 'lessons'))
 
   async function loadLessons() {
     setLessons(await listLessons(programId))
@@ -47,6 +52,7 @@ export function ProgramDetail() {
         setCategory(program.category)
         setCoverImageUrl(program.coverImageUrl)
         setIsActive(program.isActive)
+        setTeacherId(program.teacherId)
         setLessons(nextLessons)
       })
       .catch(() => {
@@ -70,7 +76,7 @@ export function ProgramDetail() {
     setError('')
     setNotice('')
     try {
-      await updateProgram(programId, { title, description, category, coverImageUrl, isActive })
+      await updateProgram(programId, { title, description, category, coverImageUrl, isActive, teacherId })
       setNotice(t('programs.saved'))
     } catch {
       setError(t('programs.saveError'))
@@ -94,11 +100,11 @@ export function ProgramDetail() {
 
   return (
     <div className="ui-page">
-      <Link to="/programs" className="ui-btn ui-btn-ghost w-fit px-2">
+      <Link to={admin ? '/programs' : '/teacher'} className="ui-btn ui-btn-ghost w-fit px-2">
         <ArrowLeft aria-hidden="true" className="size-4" />
         {t('programs.back')}
       </Link>
-      <PageHeader title={heading} description={t('programs.detailLead')} />
+      <PageHeader title={heading} />
       {loading ? <p role="status">{t('programs.loading')}</p> : null}
       {missing ? <p role="status">{t('programs.missing')}</p> : null}
       {!loading && !missing ? (
@@ -108,14 +114,14 @@ export function ProgramDetail() {
             value={tab}
             onChange={setTab}
             tabs={[
-              { id: 'info', label: t('panels.info') },
+              ...(admin ? [{ id: 'info', label: t('panels.info') }] : []),
               { id: 'lessons', label: t('panels.lessons') },
               { id: 'class', label: t('panels.class') },
               { id: 'report', label: t('panels.report') },
             ]}
           />
           <div className="ui-fill">
-          {tab === 'info' ? (
+          {admin && tab === 'info' ? (
           <form className="ui-card grid gap-4 lg:grid-cols-2" onSubmit={(event) => void onSave(event)}>
             <LocalizedFields id="program-title" label={t('programs.name')} value={title} onChange={setTitle} />
             <LocalizedFields
@@ -169,7 +175,7 @@ export function ProgramDetail() {
           <section className="ui-card grid gap-3">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <h2 className="text-lg font-semibold text-ink">{t('programs.lessons')}</h2>
-              <button type="button" className="ui-btn ui-btn-primary" onClick={() => setEditing(null)}>
+              <button type="button" className="ui-inline ui-btn-primary" onClick={() => setEditing(null)}>
                 <Plus aria-hidden="true" className="size-4" />
                 {t('programs.addLesson')}
               </button>

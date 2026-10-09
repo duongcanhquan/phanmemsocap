@@ -72,6 +72,7 @@ export interface Database {
           content_url: string | null
           order_index: number | null
           is_published: boolean | null
+          author_id: string | null
           created_at: string | null
         },
         {
@@ -82,6 +83,17 @@ export interface Database {
           content_url?: string | null
           order_index?: number | null
           is_published?: boolean | null
+          author_id?: string | null
+        }
+      >
+      program_teachers: Table<
+        {
+          program_id: string
+          teacher_id: string
+        },
+        {
+          program_id: string
+          teacher_id: string
         }
       >
       quizzes: Table<
@@ -129,13 +141,27 @@ export interface Database {
           id: string
           student_id: string | null
           program_id: string | null
+          class_id: string | null
           enrollment_date: string | null
           status: string | null
         },
         {
           student_id?: string | null
           program_id?: string | null
+          class_id?: string | null
           status?: string | null
+        }
+      >
+      course_classes: Table<
+        {
+          id: string
+          program_id: string
+          name: string
+          created_at: string | null
+        },
+        {
+          program_id: string
+          name: string
         }
       >
     }
@@ -152,6 +178,18 @@ export interface Database {
       program_lesson_state: {
         Args: { program_id: string }
         Returns: Json
+      }
+      my_study_record: {
+        Args: { program_id: string }
+        Returns: Json
+      }
+      list_enrollable_students: {
+        Args: Record<string, never>
+        Returns: { id: string; full_name: string | null }[]
+      }
+      list_teacher_names: {
+        Args: Record<string, never>
+        Returns: { id: string; full_name: string | null }[]
       }
       school_overview: {
         Args: Record<string, never>

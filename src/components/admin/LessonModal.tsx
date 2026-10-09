@@ -107,31 +107,31 @@ export function LessonModal({ programId, lesson, nextOrder, onClose, onSaved }: 
         <div className="grid gap-4 lg:grid-cols-2">
           <LocalizedFields id="lesson-title" label={t('programs.name')} value={title} onChange={setTitle} />
           <LocalizedFields id="lesson-module" label={t('programs.module')} value={moduleName} onChange={setModuleName} />
-          <label className="grid gap-1 text-sm font-medium text-ink" htmlFor="lesson-type">
-            {t('programs.contentType')}
-            <select
-              id="lesson-type"
-              className="ui-field"
-              value={contentType}
-              onChange={(event) => {
-                const next = event.target.value as LessonType
-                setContentType(next)
-                if (next === 'quiz' && quizzes.length === 0) setQuizzes([newQuiz()])
-              }}
-            >
+          <div className="grid gap-2 lg:col-span-2">
+            <p className="text-sm font-medium text-ink">{t('programs.contentType')}</p>
+            <div className="flex flex-wrap gap-2">
               {lessonTypes.map((type) => (
-                <option key={type} value={type}>
+                <button
+                  key={type}
+                  type="button"
+                  className={contentType === type ? 'ui-inline ui-btn-primary' : 'ui-inline ui-btn-ghost'}
+                  aria-pressed={contentType === type}
+                  onClick={() => {
+                    setContentType(type)
+                    if (type === 'quiz' && quizzes.length === 0) setQuizzes([newQuiz()])
+                  }}
+                >
                   {t(`programs.types.${type}`)}
-                </option>
+                </button>
               ))}
-            </select>
-          </label>
-          {contentType === 'text' ? (
-            <label className="grid gap-1 text-sm font-medium text-ink" htmlFor="lesson-body">
-              {t('programs.contentUrl')}
+            </div>
+          </div>
+          {contentType === 'text' || contentType === 'slides' ? (
+            <label className="grid gap-1 text-sm font-medium text-ink lg:col-span-2" htmlFor="lesson-body">
+              {contentType === 'slides' ? t('programs.slideBody') : t('programs.contentUrl')}
               <textarea
                 id="lesson-body"
-                className="ui-field min-h-28 py-2"
+                className="ui-field min-h-40 py-2"
                 value={contentUrl}
                 onChange={(event) => setContentUrl(event.target.value)}
               />

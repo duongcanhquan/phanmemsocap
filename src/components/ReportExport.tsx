@@ -8,9 +8,10 @@ import { ExportButtons } from './ExportButtons'
 
 type ReportExportProps = {
   programId: string
+  studentIds?: string[]
 }
 
-export function ReportExport({ programId }: ReportExportProps) {
+export function ReportExport({ programId, studentIds }: ReportExportProps) {
   const { t, i18n } = useTranslation()
   const [report, setReport] = useState<ScoreReport | null>(null)
   const [loading, setLoading] = useState(isSupabaseConfigured)
@@ -43,8 +44,10 @@ export function ReportExport({ programId }: ReportExportProps) {
     return score === null ? t('reports.emptyScore') : score.toFixed(1)
   }
 
-  const students = (report?.students ?? []).filter((student) =>
-    (student.name || '').toLowerCase().includes(query.trim().toLowerCase()),
+  const allowed = studentIds ? new Set(studentIds) : null
+  const students = (report?.students ?? []).filter(
+    (student) =>
+      (!allowed || allowed.has(student.id)) && (student.name || '').toLowerCase().includes(query.trim().toLowerCase()),
   )
   const exportRows = report
     ? students.map((student) => [

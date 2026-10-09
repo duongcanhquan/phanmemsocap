@@ -39,10 +39,10 @@ export function ExportButtons({ filename, title, lines = [], headers, rows, disa
 
   return (
     <div className="flex shrink-0 flex-wrap items-center gap-2">
-      <button type="button" className="ui-btn ui-btn-primary" disabled={disabled || exporting !== null} onClick={() => void run('excel')}>
+      <button type="button" className="ui-inline ui-btn-primary" disabled={disabled || exporting !== null} onClick={() => void run('excel')}>
         {exporting === 'excel' ? t('reports.exporting') : t('reports.excel')}
       </button>
-      <button type="button" className="ui-btn ui-btn-ghost" disabled={disabled || exporting !== null} onClick={() => void run('pdf')}>
+      <button type="button" className="ui-inline ui-btn-ghost" disabled={disabled || exporting !== null} onClick={() => void run('pdf')}>
         {exporting === 'pdf' ? t('reports.exporting') : t('reports.pdf')}
       </button>
       {error ? (

@@ -50,9 +50,19 @@ export function Login() {
 
   return (
     <div className="min-h-dvh lg:grid lg:grid-cols-2">
-      <div className="relative hidden min-h-dvh items-center justify-center bg-[#0b1f33] px-10 lg:flex">
-        <img src="/logo-vietmy-red.png" alt={t('brand.school')} className="w-[min(36rem,88%)]" />
-      </div>
+      <aside className="login-stage px-10 xl:px-16">
+        <div className="login-orbit" aria-hidden="true" />
+        <div className="relative z-10 grid max-w-lg gap-6">
+          <p className="text-sm font-semibold tracking-wide text-sky-200">{t('brand.school')}</p>
+          <h2 className="text-4xl font-semibold leading-tight">{t('auth.stageTitle')}</h2>
+          <p className="text-lg leading-relaxed text-sky-100/90">{t('auth.stageLead')}</p>
+          <ol className="grid gap-3">
+            <li className="login-float rounded-2xl border border-white/20 bg-white/10 px-4 py-3 backdrop-blur-md">{t('auth.stageLessons')}</li>
+            <li className="login-float login-float-late rounded-2xl border border-white/20 bg-white/10 px-4 py-3 backdrop-blur-md">{t('auth.stagePractice')}</li>
+            <li className="login-float rounded-2xl border border-white/20 bg-white/10 px-4 py-3 backdrop-blur-md" style={{ animationDelay: '2.1s' }}>{t('auth.stagePath')}</li>
+          </ol>
+        </div>
+      </aside>
       <div className="relative flex min-h-dvh items-center justify-center px-4 py-20">
         <form
           className="ui-card w-full max-w-md sm:p-8"
@@ -63,7 +73,6 @@ export function Login() {
             <img src="/logo-vietmy-blue.png" alt={t('brand.school')} className="h-16 w-auto" />
             <LanguageMenu />
           </div>
-          <h1 className="ui-title">{t('auth.loginTitle')}</h1>
           <div className="mt-6 grid gap-4">
             <label className="grid gap-1 text-sm font-medium text-ink" htmlFor="email">
               {t('auth.email')}

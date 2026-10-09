@@ -2,7 +2,7 @@ import { X } from 'lucide-react'
 import { useEffect, useState, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ExportButtons } from '../../components/ExportButtons'
-import { DataTable, FilterBar } from '../../components/ui/DataSheet'
+import { DataTable, FilterBar, SelectFilter } from '../../components/ui/DataSheet'
 import { PageHeader } from '../../components/ui/PageHeader'
 import { localizedLabel } from '../../lib/localized'
 import { isSupabaseConfigured } from '../../lib/supabase'
@@ -18,6 +18,7 @@ export function Grading() {
   const [pending, setPending] = useState(false)
   const [error, setError] = useState('')
   const [query, setQuery] = useState('')
+  const [programFilter, setProgramFilter] = useState('all')
 
   useEffect(() => {
     if (!isSupabaseConfigured) return
@@ -65,15 +66,34 @@ export function Grading() {
     }
   }
 
+  const programs = [...new Map(rows.map((row) => [row.programId, row.programTitle])).entries()]
   const visible = rows.filter((row) => {
     const lesson = localizedLabel(row.lessonTitle, i18n.language)
     const question = localizedLabel(row.question, i18n.language)
-    return `${row.studentName} ${lesson} ${question}`.toLowerCase().includes(query.trim().toLowerCase())
+    const course = localizedLabel(row.programTitle, i18n.language)
+    const matchesQuery = `${row.studentName} ${lesson} ${question} ${course}`.toLowerCase().includes(query.trim().toLowerCase())
+    return matchesQuery && (programFilter === 'all' || row.programId === programFilter)
   })
 
   return (
     <div className="ui-page">
-      <PageHeader title={t('teacher.gradingTitle')} description={t('teacher.gradingLead')} />
+      <PageHeader
+        title={t('teacher.gradingTitle')}
+        action={
+          <ExportButtons
+            filename="cham-bai"
+            title={t('teacher.gradingTitle')}
+            headers={[t('teacher.student'), t('teacher.course'), t('programs.lessons'), t('teacher.question'), t('filters.submitted')]}
+            rows={visible.map((row) => [
+              row.studentName || t('enrollment.unnamed'),
+              localizedLabel(row.programTitle, i18n.language) || t('programs.untitled'),
+              localizedLabel(row.lessonTitle, i18n.language) || t('programs.untitled'),
+              localizedLabel(row.question, i18n.language),
+              row.submittedAt ? new Date(row.submittedAt).toLocaleString(i18n.language) : '—',
+            ])}
+          />
+        }
+      />
       {!isSupabaseConfigured ? (
         <p role="status" className="rounded-2xl bg-warning-bg px-4 py-3 text-sm text-warning">
           {t('supabase.missing')}
@@ -87,25 +107,24 @@ export function Grading() {
       ) : null}
       {!loading && rows.length === 0 && isSupabaseConfigured ? <p className="text-muted">{t('teacher.emptyGrading')}</p> : null}
       <div className="ui-fill">
-        <FilterBar query={query} onQuery={setQuery} count={visible.length} />
-        {rows.length > 0 && visible.length === 0 ? <p className="text-muted">{t('filters.noMatch')}</p> : null}
-        <div className="mb-3 flex justify-end">
-          <ExportButtons
-            filename="cham-bai"
-            title={t('teacher.gradingTitle')}
-            headers={[t('teacher.student'), t('programs.lessons'), t('teacher.question'), t('filters.submitted')]}
-            rows={visible.map((row) => [
-              row.studentName || t('enrollment.unnamed'),
-              localizedLabel(row.lessonTitle, i18n.language) || t('programs.untitled'),
-              localizedLabel(row.question, i18n.language),
-              row.submittedAt ? new Date(row.submittedAt).toLocaleString(i18n.language) : '—',
-            ])}
+        <FilterBar query={query} onQuery={setQuery} count={visible.length}>
+          <SelectFilter
+            id="grade-program"
+            label={t('teacher.course')}
+            value={programFilter}
+            onChange={setProgramFilter}
+            options={[
+              { value: 'all', label: t('filters.all') },
+              ...programs.map(([id, title]) => ({ value: id, label: localizedLabel(title, i18n.language) || t('programs.untitled') })),
+            ]}
           />
-        </div>
+        </FilterBar>
+        {rows.length > 0 && visible.length === 0 ? <p className="text-muted">{t('filters.noMatch')}</p> : null}
         <DataTable>
           <thead>
             <tr>
               <th>{t('teacher.student')}</th>
+              <th>{t('teacher.course')}</th>
               <th>{t('programs.lessons')}</th>
               <th>{t('teacher.question')}</th>
               <th>{t('filters.submitted')}</th>
@@ -116,6 +135,7 @@ export function Grading() {
             {visible.map((row) => (
               <tr key={row.id}>
                 <td className="font-medium text-ink">{row.studentName || t('enrollment.unnamed')}</td>
+                <td>{localizedLabel(row.programTitle, i18n.language) || t('programs.untitled')}</td>
                 <td>{localizedLabel(row.lessonTitle, i18n.language) || t('programs.untitled')}</td>
                 <td className="max-w-xs truncate">{localizedLabel(row.question, i18n.language)}</td>
                 <td>{row.submittedAt ? new Date(row.submittedAt).toLocaleString(i18n.language) : '—'}</td>

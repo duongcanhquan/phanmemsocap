@@ -95,8 +95,8 @@ export function LessonViewer({ programId, lessonId }: LessonViewerProps) {
 function LessonBody({ lesson }: { lesson: LessonPathItem }) {
   const { t, i18n } = useTranslation()
   const title = localizedLabel(lesson.title, i18n.language) || t('programs.untitled')
-  const slides = hasSlideMarkup(lesson.contentUrl)
-  const [mode, setMode] = useState<'article' | 'slides'>('article')
+  const slides = hasSlideMarkup(lesson)
+  const [mode, setMode] = useState<'article' | 'slides'>(lesson.contentType === 'slides' ? 'slides' : 'article')
   const [term, setTerm] = useState<TermDetail | null>(null)
   const html = articleHtml(lesson)
   const youtube = lessonYoutube(lesson)
@@ -230,6 +230,7 @@ function lessonYoutube(lesson: LessonPathItem) {
 }
 
 function articleHtml(lesson: LessonPathItem) {
+  if (lesson.contentType === 'slides') return ''
   if (lesson.contentType === 'pdf') {
     const url = httpsUrl(lesson.contentUrl)
     return url ? `<iframe class="lesson-pdf" src="${escapeAttr(url)}" title=""></iframe>` : ''
@@ -244,8 +245,8 @@ function articleHtml(lesson: LessonPathItem) {
   return markdownToHtml(source)
 }
 
-function hasSlideMarkup(value: string) {
-  return isSlideDeck(value) || value.includes('class="reveal"') || value.includes("class='reveal'")
+function hasSlideMarkup(lesson: LessonPathItem) {
+  return lesson.contentType === 'slides' || isSlideDeck(lesson.contentUrl) || lesson.contentUrl.includes('class="reveal"') || lesson.contentUrl.includes("class='reveal'")
 }
 
 function sanitizeLessonHtml(html: string) {

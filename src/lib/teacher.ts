@@ -7,6 +7,8 @@ export type RosterRow = {
   programId: string
   programTitle: LocalizedText
   category: string
+  classId: string
+  className: string
   progress: number
   averageScore: number | null
 }
@@ -24,6 +26,8 @@ export type StudyEntry = {
 export type UngradedEssay = {
   id: string
   studentName: string
+  programId: string
+  programTitle: LocalizedText
   lessonTitle: LocalizedText
   question: LocalizedText
   essayAnswer: string
@@ -39,11 +43,9 @@ function asScore(value: number | null): number | null {
   return typeof value === 'number' && Number.isFinite(value) ? value : null
 }
 
-export async function listTeacherRoster(teacherId?: string): Promise<RosterRow[]> {
+export async function listTeacherRoster(): Promise<RosterRow[]> {
   const db = client()
-  const programs = teacherId
-    ? await db.from('programs').select('id, title, category').eq('teacher_id', teacherId)
-    : await db.from('programs').select('id, title, category')
+  const programs = await db.from('programs').select('id, title, category')
   if (programs.error) throw programs.error
   const programRows = programs.data ?? []
   if (programRows.length === 0) return []
@@ -51,7 +53,7 @@ export async function listTeacherRoster(teacherId?: string): Promise<RosterRow[]
   const programIds = programRows.map((program) => program.id)
   const enrollments = await db
     .from('program_enrollments')
-    .select('student_id, program_id')
+    .select('student_id, program_id, class_id')
     .in('program_id', programIds)
   if (enrollments.error) throw enrollments.error
 
@@ -92,12 +94,19 @@ export async function listTeacherRoster(teacherId?: string): Promise<RosterRow[]
     quizzesByProgram.set(programId, list)
   }
 
+  const classIds = [...new Set((enrollments.data ?? []).map((row) => row.class_id).filter((id): id is string => Boolean(id)))]
+  const classRows =
+    classIds.length === 0
+      ? { data: [], error: null }
+      : await db.from('course_classes').select('id, name').in('id', classIds)
+  if (classRows.error) throw classRows.error
+  const classNames = new Map((classRows.data ?? []).map((item) => [item.id, item.name]))
   const names = new Map((profiles.data ?? []).map((profile) => [profile.id, profile.full_name ?? '']))
   const titles = new Map(programRows.map((program) => [program.id, asLocalized(program.title)]))
   const categories = new Map(programRows.map((program) => [program.id, program.category ?? '']))
 
   return (enrollments.data ?? [])
-    .filter((row) => row.student_id && row.program_id)
+    .filter((row) => row.student_id && row.program_id && row.class_id)
     .map((row) => {
       const studentId = row.student_id as string
       const programId = row.program_id as string
@@ -115,6 +124,8 @@ export async function listTeacherRoster(teacherId?: string): Promise<RosterRow[]
         programId,
         programTitle: titles.get(programId) ?? { vi: '', my: '', bn: '' },
         category: categories.get(programId) ?? '',
+        classId: row.class_id as string,
+        className: classNames.get(row.class_id as string) ?? '',
         progress,
         averageScore,
       }
@@ -183,7 +194,7 @@ export async function listUngradedEssays(): Promise<UngradedEssay[]> {
   const lessons =
     lessonIds.length === 0
       ? { data: [], error: null }
-      : await db.from('lessons').select('id, title').in('id', lessonIds)
+      : await db.from('lessons').select('id, title, program_id').in('id', lessonIds)
   if (lessons.error) throw lessons.error
 
   const submissions = await db
@@ -207,11 +218,27 @@ export async function listUngradedEssays(): Promise<UngradedEssay[]> {
 
   const names = new Map((profiles.data ?? []).map((profile) => [profile.id, profile.full_name ?? '']))
   const lessonTitle = new Map((lessons.data ?? []).map((lesson) => [lesson.id, asLocalized(lesson.title)]))
+  const lessonProgram = new Map((lessons.data ?? []).map((lesson) => [lesson.id, lesson.program_id ?? '']))
+  const programIds = [...new Set([...lessonProgram.values()].filter(Boolean))]
+  const programs =
+    programIds.length === 0
+      ? { data: [], error: null }
+      : await db.from('programs').select('id, title').in('id', programIds)
+  if (programs.error) throw programs.error
+  const programTitle = new Map((programs.data ?? []).map((program) => [program.id, asLocalized(program.title)]))
   const questions = new Map(
-    essayRows.map((quiz) => [
-      quiz.id,
-      { question: asLocalized(quiz.question), lessonTitle: lessonTitle.get(quiz.lesson_id ?? '') ?? { vi: '', my: '', bn: '' } },
-    ]),
+    essayRows.map((quiz) => {
+      const programId = lessonProgram.get(quiz.lesson_id ?? '') ?? ''
+      return [
+        quiz.id,
+        {
+          programId,
+          programTitle: programTitle.get(programId) ?? { vi: '', my: '', bn: '' },
+          question: asLocalized(quiz.question),
+          lessonTitle: lessonTitle.get(quiz.lesson_id ?? '') ?? { vi: '', my: '', bn: '' },
+        },
+      ]
+    }),
   )
 
   return pending.map((submission) => {
@@ -219,6 +246,8 @@ export async function listUngradedEssays(): Promise<UngradedEssay[]> {
     return {
       id: submission.id,
       studentName: names.get(submission.student_id ?? '') ?? '',
+      programId: meta?.programId ?? '',
+      programTitle: meta?.programTitle ?? { vi: '', my: '', bn: '' },
       lessonTitle: meta?.lessonTitle ?? { vi: '', my: '', bn: '' },
       question: meta?.question ?? { vi: '', my: '', bn: '' },
       essayAnswer: submission.essay_answer ?? '',

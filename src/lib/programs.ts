@@ -6,7 +6,7 @@ import {
 } from './localized'
 import { supabase, type Json } from './supabase'
 
-export const lessonTypes = ['pdf', 'video', 'text', 'quiz'] as const
+export const lessonTypes = ['text', 'pdf', 'slides', 'video', 'quiz'] as const
 
 export type LessonType = (typeof lessonTypes)[number]
 
@@ -17,6 +17,7 @@ export type ProgramRecord = {
   category: string
   coverImageUrl: string
   isActive: boolean
+  teacherId: string
 }
 
 export type LessonRecord = {
@@ -27,6 +28,8 @@ export type LessonRecord = {
   contentUrl: string
   orderIndex: number
   isPublished: boolean
+  authorId: string
+  createdAt: string | null
 }
 
 export type QuizRecord = {
@@ -61,7 +64,7 @@ function isLessonType(value: string | null): value is LessonType {
 export async function listPrograms(): Promise<ProgramRecord[]> {
   const { data, error } = await client()
     .from('programs')
-    .select('id, title, description, category, cover_image_url, is_active')
+    .select('id, title, description, category, cover_image_url, is_active, teacher_id')
     .order('created_at', { ascending: false })
 
   if (error) throw error
@@ -73,13 +76,14 @@ export async function listPrograms(): Promise<ProgramRecord[]> {
     category: row.category ?? '',
     coverImageUrl: row.cover_image_url ?? '',
     isActive: row.is_active ?? false,
+    teacherId: row.teacher_id ?? '',
   }))
 }
 
 export async function getProgram(programId: string): Promise<ProgramRecord | null> {
   const { data, error } = await client()
     .from('programs')
-    .select('id, title, description, category, cover_image_url, is_active')
+    .select('id, title, description, category, cover_image_url, is_active, teacher_id')
     .eq('id', programId)
     .maybeSingle()
 
@@ -93,6 +97,7 @@ export async function getProgram(programId: string): Promise<ProgramRecord | nul
     category: data.category ?? '',
     coverImageUrl: data.cover_image_url ?? '',
     isActive: data.is_active ?? false,
+    teacherId: data.teacher_id ?? '',
   }
 }
 
@@ -105,11 +110,14 @@ export async function createProgram(input: Omit<ProgramRecord, 'id'>): Promise<s
       category: input.category.trim() || null,
       cover_image_url: input.coverImageUrl.trim() || null,
       is_active: input.isActive,
+      teacher_id: input.teacherId || null,
     })
     .select('id')
     .single()
 
   if (error) throw error
+  const classroom = await client().from('course_classes').insert({ program_id: data.id, name: 'Lớp 1' })
+  if (classroom.error) throw classroom.error
   return data.id
 }
 
@@ -122,6 +130,7 @@ export async function updateProgram(programId: string, input: Omit<ProgramRecord
       category: input.category.trim() || null,
       cover_image_url: input.coverImageUrl.trim() || null,
       is_active: input.isActive,
+      teacher_id: input.teacherId || null,
     })
     .eq('id', programId)
 
@@ -131,7 +140,7 @@ export async function updateProgram(programId: string, input: Omit<ProgramRecord
 export async function listLessons(programId: string): Promise<LessonRecord[]> {
   const { data, error } = await client()
     .from('lessons')
-    .select('id, title, module_name, content_type, content_url, order_index, is_published')
+    .select('id, title, module_name, content_type, content_url, order_index, is_published, author_id, created_at')
     .eq('program_id', programId)
     .order('order_index', { ascending: true })
 
@@ -145,6 +154,8 @@ export async function listLessons(programId: string): Promise<LessonRecord[]> {
     contentUrl: row.content_url ?? '',
     orderIndex: row.order_index ?? index,
     isPublished: row.is_published ?? false,
+    authorId: row.author_id ?? '',
+    createdAt: row.created_at,
   }))
 }
 
@@ -159,7 +170,11 @@ export async function saveLessonOrder(lessons: LessonRecord[]): Promise<void> {
 
 export async function saveLesson(
   programId: string,
-  lesson: Omit<LessonRecord, 'id' | 'orderIndex'> & { id?: string; orderIndex?: number },
+  lesson: Omit<LessonRecord, 'id' | 'orderIndex' | 'createdAt' | 'authorId'> & {
+    id?: string
+    orderIndex?: number
+    authorId?: string
+  },
 ): Promise<string> {
   const payload = {
     program_id: programId,
@@ -169,6 +184,7 @@ export async function saveLesson(
     content_url: lesson.contentUrl.trim() || null,
     is_published: lesson.isPublished,
     order_index: lesson.orderIndex ?? 0,
+    ...(lesson.authorId !== undefined ? { author_id: lesson.authorId || null } : {}),
   }
   if (lesson.id) {
     const { error } = await client().from('lessons').update(payload).eq('id', lesson.id)
@@ -246,22 +262,74 @@ export async function saveQuizzes(lessonId: string, quizzes: QuizRecord[]): Prom
   }
 }
 
-export async function listStudents(): Promise<StudentRecord[]> {
-  const { data, error } = await client()
-    .from('profiles')
-    .select('id, full_name')
-    .eq('role', 'student')
-    .order('full_name', { ascending: true })
-
+export async function listTeachers(): Promise<StudentRecord[]> {
+  const { data, error } = await client().rpc('list_teacher_names')
   if (error) throw error
-  return (data ?? []).map((row) => ({ id: row.id, fullName: row.full_name ?? '' }))
+  return (data ?? [])
+    .map((row) => ({ id: row.id, fullName: row.full_name ?? '' }))
+    .sort((a, b) => a.fullName.localeCompare(b.fullName))
 }
 
-export async function listEnrollments(programId: string): Promise<EnrollmentRecord[]> {
+export async function listProgramTeacherIds(): Promise<Record<string, string[]>> {
+  const { data, error } = await client().from('program_teachers').select('program_id, teacher_id')
+  if (error) throw error
+  const grouped: Record<string, string[]> = {}
+  for (const row of data ?? []) {
+    const list = grouped[row.program_id] ?? []
+    list.push(row.teacher_id)
+    grouped[row.program_id] = list
+  }
+  return grouped
+}
+
+export async function saveProgramTeachers(programId: string, teacherIds: string[]): Promise<void> {
+  const db = client()
+  const removed = await db.from('program_teachers').delete().eq('program_id', programId)
+  if (removed.error) throw removed.error
+  if (teacherIds.length === 0) return
+  const inserted = await db.from('program_teachers').insert(
+    teacherIds.map((teacherId) => ({ program_id: programId, teacher_id: teacherId })),
+  )
+  if (inserted.error) throw inserted.error
+}
+
+export async function listStudents(): Promise<StudentRecord[]> {
+  const { data, error } = await client().rpc('list_enrollable_students')
+  if (error) throw error
+  return (data ?? [])
+    .map((row) => ({ id: row.id, fullName: row.full_name ?? '' }))
+    .sort((a, b) => a.fullName.localeCompare(b.fullName))
+}
+
+export type CourseClass = {
+  id: string
+  programId: string
+  name: string
+}
+
+export async function listClasses(programId?: string): Promise<CourseClass[]> {
+  let query = client().from('course_classes').select('id, program_id, name').order('name')
+  if (programId) query = query.eq('program_id', programId)
+  const { data, error } = await query
+  if (error) throw error
+  return (data ?? []).map((row) => ({ id: row.id, programId: row.program_id, name: row.name }))
+}
+
+export async function createClass(programId: string, name: string): Promise<CourseClass> {
+  const { data, error } = await client()
+    .from('course_classes')
+    .insert({ program_id: programId, name })
+    .select('id, program_id, name')
+    .single()
+  if (error) throw error
+  return { id: data.id, programId: data.program_id, name: data.name }
+}
+
+export async function listEnrollments(classId: string): Promise<EnrollmentRecord[]> {
   const { data, error } = await client()
     .from('program_enrollments')
     .select('id, student_id')
-    .eq('program_id', programId)
+    .eq('class_id', classId)
 
   if (error) throw error
   return (data ?? [])
@@ -269,11 +337,11 @@ export async function listEnrollments(programId: string): Promise<EnrollmentReco
     .map((row) => ({ id: row.id, studentId: row.student_id as string }))
 }
 
-export async function enrollStudents(programId: string, studentIds: string[]): Promise<void> {
+export async function enrollStudents(programId: string, classId: string, studentIds: string[]): Promise<void> {
   if (studentIds.length === 0) return
   const { error } = await client()
     .from('program_enrollments')
-    .insert(studentIds.map((studentId) => ({ student_id: studentId, program_id: programId, status: 'active' })))
+    .insert(studentIds.map((studentId) => ({ student_id: studentId, program_id: programId, class_id: classId, status: 'active' })))
   if (error) throw error
 }
 

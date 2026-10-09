@@ -8,16 +8,32 @@ export type EnrolledProgram = {
   title: LocalizedText
   category: string
   coverImageUrl: string
+  done: number
+  total: number
+  continueLessonId: string | null
 }
 
 export type LessonPathItem = {
   id: string
   title: LocalizedText
+  moduleName: LocalizedText
   contentType: string
   contentUrl: string
   orderIndex: number
   locked: boolean
   hasQuiz: boolean
+  passed: boolean
+  waiting: boolean
+  score: number | null
+}
+
+export type StudyHistoryItem = {
+  id: string
+  lessonId: string
+  question: LocalizedText
+  score: number | null
+  feedback: string
+  submittedAt: string | null
 }
 
 export type StudentQuestion = {
@@ -52,6 +68,12 @@ function asArray(value: Json | null | undefined): Json[] {
   return Array.isArray(value) ? value : []
 }
 
+function asNumber(value: Json | undefined): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+  if (typeof value === 'string' && value.trim() !== '' && Number.isFinite(Number(value))) return Number(value)
+  return null
+}
+
 export async function listEnrolledPrograms(): Promise<EnrolledProgram[]> {
   const db = client()
   const enrollments = await db.from('program_enrollments').select('program_id').eq('status', 'active')
@@ -61,25 +83,39 @@ export async function listEnrolledPrograms(): Promise<EnrolledProgram[]> {
 
   const programs = await db.from('programs').select('id, title, category, cover_image_url').in('id', ids)
   if (programs.error) throw programs.error
-  return (programs.data ?? []).map((program) => ({
-    id: program.id,
-    title: asLocalized(program.title),
-    category: program.category ?? '',
-    coverImageUrl: program.cover_image_url ?? '',
-  }))
+  const rows = await Promise.all(
+    (programs.data ?? []).map(async (program) => {
+      const path = await listLessonPath(program.id)
+      const continueLesson = path.find((lesson) => !lesson.locked && !lesson.passed)
+      return {
+        id: program.id,
+        title: asLocalized(program.title),
+        category: program.category ?? '',
+        coverImageUrl: program.cover_image_url ?? '',
+        done: path.filter((lesson) => lesson.passed).length,
+        total: path.length,
+        continueLessonId: continueLesson?.id ?? null,
+      }
+    }),
+  )
+  return rows
 }
 
 export async function listLessonPath(programId: string): Promise<LessonPathItem[]> {
   const db = client()
   const lessons = await db
     .from('lessons')
-    .select('id, title, content_type, content_url, order_index')
+    .select('id, title, module_name, content_type, content_url, order_index')
     .eq('program_id', programId)
     .order('order_index', { ascending: true })
   if (lessons.error) throw lessons.error
 
-  const state = await db.rpc('program_lesson_state', { program_id: programId })
+  const [state, record] = await Promise.all([
+    db.rpc('program_lesson_state', { program_id: programId }),
+    db.rpc('my_study_record', { program_id: programId }),
+  ])
   if (state.error) throw state.error
+  if (record.error) throw record.error
   const flags = new Map(
     asArray(state.data).map((item) => {
       const row = asObject(item)
@@ -89,16 +125,54 @@ export async function listLessonPath(programId: string): Promise<LessonPathItem[
       ]
     }),
   )
+  const progress = new Map(
+    asArray(asObject(record.data).lessons).map((item) => {
+      const row = asObject(item)
+      return [
+        typeof row.id === 'string' ? row.id : '',
+        {
+          passed: row.passed === true,
+          waiting: row.waiting === true,
+          score: asNumber(row.score),
+        },
+      ]
+    }),
+  )
 
-  return (lessons.data ?? []).map((lesson, index) => ({
-    id: lesson.id,
-    title: asLocalized(lesson.title),
-    contentType: lesson.content_type ?? 'text',
-    contentUrl: lesson.content_url ?? '',
-    orderIndex: lesson.order_index ?? index,
-    locked: flags.get(lesson.id)?.locked ?? false,
-    hasQuiz: flags.get(lesson.id)?.hasQuiz ?? false,
-  }))
+  return (lessons.data ?? []).flatMap((lesson, index) => {
+    const flag = flags.get(lesson.id)
+    if (!flag) return []
+    const mark = progress.get(lesson.id)
+    return [{
+      id: lesson.id,
+      title: asLocalized(lesson.title),
+      moduleName: asLocalized(lesson.module_name),
+      contentType: lesson.content_type ?? 'text',
+      contentUrl: lesson.content_url ?? '',
+      orderIndex: lesson.order_index ?? index,
+      locked: flag.locked,
+      hasQuiz: flag.hasQuiz,
+      passed: mark?.passed ?? false,
+      waiting: mark?.waiting ?? false,
+      score: mark?.score ?? null,
+    }]
+  })
+}
+
+export async function listStudyHistory(programId: string): Promise<StudyHistoryItem[]> {
+  const { data, error } = await client().rpc('my_study_record', { program_id: programId })
+  if (error) throw error
+  return asArray(asObject(data).history).map((item) => {
+    const row = asObject(item)
+    return {
+      id: typeof row.id === 'string' ? row.id : '',
+      lessonId: typeof row.lesson_id === 'string' ? row.lesson_id : '',
+      question: asLocalized(row.question ?? null),
+      score: asNumber(row.score),
+      feedback: typeof row.feedback === 'string' ? row.feedback : '',
+      submittedAt: typeof row.submitted_at === 'string' ? row.submitted_at : null,
+    }
+  })
 }
 
 export async function loadLessonQuestions(lessonId: string): Promise<StudentQuestion[]> {

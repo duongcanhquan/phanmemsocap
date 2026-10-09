@@ -61,7 +61,7 @@ export function DashboardPage() {
 
   return (
     <div className="ui-page">
-      <PageHeader title={t('dashboard.title')} description={t('dashboard.subtitle')} />
+      <PageHeader title={t('dashboard.title')} />
       {!isSupabaseConfigured ? (
         <p role="status" className="rounded-2xl bg-warning-bg px-4 py-3 text-sm leading-relaxed text-warning">
           {t('supabase.missing')}
@@ -105,8 +105,21 @@ export function DashboardPage() {
       </div> : null}
       {linked && tab === 'inactive' ? (
         <section className="grid gap-3">
-          <h2 className="text-lg font-semibold text-ink">{t('dashboard.inactiveTitle', { days: overview?.inactiveDays ?? 7 })}</h2>
-          <p className="truncate text-sm text-muted">{t('dashboard.inactiveLead')}</p>
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="truncate text-lg font-semibold text-ink">{t('dashboard.inactiveTitle', { days: overview?.inactiveDays ?? 7 })}</h2>
+            {overview && overview.inactive.length > 0 ? (
+              <ExportButtons
+                filename="hoc-vien-im"
+                title={t('dashboard.inactiveTitle', { days: overview?.inactiveDays ?? 7 })}
+                headers={[t('dashboard.student'), t('dashboard.program'), t('dashboard.lastSeen')]}
+                rows={quiet.map((person) => [
+                  person.fullName || t('dashboard.unnamed'),
+                  localizedLabel(person.programTitle, i18n.language) || t('dashboard.program'),
+                  person.lastSeen ? new Date(person.lastSeen).toLocaleDateString(i18n.language) : t('dashboard.never'),
+                ])}
+              />
+            ) : null}
+          </div>
           {overview && overview.inactive.length === 0 ? <p className="text-sm text-muted">{t('dashboard.inactiveEmpty')}</p> : null}
           {overview && overview.inactive.length > 0 ? (
             <>
@@ -120,18 +133,6 @@ export function DashboardPage() {
                 />
               </FilterBar>
               {quiet.length === 0 ? <p className="text-muted">{t('filters.noMatch')}</p> : null}
-              <div className="mb-3 flex justify-end">
-                <ExportButtons
-                  filename="hoc-vien-im"
-                  title={t('dashboard.inactiveTitle', { days: overview?.inactiveDays ?? 7 })}
-                  headers={[t('dashboard.student'), t('dashboard.program'), t('dashboard.lastSeen')]}
-                  rows={quiet.map((person) => [
-                    person.fullName || t('dashboard.unnamed'),
-                    localizedLabel(person.programTitle, i18n.language) || t('dashboard.program'),
-                    person.lastSeen ? new Date(person.lastSeen).toLocaleDateString(i18n.language) : t('dashboard.never'),
-                  ])}
-                />
-              </div>
               <DataTable>
                 <thead>
                   <tr>

@@ -120,7 +120,7 @@
   }
 
   .ui-btn {
-    @apply inline-flex h-11 cursor-pointer items-center justify-center gap-2 rounded-xl px-4 text-sm font-medium transition duration-200 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50;
+    @apply inline-flex h-10 cursor-pointer items-center justify-center gap-2 rounded-lg px-3 text-sm font-medium whitespace-nowrap transition duration-200 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50;
   }
 
   .ui-btn-primary {
@@ -255,6 +255,100 @@
   height: auto;
   border: 0;
   border-radius: 1rem;
+}
+
+.portrait-frame {
+  display: grid;
+  width: 9.75rem;
+  aspect-ratio: 3 / 4;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 1rem;
+  border: 1px dashed rgb(3 105 161 / 0.45);
+  background:
+    linear-gradient(180deg, rgb(255 255 255 / 0.72), rgb(224 242 254 / 0.55));
+  color: #0369a1;
+  cursor: pointer;
+}
+
+.portrait-frame img {
+  height: 100%;
+  width: 100%;
+  object-fit: cover;
+  object-position: center top;
+}
+
+.login-stage {
+  position: relative;
+  display: none;
+  min-height: 100dvh;
+  overflow: hidden;
+  align-items: center;
+  background:
+    radial-gradient(circle at 18% 18%, rgb(56 189 248 / 0.55), transparent 32%),
+    radial-gradient(circle at 82% 78%, rgb(45 212 191 / 0.35), transparent 30%),
+    radial-gradient(circle at 70% 12%, rgb(129 140 248 / 0.28), transparent 24%),
+    #071525;
+  color: white;
+}
+
+.login-orbit {
+  position: absolute;
+  top: 12%;
+  right: -4rem;
+  width: 26rem;
+  height: 26rem;
+  border: 1px solid rgb(186 230 253 / 0.35);
+  border-radius: 999px;
+  animation: login-spin 32s linear infinite;
+}
+
+.login-orbit::before,
+.login-orbit::after {
+  content: '';
+  position: absolute;
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 999px;
+  background: #7dd3fc;
+  box-shadow: 0 0 18px #38bdf8;
+}
+
+.login-orbit::before {
+  top: 8%;
+  left: 18%;
+}
+
+.login-orbit::after {
+  right: 12%;
+  bottom: 20%;
+  background: #5eead4;
+}
+
+.login-float {
+  animation: login-float 6s ease-in-out infinite;
+}
+
+.login-float-late {
+  animation-delay: 1.2s;
+}
+
+@keyframes login-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes login-float {
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+@media (min-width: 1024px) {
+  .login-stage {
+    display: flex;
+  }
 }
 
 .lesson-article iframe.lesson-pdf {

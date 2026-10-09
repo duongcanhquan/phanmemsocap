@@ -33,7 +33,7 @@ export function AiSettings() {
 
   return (
     <div className="ui-page">
-      <PageHeader title={t('aiSettings.title')} description={t('aiSettings.lead')} />
+      <PageHeader title={t('aiSettings.title')} />
       <p className="rounded-2xl bg-canvas px-4 py-3 text-sm leading-relaxed text-ink">{t('aiSettings.antigravity')}</p>
       {loading ? <p role="status">{t('aiSettings.loading')}</p> : null}
       {notice ? <p role="status" className="text-sm font-medium text-accent">{notice}</p> : null}

@@ -5,7 +5,9 @@ import { Link, useParams } from 'react-router-dom'
 import { ExportButtons } from '../../components/ExportButtons'
 import { DataTable, FilterBar, SelectFilter } from '../../components/ui/DataSheet'
 import { PageHeader } from '../../components/ui/PageHeader'
+import { Tabs } from '../../components/ui/Tabs'
 import { localizedLabel } from '../../lib/localized'
+import { getProgram } from '../../lib/programs'
 import { loadStudentTranscript, type StudentTranscript } from '../../lib/reports'
 import { listStudyLog, type StudyEntry } from '../../lib/teacher'
 
@@ -18,11 +20,18 @@ export function StudentLog() {
   const [error, setError] = useState('')
   const [query, setQuery] = useState('')
   const [scoreFilter, setScoreFilter] = useState('all')
+  const [tab, setTab] = useState('path')
 
   useEffect(() => {
     let active = true
-    void Promise.all([listStudyLog(studentId, programId), loadStudentTranscript(studentId, programId)])
-      .then(([next, report]) => {
+    void getProgram(programId)
+      .then(async (program) => {
+        if (!active) return
+        if (!program) {
+          setError(t('programs.missing'))
+          return
+        }
+        const [next, report] = await Promise.all([listStudyLog(studentId, programId), loadStudentTranscript(studentId, programId)])
         if (!active) return
         setEntries(next)
         setTranscript(report)
@@ -55,7 +64,6 @@ export function StudentLog() {
       </Link>
       <PageHeader
         title={transcript?.fullName || t('transcript.title')}
-        description={t('transcript.lead')}
         action={
           transcript ? (
             <ExportButtons
@@ -80,7 +88,16 @@ export function StudentLog() {
           ) : null
         }
       />
-      {transcript ? (
+      <Tabs
+        label={t('panels.label')}
+        value={tab}
+        onChange={setTab}
+        tabs={[
+          { id: 'path', label: t('panels.studyPath') },
+          { id: 'history', label: t('panels.studyHistory') },
+        ]}
+      />
+      {tab === 'path' && transcript ? (
         <section className="ui-card grid gap-4">
           <div className="flex items-center gap-4">
             <img src="/logo-vietmy-blue.png" alt={t('brand.school')} className="h-24 w-auto" />
@@ -128,8 +145,8 @@ export function StudentLog() {
           {error}
         </p>
       ) : null}
-      {!loading && entries.length === 0 ? <p className="text-muted">{t('teacher.emptyLog')}</p> : null}
-      <div className="ui-fill">
+      {tab === 'history' && !loading && entries.length === 0 ? <p className="text-muted">{t('teacher.emptyLog')}</p> : null}
+      {tab === 'history' ? <div className="ui-fill">
         <FilterBar query={query} onQuery={setQuery} count={visible.length}>
           <SelectFilter
             id="log-score"
@@ -168,7 +185,7 @@ export function StudentLog() {
             ))}
           </tbody>
         </DataTable>
-      </div>
+      </div> : null}
     </div>
   )
 }

@@ -8,12 +8,14 @@ import { DataTable, FilterBar, SelectFilter } from '../../components/ui/DataShee
 import { Dialog } from '../../components/ui/Dialog'
 import { PageHeader } from '../../components/ui/PageHeader'
 import { emptyLocalized, hasLocalizedText, localizedLabel, type LocalizedText } from '../../lib/localized'
-import { createProgram, listPrograms, updateProgram, type ProgramRecord } from '../../lib/programs'
+import { createProgram, listProgramTeacherIds, listPrograms, listTeachers, saveProgramTeachers, updateProgram, type ProgramRecord, type StudentRecord } from '../../lib/programs'
 import { isSupabaseConfigured } from '../../lib/supabase'
 
 export function ProgramManager() {
   const { t, i18n } = useTranslation()
   const [programs, setPrograms] = useState<ProgramRecord[]>([])
+  const [teachers, setTeachers] = useState<StudentRecord[]>([])
+  const [teacherMap, setTeacherMap] = useState<Record<string, string[]>>({})
   const [loading, setLoading] = useState(isSupabaseConfigured)
   const [error, setError] = useState('')
   const [creating, setCreating] = useState(false)
@@ -25,9 +27,12 @@ export function ProgramManager() {
   useEffect(() => {
     if (!isSupabaseConfigured) return
     let active = true
-    void listPrograms()
-      .then((rows) => {
-        if (active) setPrograms(rows)
+    void Promise.all([listPrograms(), listTeachers(), listProgramTeacherIds()])
+      .then(([rows, staff, assigned]) => {
+        if (!active) return
+        setPrograms(rows)
+        setTeachers(staff)
+        setTeacherMap(assigned)
       })
       .catch(() => {
         if (active) setError(t('programs.loadError'))
@@ -53,12 +58,23 @@ export function ProgramManager() {
     <div className="ui-page">
       <PageHeader
         title={t('programs.title')}
-        description={t('programs.lead')}
         action={
-          <button type="button" className="ui-btn ui-btn-primary" onClick={() => setCreating(true)}>
+          <>
+          <ExportButtons
+            filename="khoa-hoc"
+            title={t('programs.title')}
+            headers={[t('programs.name'), t('programs.category'), t('filters.status')]}
+            rows={visiblePrograms.map((program) => [
+              localizedLabel(program.title, i18n.language) || t('programs.untitled'),
+              program.category || '—',
+              program.isActive ? t('programs.active') : t('programs.inactive'),
+            ])}
+          />
+          <button type="button" className="ui-inline ui-btn-primary" onClick={() => setCreating(true)}>
             <Plus aria-hidden="true" className="size-4" />
             {t('programs.create')}
           </button>
+          </>
         }
       />
       {!isSupabaseConfigured ? (
@@ -97,23 +113,12 @@ export function ProgramManager() {
           />
         </FilterBar>
         {programs.length > 0 && visiblePrograms.length === 0 ? <p className="text-muted">{t('filters.noMatch')}</p> : null}
-        <div className="mb-3 flex justify-end">
-          <ExportButtons
-            filename="khoa-hoc"
-            title={t('programs.title')}
-            headers={[t('programs.name'), t('programs.category'), t('filters.status')]}
-            rows={visiblePrograms.map((program) => [
-              localizedLabel(program.title, i18n.language) || t('programs.untitled'),
-              program.category || '—',
-              program.isActive ? t('programs.active') : t('programs.inactive'),
-            ])}
-          />
-        </div>
         <DataTable>
           <thead>
             <tr>
               <th>{t('programs.name')}</th>
               <th>{t('programs.category')}</th>
+              <th>{t('programs.teacher')}</th>
               <th>{t('filters.status')}</th>
               <th>{t('teacher.action')}</th>
             </tr>
@@ -125,6 +130,7 @@ export function ProgramManager() {
                 <tr key={program.id} className="ui-row" onClick={() => setEditing(program)}>
                   <td className="font-semibold text-ink">{title}</td>
                   <td>{program.category || '—'}</td>
+                  <td>{teacherNames(program, teacherMap, teachers, t('programs.unassigned'))}</td>
                   <td>{program.isActive ? t('programs.active') : t('programs.inactive')}</td>
                   <td>
                     <Link to={`/programs/${program.id}`} className="ui-inline ui-btn-primary" onClick={(event) => event.stopPropagation()}>
@@ -140,9 +146,12 @@ export function ProgramManager() {
       {creating ? (
         <ProgramDialog
           program={null}
+          teachers={teachers}
+          teacherIds={[]}
           onClose={() => setCreating(false)}
-          onSaved={(saved) => {
+          onSaved={(saved, staffIds) => {
             setPrograms((current) => [saved, ...current])
+            setTeacherMap((current) => ({ ...current, [saved.id]: staffIds }))
             setCreating(false)
           }}
         />
@@ -151,9 +160,12 @@ export function ProgramManager() {
         <ProgramDialog
           key={editing.id}
           program={editing}
+          teachers={teachers}
+          teacherIds={editing ? assignedIds(editing, teacherMap) : []}
           onClose={() => setEditing(null)}
-          onSaved={(saved) => {
+          onSaved={(saved, staffIds) => {
             setPrograms((current) => current.map((item) => (item.id === saved.id ? saved : item)))
+            setTeacherMap((current) => ({ ...current, [saved.id]: staffIds }))
             setEditing(null)
           }}
         />
@@ -162,20 +174,37 @@ export function ProgramManager() {
   )
 }
 
+function assignedIds(program: ProgramRecord, teacherMap: Record<string, string[]>) {
+  const extra = teacherMap[program.id] ?? []
+  return [...new Set([program.teacherId, ...extra].filter(Boolean))]
+}
+
+function teacherNames(program: ProgramRecord, teacherMap: Record<string, string[]>, teachers: StudentRecord[], empty: string) {
+  const names = assignedIds(program, teacherMap)
+    .map((id) => teachers.find((teacher) => teacher.id === id)?.fullName)
+    .filter(Boolean)
+  return names.length > 0 ? names.join(', ') : empty
+}
+
 function ProgramDialog({
   program,
+  teachers,
+  teacherIds,
   onClose,
   onSaved,
 }: {
   program: ProgramRecord | null
+  teachers: StudentRecord[]
+  teacherIds: string[]
   onClose: () => void
-  onSaved: (program: ProgramRecord) => void
+  onSaved: (program: ProgramRecord, teacherIds: string[]) => void
 }) {
   const { t } = useTranslation()
   const [title, setTitle] = useState<LocalizedText>(program?.title ?? emptyLocalized())
   const [description, setDescription] = useState<LocalizedText>(program?.description ?? emptyLocalized())
   const [category, setCategory] = useState(program?.category ?? '')
   const [coverImageUrl, setCoverImageUrl] = useState(program?.coverImageUrl ?? '')
+  const [staffIds, setStaffIds] = useState<string[]>(teacherIds)
   const [isActive, setIsActive] = useState(program?.isActive ?? true)
   const [error, setError] = useState('')
   const [pending, setPending] = useState(false)
@@ -187,15 +216,12 @@ function ProgramDialog({
       return
     }
     setPending(true)
-    const input = { title, description, category, coverImageUrl, isActive }
+    const input = { title, description, category, coverImageUrl, isActive, teacherId: staffIds[0] ?? '' }
     try {
-      if (program) {
-        await updateProgram(program.id, input)
-        onSaved({ ...program, ...input })
-      } else {
-        const id = await createProgram(input)
-        onSaved({ id, ...input })
-      }
+      const id = program ? program.id : await createProgram(input)
+      if (program) await updateProgram(program.id, input)
+      await saveProgramTeachers(id, staffIds)
+      onSaved({ ...(program ?? { id }), ...input, id }, staffIds)
     } catch {
       setError(t('programs.saveError'))
       setPending(false)
@@ -226,6 +252,25 @@ function ProgramDialog({
               onChange={(event) => setCoverImageUrl(event.target.value)}
             />
           </label>
+          <fieldset className="grid gap-2 text-sm font-medium lg:col-span-2">
+            <legend>{t('programs.teacher')}</legend>
+            <div className="flex flex-wrap gap-2">
+              {teachers.map((teacher) => {
+                const checked = staffIds.includes(teacher.id)
+                return (
+                  <label key={teacher.id} className={checked ? 'ui-inline ui-btn-primary' : 'ui-inline ui-btn-ghost'}>
+                    <input
+                      type="checkbox"
+                      className="sr-only"
+                      checked={checked}
+                      onChange={() => setStaffIds((current) => checked ? current.filter((id) => id !== teacher.id) : [...current, teacher.id])}
+                    />
+                    {teacher.fullName || teacher.id}
+                  </label>
+                )
+              })}
+            </div>
+          </fieldset>
           <label className="flex min-h-11 items-center gap-2 text-sm font-medium">
             <input type="checkbox" checked={isActive} onChange={(event) => setIsActive(event.target.checked)} />
             {t('programs.active')}

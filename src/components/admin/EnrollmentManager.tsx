@@ -2,10 +2,13 @@ import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
+  createClass,
   enrollStudents,
+  listClasses,
   listEnrollments,
   listStudents,
   removeEnrollments,
+  type CourseClass,
   type EnrollmentRecord,
   type StudentRecord,
 } from '../../lib/programs'
@@ -17,6 +20,9 @@ type EnrollmentManagerProps = {
 export function EnrollmentManager({ programId }: EnrollmentManagerProps) {
   const { t } = useTranslation()
   const [students, setStudents] = useState<StudentRecord[]>([])
+  const [classes, setClasses] = useState<CourseClass[]>([])
+  const [classId, setClassId] = useState('')
+  const [className, setClassName] = useState('')
   const [enrollments, setEnrollments] = useState<EnrollmentRecord[]>([])
   const [availableSelection, setAvailableSelection] = useState<string[]>([])
   const [enrolledSelection, setEnrolledSelection] = useState<string[]>([])
@@ -28,11 +34,12 @@ export function EnrollmentManager({ programId }: EnrollmentManagerProps) {
 
   useEffect(() => {
     let active = true
-    void Promise.all([listStudents(), listEnrollments(programId)])
-      .then(([nextStudents, nextEnrollments]) => {
+    void Promise.all([listStudents(), listClasses(programId)])
+      .then(([nextStudents, nextClasses]) => {
         if (!active) return
         setStudents(nextStudents)
-        setEnrollments(nextEnrollments)
+        setClasses(nextClasses)
+        setClassId((current) => current || nextClasses[0]?.id || '')
         setError('')
       })
       .catch(() => {
@@ -45,6 +52,21 @@ export function EnrollmentManager({ programId }: EnrollmentManagerProps) {
       active = false
     }
   }, [programId, t])
+
+  useEffect(() => {
+    if (!classId) return
+    let active = true
+    void listEnrollments(classId)
+      .then((rows) => {
+        if (active) setEnrollments(rows)
+      })
+      .catch(() => {
+        if (active) setError(t('programs.loadError'))
+      })
+    return () => {
+      active = false
+    }
+  }, [classId, t])
 
   const enrolledIds = useMemo(() => new Set(enrollments.map((item) => item.studentId)), [enrollments])
   const available = students.filter((student) => !enrolledIds.has(student.id))
@@ -63,8 +85,8 @@ export function EnrollmentManager({ programId }: EnrollmentManagerProps) {
     setPending(true)
     setError('')
     try {
-      await enrollStudents(programId, availableSelection)
-      setEnrollments(await listEnrollments(programId))
+      await enrollStudents(programId, classId, availableSelection)
+      setEnrollments(await listEnrollments(classId))
       setAvailableSelection([])
     } catch {
       setError(t('programs.saveError'))
@@ -81,7 +103,7 @@ export function EnrollmentManager({ programId }: EnrollmentManagerProps) {
         .filter((item) => enrolledSelection.includes(item.student?.id ?? ''))
         .map((item) => item.enrollmentId)
       await removeEnrollments(ids)
-      setEnrollments(await listEnrollments(programId))
+      setEnrollments(await listEnrollments(classId))
       setEnrolledSelection([])
     } catch {
       setError(t('programs.saveError'))
@@ -92,9 +114,53 @@ export function EnrollmentManager({ programId }: EnrollmentManagerProps) {
 
   return (
     <section id="class" className="ui-card grid gap-4">
-      <div>
+      <div className="flex flex-wrap items-end gap-3">
         <h2 className="text-lg font-semibold text-ink">{t('enrollment.title')}</h2>
-        <p className="mt-1 text-sm leading-relaxed text-muted">{t('enrollment.lead')}</p>
+        <label className="grid gap-1 text-sm font-medium text-ink">
+          {t('classesPage.className')}
+          <select
+            className="ui-field"
+            value={classId}
+            onChange={(event) => {
+              setClassId(event.target.value)
+              setEnrollments([])
+              setEnrolledSelection([])
+            }}
+          >
+            {classes.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <form
+          className="flex items-end gap-2"
+          onSubmit={(event) => {
+            event.preventDefault()
+            if (!className.trim()) return
+            setPending(true)
+            void createClass(programId, className.trim())
+              .then(async (created) => {
+                setClasses(await listClasses(programId))
+                setClassId(created.id)
+                setClassName('')
+              })
+              .catch(() => setError(t('programs.saveError')))
+              .finally(() => setPending(false))
+          }}
+        >
+          <input
+            className="ui-field"
+            value={className}
+            placeholder={t('classesPage.className')}
+            aria-label={t('classesPage.className')}
+            onChange={(event) => setClassName(event.target.value)}
+          />
+          <button type="submit" className="ui-inline ui-btn-primary" disabled={pending || !className.trim()}>
+            {t('classesPage.add')}
+          </button>
+        </form>
       </div>
       {loading ? <p role="status">{t('programs.loading')}</p> : null}
       {error ? (
@@ -118,7 +184,7 @@ export function EnrollmentManager({ programId }: EnrollmentManagerProps) {
             type="button"
             className="ui-btn ui-btn-primary"
             aria-label={t('enrollment.add')}
-            disabled={pending || availableSelection.length === 0}
+            disabled={pending || !classId || availableSelection.length === 0}
             onClick={() => void moveIn()}
           >
             <ChevronRight aria-hidden="true" className="size-4" />

@@ -86,7 +86,25 @@ export function Accounts() {
 
   return (
     <div className="ui-page">
-      <PageHeader title={t('accounts.title')} description={t('accounts.lead')} />
+      <PageHeader
+        title={t('accounts.title')}
+        action={
+          <ExportButtons
+            filename={`tai-khoan-${tab}`}
+            title={t(`accounts.tabs.${tab}`)}
+            headers={[t('accounts.name'), t('accounts.email'), t('accounts.role'), t('accounts.dateOfBirth'), t('accounts.phone'), t('accounts.nationalId'), t('accounts.passport')]}
+            rows={visible.map((person) => [
+              person.fullName || t('accounts.unnamed'),
+              person.email,
+              t(`accounts.roles.${person.role}`),
+              person.dateOfBirth,
+              person.phone,
+              person.nationalId,
+              person.passport,
+            ])}
+          />
+        }
+      />
       {loading ? <p role="status">{t('accounts.loading')}</p> : null}
       {notice ? <p role="status" className="text-sm font-medium text-accent">{notice}</p> : null}
       {error ? <p role="alert" className="text-sm text-danger">{error}</p> : null}
@@ -119,20 +137,6 @@ export function Accounts() {
         <button type="button" className="ui-inline ui-btn-ghost shrink-0" onClick={() => setPasswordOpen(true)}>
           {t('accounts.savePassword')}
         </button>
-        <ExportButtons
-          filename={`tai-khoan-${tab}`}
-          title={t(`accounts.tabs.${tab}`)}
-          headers={[t('accounts.name'), t('accounts.email'), t('accounts.role'), t('accounts.dateOfBirth'), t('accounts.phone'), t('accounts.nationalId'), t('accounts.passport')]}
-          rows={visible.map((person) => [
-            person.fullName || t('accounts.unnamed'),
-            person.email,
-            t(`accounts.roles.${person.role}`),
-            person.dateOfBirth,
-            person.phone,
-            person.nationalId,
-            person.passport,
-          ])}
-        />
       </FilterBar>
       {!loading && people.length === 0 ? <p className="text-muted">{t('accounts.empty')}</p> : null}
       {!loading && people.length > 0 && visible.length === 0 ? <p className="text-muted">{t('filters.noMatch')}</p> : null}
@@ -319,10 +323,9 @@ function PersonForm({
   }
 
   return (
-    <form className="grid gap-5 lg:grid-cols-2" onSubmit={(event) => void onFormSubmit(event)}>
-      <div className="lg:col-span-2">
-        <PhotoField photoUrl={draft.photoUrl} onChange={(photoUrl) => setField('photoUrl', photoUrl)} onError={onError} />
-      </div>
+    <form className="grid items-start gap-6 lg:grid-cols-[11rem_1fr]" onSubmit={(event) => void onFormSubmit(event)}>
+      <PhotoField photoUrl={draft.photoUrl} onChange={(photoUrl) => setField('photoUrl', photoUrl)} onError={onError} />
+      <div className="grid gap-5 sm:grid-cols-2">
       <TextField id={`${title}-name`} label={t('accounts.name')} value={draft.fullName} onChange={(value) => setField('fullName', value)} />
       <TextField id={`${title}-email`} label={t('accounts.email')} type="email" value={draft.email} disabled={emailLocked} required onChange={(value) => setField('email', value)} />
       <TextField
@@ -345,13 +348,14 @@ function PersonForm({
       <TextField id={`${title}-phone`} label={t('accounts.phone')} value={draft.phone} onChange={(value) => setField('phone', value)} />
       <TextField id={`${title}-id`} label={t('accounts.nationalId')} value={draft.nationalId} onChange={(value) => setField('nationalId', value)} />
       <TextField id={`${title}-passport`} label={t('accounts.passport')} value={draft.passport} onChange={(value) => setField('passport', value)} />
-      <div className="ui-dialog-foot lg:col-span-2">
+      <div className="ui-dialog-foot sm:col-span-2">
         {onCancel ? (
           <button type="button" className="ui-btn ui-btn-ghost border border-line" onClick={onCancel}>{t('accounts.cancel')}</button>
         ) : null}
         <button type="submit" className="ui-btn ui-btn-primary" disabled={pending}>
           {pending ? t('accounts.saving') : submitLabel}
         </button>
+      </div>
       </div>
     </form>
   )
@@ -458,23 +462,21 @@ function PhotoField({
   }
 
   return (
-    <div className="flex items-center gap-3">
-      <Photo photoUrl={photoUrl} name="" />
-      <div className="grid min-w-0 flex-1 gap-2">
-        <label className="ui-btn ui-btn-ghost cursor-pointer border border-line">
-          {pending ? t('editor.uploading') : t('accounts.photo')}
-          <input className="sr-only" type="file" accept="image/jpeg,image/png,image/webp,image/gif" disabled={pending} onChange={(event) => void onFile(event.target.files?.[0])} />
-        </label>
-        <input className="ui-field" type="url" placeholder={t('accounts.photoUrl')} value={photoUrl} onChange={(event) => onChange(event.target.value)} />
-      </div>
+    <div className="grid justify-items-center gap-2">
+      <label className="portrait-frame">
+        {photoUrl ? <img src={photoUrl} alt="" /> : null}
+        <input className="sr-only" type="file" accept="image/jpeg,image/png,image/webp,image/gif" disabled={pending} onChange={(event) => void onFile(event.target.files?.[0])} />
+      </label>
+      <span className="text-sm font-semibold text-accent">{pending ? t('editor.uploading') : t('accounts.uploadPhoto')}</span>
+      <input className="ui-field w-full" type="url" placeholder={t('accounts.photoUrl')} value={photoUrl} onChange={(event) => onChange(event.target.value)} />
     </div>
   )
 }
 
 function Photo({ photoUrl, name }: { photoUrl: string; name: string }) {
-  if (photoUrl) return <img src={photoUrl} alt="" className="size-9 rounded-xl object-cover" />
+  if (photoUrl) return <img src={photoUrl} alt="" className="h-12 w-9 rounded-md object-cover object-top" />
   const initial = name.trim().charAt(0).toUpperCase() || '•'
-  return <span className="flex size-9 items-center justify-center rounded-xl bg-canvas text-sm font-semibold text-ink">{initial}</span>
+  return <span className="flex h-12 w-9 items-center justify-center rounded-md bg-canvas text-sm font-semibold text-ink">{initial}</span>
 }
 
 function TextField({

@@ -61,7 +61,9 @@
     "write": "Soạn bài",
     "assist": "Trợ lý",
     "content": "Nội dung",
-    "practice": "Luyện tập"
+    "practice": "Luyện tập",
+    "studyPath": "শেখার পথ",
+    "studyHistory": "জমার ইতিহাস"
   },
   "languages": {
     "vi": "Tiếng Việt",
@@ -145,6 +147,11 @@
     "lesson": "পাঠ",
     "pickProgram": "পাঠ্যক্রম বেছে নিন",
     "pickLesson": "লেখা পাঠ বেছে নিন",
+    "newLesson": "নতুন পাঠ",
+    "sortOrder": "ক্রম অনুযায়ী",
+    "sortTime": "সময় অনুযায়ী",
+    "assignCourse": "কোর্সে যোগ",
+    "createdAt": "তৈরির সময়",
     "textOnly": "এখান থেকে শুধু লেখা পাঠ সংরক্ষিত হয়। PDF ও ভিডিও আলাদা লিঙ্ক রাখে।",
     "save": "পাঠে সংরক্ষণ",
     "saving": "সংরক্ষণ হচ্ছে...",
@@ -153,6 +160,11 @@
   },
   "auth": {
     "loginTitle": "প্রবেশ",
+    "stageTitle": "জ্ঞান খোলে ধাপে ধাপে",
+    "stageLead": "পাঠ পড়ুন, অনুশীলন করুন, তারপর নিজের পথে এগিয়ে যান।",
+    "stageLessons": "পরিষ্কার পাঠ",
+    "stagePractice": "নম্বরসহ অনুশীলন",
+    "stagePath": "ধারাবাহিক পথ",
     "loginLead": "অ্যাডমিন, শিক্ষক এবং শিক্ষার্থীদের জন্য।",
     "email": "ইমেইল",
     "password": "পাসওয়ার্ড",
@@ -204,6 +216,8 @@
     "edit": "সম্পাদনা",
     "editLesson": "পাঠ সম্পাদনা",
     "editProgram": "কোর্স সম্পাদনা",
+    "teacher": "দায়িত্বপ্রাপ্ত শিক্ষক",
+    "unassigned": "নির্ধারিত নয়",
     "contentType": "ধরন",
     "contentUrl": "লিংক বা বিষয়বস্তু",
     "module": "মডিউল",
@@ -218,7 +232,7 @@
     "remove": "মুছুন",
     "cancel": "বাতিল",
     "untitled": "নামহীন",
-    "types": { "pdf": "PDF", "video": "ভিডিও", "text": "লেখা", "quiz": "কুইজ" }
+    "types": { "pdf": "PDF", "video": "ভিডিও", "text": "লেখা", "slides": "স্লাইড", "quiz": "কুইজ" }
   },
   "enrollment": {
     "title": "ক্লাস",
@@ -328,7 +342,14 @@
     "correct": "ঠিক",
     "incorrect": "ভুল",
     "waiting": "নম্বরের অপেক্ষায়",
-    "continue": "চালিয়ে যান"
+    "continue": "চালিয়ে যান",
+    "progress": "{{done}}/{{total}}",
+    "completed": "শেষ",
+    "statusPassed": "উত্তীর্ণ",
+    "statusOpen": "পড়ছি",
+    "statusWaiting": "নম্বরের অপেক্ষা",
+    "statusReady": "শুরু করা যায়",
+    "historyEmpty": "এখনও কিছু জমা হয়নি"
   },
   "teacher": {
     "schoolTitle": "পরীক্ষা, নিয়ন্ত্রণ ও সারাংশ",
@@ -374,7 +395,10 @@
   },
   "classesPage": {
     "title": "ক্লাস",
-    "lead": "প্রতিটি পাঠ্যক্রম একটি ক্লাস। শিক্ষার্থী বসাতে খুলুন।",
+    "className": "ক্লাসের নাম",
+    "add": "ক্লাস যোগ",
+    "pickCourse": "কোর্স বেছে নিন",
+    "untitled": "নামহীন ক্লাস",
     "students": "শিক্ষার্থী",
     "manage": "শিক্ষার্থী বসান",
     "empty": "এখনও ক্লাস নেই।"
@@ -418,6 +442,7 @@
     "nationalId": "জাতীয় পরিচয়পত্র",
     "passport": "পাসপোর্ট",
     "photo": "ছবি",
+    "uploadPhoto": "ছবি আপলোড",
     "photoUrl": "https ছবির লিংক",
     "search": "নাম, ইমেইল, পরিচয়পত্র বা পাসপোর্ট দিয়ে খুঁজুন",
     "importTitle": "তালিকা আমদানি",

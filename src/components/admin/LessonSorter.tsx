@@ -14,7 +14,7 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { AlignLeft, FileText, GripVertical, ListChecks, Pencil, Video, type LucideIcon } from 'lucide-react'
+import { AlignLeft, FileText, GripVertical, ListChecks, Pencil, Presentation, Video, type LucideIcon } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { FilterBar, SelectFilter } from '../ui/DataSheet'
@@ -25,6 +25,7 @@ const typeIcons: Record<LessonType, LucideIcon> = {
   pdf: FileText,
   video: Video,
   text: AlignLeft,
+  slides: Presentation,
   quiz: ListChecks,
 }
 
@@ -78,6 +79,7 @@ export function LessonSorter({ lessons, onReorder, onEdit }: LessonSorterProps) 
             { value: 'text', label: t('programs.types.text') },
             { value: 'video', label: t('programs.types.video') },
             { value: 'pdf', label: t('programs.types.pdf') },
+            { value: 'slides', label: t('programs.types.slides') },
             { value: 'quiz', label: t('programs.types.quiz') },
           ]}
         />
