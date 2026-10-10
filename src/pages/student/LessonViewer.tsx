@@ -1,15 +1,17 @@
 import { getEmbedUrlFromYoutubeUrl, isValidYoutubeUrl } from '@tiptap/extension-youtube'
-import { useEffect, useId, useState, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent } from 'react'
+import { BookOpen, ChevronLeft, ChevronRight, Library, PenLine } from 'lucide-react'
+import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { QuizEngine } from '../../components/student/QuizEngine'
+import { StudyBar } from '../../components/student/StudyBar'
 import { PageHeader } from '../../components/ui/PageHeader'
 import { Tabs } from '../../components/ui/Tabs'
 import { SlideDeck } from '../../components/slides/SlideDeck'
 import { splitLessonHtml } from '../../lib/lessonParts'
 import { lessonBody, localizedLabel } from '../../lib/localized'
 import { isSlideDeck, markdownToHtml } from '../../lib/markdown'
-import { listLessonPath, type LessonPathItem } from '../../lib/student'
+import { listLessonPath, rememberStudy, studyPercent, type LessonPathItem } from '../../lib/student'
 
 type LessonViewerProps = {
   programId: string
@@ -28,6 +30,7 @@ export function LessonViewer({ programId, lessonId }: LessonViewerProps) {
   const [lessons, setLessons] = useState<LessonPathItem[]>([])
   const [error, setError] = useState('')
   const [tab, setTab] = useState('theory')
+  const [live, setLive] = useState({ lessonId: '', theory: 0, reference: 0, exercise: 0 })
 
   useEffect(() => {
     let active = true
@@ -44,12 +47,41 @@ export function LessonViewer({ programId, lessonId }: LessonViewerProps) {
   }, [programId, t])
 
   const lesson = lessons.find((item) => item.id === lessonId)
+  const saved = live.lessonId === lessonId
+    ? live
+    : { lessonId, theory: lesson?.theoryPct ?? 0, reference: lesson?.referencePct ?? 0, exercise: lesson?.exercisePct ?? 0 }
+  const parts = {
+    theory: Math.max(lesson?.theoryPct ?? 0, saved.theory),
+    reference: Math.max(lesson?.referencePct ?? 0, saved.reference),
+    exercise: Math.max(lesson?.exercisePct ?? 0, saved.exercise),
+  }
+
+  const bump = useCallback((part: 'theory' | 'reference' | 'exercise', percent: number) => {
+    const next = Math.max(0, Math.min(100, Math.round(percent)))
+    let changed = false
+    setLive((current) => {
+      const base = current.lessonId === lessonId ? current : { lessonId, theory: 0, reference: 0, exercise: 0 }
+      if (base[part] >= next) return base
+      changed = true
+      return { ...base, [part]: next }
+    })
+    if (changed) void rememberStudy(programId, lessonId, part, next).catch(() => undefined)
+  }, [programId, lessonId])
+
   const nextLesson = (() => {
     if (!lesson) return null
     const index = lessons.findIndex((item) => item.id === lesson.id)
     const following = lessons[index + 1]
-    return following && !following.locked ? following.id : null
+    return following && !following.locked ? following : null
   })()
+  const previousLesson = (() => {
+    if (!lesson) return null
+    const index = lessons.findIndex((item) => item.id === lesson.id)
+    const earlier = lessons[index - 1]
+    return earlier && !earlier.locked ? earlier : null
+  })()
+  const lessonPercent = lesson ? studyPercent(lesson.contentUrl, lesson.contentType, lesson.hasQuiz, parts) : 0
+  const recordExercise = useCallback((percent: number) => bump('exercise', percent), [bump])
 
   return (
     <div className="ui-page">
@@ -65,32 +97,47 @@ export function LessonViewer({ programId, lessonId }: LessonViewerProps) {
       {lesson?.locked ? <p className="text-muted">{t('student.locked')}</p> : null}
       {lesson && !lesson.locked ? (
         <>
+          <StudyBar percent={lessonPercent} label={t('student.learned', { percent: lessonPercent })} />
           <Tabs
             label={t('panels.label')}
             value={tab}
             onChange={setTab}
             tabs={[
-              { id: 'theory', label: t('student.theory') },
-              { id: 'reference', label: t('student.reference') },
-              { id: 'exercise', label: t('student.exercise') },
+              { id: 'theory', label: t('student.theory'), icon: <BookOpen aria-hidden="true" className="size-4" /> },
+              { id: 'reference', label: t('student.reference'), icon: <Library aria-hidden="true" className="size-4" /> },
+              { id: 'exercise', label: t('student.exercise'), icon: <PenLine aria-hidden="true" className="size-4" /> },
             ]}
           />
           <div className="ui-fill">
-            {tab === 'theory' ? <LessonBody key={lesson.id} lesson={lesson} part="theory" /> : null}
-            {tab === 'reference' ? <LessonBody key={`${lesson.id}-reference`} lesson={lesson} part="reference" /> : null}
+            {tab === 'theory' ? <LessonBody key={lesson.id} lesson={lesson} part="theory" onProgress={bump} /> : null}
+            {tab === 'reference' ? <LessonBody key={`${lesson.id}-reference`} lesson={lesson} part="reference" onProgress={bump} /> : null}
             {tab === 'exercise' ? (
               <div className="grid gap-4">
-                <LessonBody key={`${lesson.id}-exercise`} lesson={lesson} part="exercise" />
+                <LessonBody key={`${lesson.id}-exercise`} lesson={lesson} part="exercise" onProgress={bump} />
                 <section className="ui-card" aria-label={t('student.practice')}>
                   <h2 className="mb-3 text-lg font-semibold text-ink">{t('student.practice')}</h2>
-                  <QuizEngine lessonId={lesson.id} programId={programId} nextLessonId={nextLesson} />
+                  <QuizEngine lessonId={lesson.id} programId={programId} nextLessonId={nextLesson?.id ?? null} onRecorded={recordExercise} />
                   {!lesson.hasQuiz && nextLesson ? (
-                    <Link to={`/student/${programId}/${nextLesson}`} className="ui-btn ui-btn-primary mt-3">
+                    <Link to={`/student/${programId}/${nextLesson.id}`} className="ui-btn ui-btn-primary mt-3">
                       {t('student.continue')}
                     </Link>
                   ) : null}
                 </section>
               </div>
+            ) : null}
+          </div>
+          <div className="flex items-center justify-between gap-3">
+            {previousLesson ? (
+              <Link to={`/student/${programId}/${previousLesson.id}`} className="ui-inline ui-btn-ghost">
+                <ChevronLeft aria-hidden="true" className="size-4" />
+                {localizedLabel(previousLesson.title, i18n.language) || t('student.previousLesson')}
+              </Link>
+            ) : <span />}
+            {nextLesson ? (
+              <Link to={`/student/${programId}/${nextLesson.id}`} className="ui-inline ui-btn-primary">
+                {localizedLabel(nextLesson.title, i18n.language) || t('student.nextLesson')}
+                <ChevronRight aria-hidden="true" className="size-4" />
+              </Link>
             ) : null}
           </div>
         </>
@@ -99,7 +146,15 @@ export function LessonViewer({ programId, lessonId }: LessonViewerProps) {
   )
 }
 
-function LessonBody({ lesson, part }: { lesson: LessonPathItem; part: 'theory' | 'reference' | 'exercise' }) {
+function LessonBody({
+  lesson,
+  part,
+  onProgress,
+}: {
+  lesson: LessonPathItem
+  part: 'theory' | 'reference' | 'exercise'
+  onProgress: (part: 'theory' | 'reference' | 'exercise', percent: number) => void
+}) {
   const { t, i18n } = useTranslation()
   const title = localizedLabel(lesson.title, i18n.language) || t('programs.untitled')
   const viewed = {
@@ -113,6 +168,31 @@ function LessonBody({ lesson, part }: { lesson: LessonPathItem; part: 'theory' |
   const html = parts[part]
   const youtube = part === 'theory' ? lessonYoutube(viewed) : null
   const showSlides = part === 'theory' && slides
+  const scroller = useRef<HTMLElement>(null)
+  const media = Boolean(youtube) || (part === 'theory' && (lesson.contentType === 'pdf' || lesson.contentType === 'video'))
+
+  useEffect(() => {
+    const node = scroller.current
+    if (!node) return
+    const empty = !html.trim() && !youtube && !(showSlides && mode === 'slides') && !media
+    if (empty) return
+    let timer = 0
+    const send = () => {
+      const room = node.scrollHeight - node.clientHeight
+      const ratio = room <= 24 ? (media ? 40 : 100) : (node.scrollTop / room) * 100
+      onProgress(part, Math.max(media ? 20 : 8, ratio))
+    }
+    send()
+    const onScroll = () => {
+      window.clearTimeout(timer)
+      timer = window.setTimeout(send, 800)
+    }
+    node.addEventListener('scroll', onScroll, { passive: true })
+    return () => {
+      window.clearTimeout(timer)
+      node.removeEventListener('scroll', onScroll)
+    }
+  }, [html, youtube, showSlides, mode, media, part, onProgress, lesson.id])
 
   function openTerm(target: HTMLElement) {
     const example = target.closest('[data-example]')
@@ -140,7 +220,7 @@ function LessonBody({ lesson, part }: { lesson: LessonPathItem; part: 'theory' |
   }
 
   return (
-    <section className="ui-card h-full overflow-auto p-0" aria-label={t('student.content')}>
+    <section ref={scroller} className="ui-card h-full overflow-auto p-0" aria-label={t('student.content')}>
       {showSlides ? (
         <div className="sticky top-0 z-10 flex gap-2 border-b border-line bg-white/80 p-2 backdrop-blur-xl">
           <button

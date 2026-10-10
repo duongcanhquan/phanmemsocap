@@ -1,8 +1,9 @@
-import { Lock } from 'lucide-react'
+import { BookOpen, CheckCircle2, CirclePlay, ClipboardList, FileText, Lock, Presentation } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { MessageThread } from '../../components/messages/MessageThread'
+import { StudyBar } from '../../components/student/StudyBar'
 import { DataTable, FilterBar } from '../../components/ui/DataSheet'
 import { PageHeader } from '../../components/ui/PageHeader'
 import { Tabs } from '../../components/ui/Tabs'
@@ -153,10 +154,11 @@ function ProgramList() {
             )}
             <h2 className="text-lg font-semibold">{localizedLabel(program.title, i18n.language) || t('programs.untitled')}</h2>
             {program.category ? <p className="text-sm text-muted">{program.category}</p> : null}
+            <StudyBar percent={program.percent} label={t('student.courseProgress')} />
             <p className="text-sm font-medium text-accent">
               {program.total > 0 && program.done === program.total
                 ? t('student.completed')
-                : t('student.progress', { done: program.done, total: program.total })}
+                : t('student.learned', { percent: program.percent })}
             </p>
             </Link>
             {program.continueLessonId ? (
@@ -219,7 +221,8 @@ function LessonTimeline({ programId }: { programId: string }) {
     }
   }, [programId, t])
 
-  const current = lessons.find((lesson) => !lesson.locked && !lesson.passed) ?? null
+  const current = lessons.find((lesson) => !lesson.locked && lesson.percent < 100) ?? lessons.find((lesson) => !lesson.locked && !lesson.passed) ?? null
+  const coursePercent = lessons.length === 0 ? 0 : Math.round(lessons.reduce((sum, lesson) => sum + lesson.percent, 0) / lessons.length)
   const titles = new Map(lessons.map((lesson) => [lesson.id, lesson.title]))
   const needle = query.trim().toLowerCase()
   const visibleHistory = history.filter((item) => {
@@ -249,6 +252,7 @@ function LessonTimeline({ programId }: { programId: string }) {
           {error}
         </p>
       ) : null}
+      {lessons.length > 0 ? <StudyBar percent={coursePercent} label={t('student.courseProgress')} /> : null}
       <Tabs
         label={t('panels.label')}
         value={tab}
@@ -260,69 +264,23 @@ function LessonTimeline({ programId }: { programId: string }) {
       />
       <div className="ui-fill">
         {tab === 'path' ? (
-          <>
-          <div className="grid gap-3 sm:hidden">
-            {lessons.map((lesson, index) => {
-              const title = localizedLabel(lesson.title, i18n.language) || t('programs.untitled')
-              return (
-                <button
-                  key={lesson.id}
-                  type="button"
-                  disabled={lesson.locked}
-                  className="ui-card grid gap-1 p-4 text-left disabled:opacity-60"
-                  onClick={() => {
-                    if (!lesson.locked) navigate(`/student/${programId}/${lesson.id}`)
-                  }}
-                >
-                  <span className="text-sm font-medium text-muted">{lesson.locked ? t('student.locked') : index + 1}</span>
-                  <span className="text-base font-semibold text-ink">{title}</span>
-                  <span className="text-sm text-ink">{lessonStatus(lesson, current?.id ?? null, t)}</span>
-                  <span className="text-sm tabular-nums text-muted">
-                    {t('transcript.score')}: {lesson.score === null ? t('reports.emptyScore') : lesson.score.toFixed(1)}
-                  </span>
-                </button>
-              )
-            })}
+          <div className="grid gap-3">
+            {lessons.map((lesson, index) => (
+              <LessonCard
+                key={lesson.id}
+                lesson={lesson}
+                index={index + 1}
+                title={localizedLabel(lesson.title, i18n.language) || t('programs.untitled')}
+                moduleName={localizedLabel(lesson.moduleName, i18n.language)}
+                typeLabel={t(`programs.types.${lesson.contentType}`, { defaultValue: lesson.contentType })}
+                status={lessonStatus(lesson, current?.id ?? null, t)}
+                scoreLabel={`${t('transcript.score')}: ${lesson.score === null ? t('reports.emptyScore') : lesson.score.toFixed(1)}`}
+                learned={t('student.learned', { percent: lesson.percent })}
+                locked={lesson.locked}
+                onOpen={() => navigate(`/student/${programId}/${lesson.id}`)}
+              />
+            ))}
           </div>
-          <div className="hidden sm:block">
-          <DataTable>
-            <thead>
-              <tr>
-                <th>#</th>
-                <th>{t('programs.name')}</th>
-                <th>{t('programs.module')}</th>
-                <th>{t('filters.type')}</th>
-                <th>{t('filters.status')}</th>
-                <th>{t('transcript.score')}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {lessons.map((lesson, index) => {
-                const title = localizedLabel(lesson.title, i18n.language) || t('programs.untitled')
-                const moduleName = localizedLabel(lesson.moduleName, i18n.language)
-                return (
-                  <tr
-                    key={lesson.id}
-                    className={lesson.locked ? 'opacity-60' : 'ui-row'}
-                    onClick={() => {
-                      if (!lesson.locked) navigate(`/student/${programId}/${lesson.id}`)
-                    }}
-                  >
-                    <td className="tabular-nums">
-                      {lesson.locked ? <Lock aria-hidden="true" className="size-4" /> : index + 1}
-                    </td>
-                    <td className="font-medium text-ink">{title}</td>
-                    <td>{moduleName || '—'}</td>
-                    <td>{t(`programs.types.${lesson.contentType}`, { defaultValue: lesson.contentType })}</td>
-                    <td>{lessonStatus(lesson, current?.id ?? null, t)}</td>
-                    <td className="tabular-nums">{lesson.score === null ? t('reports.emptyScore') : lesson.score.toFixed(1)}</td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </DataTable>
-          </div>
-          </>
         ) : (
           <>
             <FilterBar query={query} onQuery={setQuery} count={visibleHistory.length} />
@@ -356,5 +314,64 @@ function LessonTimeline({ programId }: { programId: string }) {
         )}
       </div>
     </div>
+  )
+}
+
+function LessonMark({ lesson, locked }: { lesson: LessonPathItem; locked: boolean }) {
+  const className = 'size-6'
+  if (locked) return <Lock aria-hidden="true" className={className} />
+  if (lesson.percent >= 100 || lesson.passed) return <CheckCircle2 aria-hidden="true" className={className} />
+  if (lesson.hasQuiz) return <ClipboardList aria-hidden="true" className={className} />
+  if (lesson.contentType === 'video') return <CirclePlay aria-hidden="true" className={className} />
+  if (lesson.contentType === 'pdf') return <FileText aria-hidden="true" className={className} />
+  if (lesson.contentType === 'slides') return <Presentation aria-hidden="true" className={className} />
+  return <BookOpen aria-hidden="true" className={className} />
+}
+
+function LessonCard({
+  lesson,
+  index,
+  title,
+  moduleName,
+  typeLabel,
+  status,
+  scoreLabel,
+  learned,
+  locked,
+  onOpen,
+}: {
+  lesson: LessonPathItem
+  index: number
+  title: string
+  moduleName: string
+  typeLabel: string
+  status: string
+  scoreLabel: string
+  learned: string
+  locked: boolean
+  onOpen: () => void
+}) {
+  return (
+    <button
+      type="button"
+      disabled={locked}
+      className="ui-card grid gap-3 p-4 text-left disabled:opacity-60 sm:grid-cols-[auto_1fr] sm:items-center"
+      onClick={onOpen}
+    >
+      <span className="grid size-12 place-items-center rounded-2xl bg-accent/10 text-accent">
+        <LessonMark lesson={lesson} locked={locked} />
+      </span>
+      <span className="grid min-w-0 gap-2">
+        <span className="flex flex-wrap items-center gap-2">
+          <span className="text-xs font-semibold uppercase tracking-wide text-muted">{index}</span>
+          <span className="rounded-full bg-canvas px-2 py-0.5 text-xs font-medium text-ink">{typeLabel}</span>
+          <span className="rounded-full bg-accent/10 px-2 py-0.5 text-xs font-medium text-accent">{status}</span>
+        </span>
+        <span className="text-base font-semibold text-ink">{title}</span>
+        {moduleName ? <span className="text-sm text-muted">{moduleName}</span> : null}
+        <StudyBar percent={lesson.percent} label={learned} />
+        <span className="text-xs tabular-nums text-muted">{scoreLabel}</span>
+      </span>
+    </button>
   )
 }

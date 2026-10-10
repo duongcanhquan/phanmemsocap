@@ -105,6 +105,25 @@ export interface Database {
           shuffle_options?: boolean | null
         }
       >
+      lesson_progress: Table<
+        {
+          student_id: string
+          lesson_id: string
+          program_id: string
+          theory_pct: number
+          reference_pct: number
+          exercise_pct: number
+          updated_at: string
+        },
+        {
+          student_id: string
+          lesson_id: string
+          program_id: string
+          theory_pct?: number
+          reference_pct?: number
+          exercise_pct?: number
+        }
+      >
       program_lessons: Table<
         {
           program_id: string

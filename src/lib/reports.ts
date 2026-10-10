@@ -5,10 +5,12 @@ export type ScoreCell = number | null
 
 export type ScoreReport = {
   programTitle: LocalizedText
-  lessons: { id: string; title: LocalizedText }[]
+  lessons: { id: string; title: LocalizedText; hasQuiz: boolean }[]
   students: {
     id: string
     name: string
+    classId: string
+    className: string
     scores: ScoreCell[]
     average: ScoreCell
   }[]
@@ -53,11 +55,21 @@ export async function loadScoreReport(programId: string): Promise<ScoreReport | 
     .map((lesson) => ({ ...lesson, order_index: linkOrder.get(lesson.id) ?? 0 }))
     .sort((left, right) => left.order_index - right.order_index)
 
-  const enrollments = await db.from('program_enrollments').select('student_id').eq('program_id', programId)
+  const enrollments = await db.from('program_enrollments').select('student_id, class_id').eq('program_id', programId)
   if (enrollments.error) throw enrollments.error
-  const studentIds = [
-    ...new Set((enrollments.data ?? []).map((row) => row.student_id).filter((id): id is string => Boolean(id))),
-  ]
+  const classIds = [...new Set((enrollments.data ?? []).map((row) => row.class_id).filter((id): id is string => Boolean(id)))]
+  const classes =
+    classIds.length === 0
+      ? { data: [], error: null }
+      : await db.from('course_classes').select('id, name').in('id', classIds)
+  if (classes.error) throw classes.error
+  const classNames = new Map((classes.data ?? []).map((item) => [item.id, item.name]))
+  const classByStudent = new Map(
+    (enrollments.data ?? [])
+      .filter((row) => row.student_id)
+      .map((row) => [row.student_id as string, { id: row.class_id ?? '', name: classNames.get(row.class_id ?? '') ?? '' }]),
+  )
+  const studentIds = [...classByStudent.keys()]
 
   const profiles =
     studentIds.length === 0
@@ -96,9 +108,12 @@ export async function loadScoreReport(programId: string): Promise<ScoreReport | 
         const rows = (submissions.data ?? []).filter((row) => row.student_id === studentId)
         return lessonCell(ids, rows)
       })
+      const classroom = classByStudent.get(studentId)
       return {
         id: studentId,
         name: names.get(studentId) ?? '',
+        classId: classroom?.id ?? '',
+        className: classroom?.name ?? '',
         scores,
         average: average(scores.filter((score): score is number => score !== null)),
       }
@@ -107,7 +122,11 @@ export async function loadScoreReport(programId: string): Promise<ScoreReport | 
 
   return {
     programTitle: asLocalized(program.data.title),
-    lessons: lessonRows.map((lesson) => ({ id: lesson.id, title: asLocalized(lesson.title) })),
+    lessons: lessonRows.map((lesson) => ({
+      id: lesson.id,
+      title: asLocalized(lesson.title),
+      hasQuiz: (quizzesByLesson.get(lesson.id) ?? []).length > 0,
+    })),
     students,
   }
 }
@@ -198,4 +217,100 @@ export async function loadStudentTranscript(studentId: string, programId: string
     lessons: transcriptLessons,
     average: average(transcriptLessons.map((lesson) => lesson.score).filter((score): score is number => score !== null)),
   }
+}
+
+export type ExamQuestion = {
+  question: LocalizedText
+  options: LocalizedText[]
+  correctIndex: number | null
+  isEssay: boolean
+  points: number
+  selectedIndex: number | null
+  essayAnswer: string
+  score: number | null
+  feedback: string
+}
+
+export type ExamSheet = {
+  studentName: string
+  className: string
+  courseTitle: LocalizedText
+  lessonTitle: LocalizedText
+  passMark: number
+  questions: ExamQuestion[]
+}
+
+export async function loadExamSheets(programId: string, studentIds: string[], lessonIds: string[]): Promise<ExamSheet[]> {
+  if (studentIds.length === 0 || lessonIds.length === 0) return []
+  const db = client()
+  const [program, lessons, profiles, enrollments, classes] = await Promise.all([
+    db.from('programs').select('title').eq('id', programId).maybeSingle(),
+    db.from('lessons').select('id, title, pass_mark').in('id', lessonIds),
+    db.from('profiles').select('id, full_name').in('id', studentIds),
+    db.from('program_enrollments').select('student_id, class_id').eq('program_id', programId).in('student_id', studentIds),
+    db.from('course_classes').select('id, name').eq('program_id', programId),
+  ])
+  if (program.error) throw program.error
+  if (lessons.error) throw lessons.error
+  if (profiles.error) throw profiles.error
+  if (enrollments.error) throw enrollments.error
+  if (classes.error) throw classes.error
+  if (!program.data) return []
+  const courseTitle = asLocalized(program.data.title)
+
+  const order = new Map(lessonIds.map((id, index) => [id, index]))
+  const lessonRows = (lessons.data ?? []).slice().sort((left, right) => (order.get(left.id) ?? 0) - (order.get(right.id) ?? 0))
+  const quizzes = await db
+    .from('quizzes')
+    .select('id, lesson_id, question, options, correct_option_index, is_essay, points, position')
+    .in('lesson_id', lessonRows.map((lesson) => lesson.id))
+    .order('position', { ascending: true })
+  if (quizzes.error) throw quizzes.error
+  const quizRows = quizzes.data ?? []
+  const quizIds = quizRows.map((quiz) => quiz.id)
+  const submissions =
+    quizIds.length === 0
+      ? { data: [], error: null }
+      : await db
+          .from('quiz_submissions')
+          .select('student_id, quiz_id, selected_option_index, essay_answer, score, teacher_feedback')
+          .in('quiz_id', quizIds)
+          .in('student_id', studentIds)
+  if (submissions.error) throw submissions.error
+
+  const classNames = new Map((classes.data ?? []).map((item) => [item.id, item.name]))
+  const classByStudent = new Map(
+    (enrollments.data ?? []).map((row) => [row.student_id ?? '', classNames.get(row.class_id ?? '') ?? '']),
+  )
+  const names = new Map((profiles.data ?? []).map((profile) => [profile.id, profile.full_name ?? '']))
+  const answers = new Map(
+    (submissions.data ?? []).map((row) => [`${row.student_id}:${row.quiz_id}`, row]),
+  )
+
+  return studentIds.flatMap((studentId) =>
+    lessonRows.map((lesson) => ({
+      studentName: names.get(studentId) ?? '',
+      className: classByStudent.get(studentId) ?? '',
+      courseTitle,
+      lessonTitle: asLocalized(lesson.title),
+      passMark: Number(lesson.pass_mark ?? 5) || 5,
+      questions: quizRows
+        .filter((quiz) => quiz.lesson_id === lesson.id)
+        .map((quiz) => {
+          const answer = answers.get(`${studentId}:${quiz.id}`)
+          const options = Array.isArray(quiz.options) ? quiz.options.map((option) => asLocalized(option)) : []
+          return {
+            question: asLocalized(quiz.question),
+            options,
+            correctIndex: quiz.correct_option_index,
+            isEssay: quiz.is_essay ?? false,
+            points: quiz.points ?? 1,
+            selectedIndex: answer?.selected_option_index ?? null,
+            essayAnswer: answer?.essay_answer ?? '',
+            score: answer?.score ?? null,
+            feedback: answer?.teacher_feedback ?? '',
+          }
+        }),
+    })),
+  ).filter((sheet) => sheet.questions.length > 0)
 }

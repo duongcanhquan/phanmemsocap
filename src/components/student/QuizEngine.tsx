@@ -15,6 +15,7 @@ type QuizEngineProps = {
   lessonId: string
   programId: string
   nextLessonId: string | null
+  onRecorded?: (percent: number) => void
 }
 
 type AnswerState = {
@@ -22,8 +23,8 @@ type AnswerState = {
   essay?: string
 }
 
-export function QuizEngine({ lessonId, programId, nextLessonId }: QuizEngineProps) {
-  return <QuizSession key={lessonId} lessonId={lessonId} programId={programId} nextLessonId={nextLessonId} />
+export function QuizEngine({ lessonId, programId, nextLessonId, onRecorded }: QuizEngineProps) {
+  return <QuizSession key={lessonId} lessonId={lessonId} programId={programId} nextLessonId={nextLessonId} onRecorded={onRecorded} />
 }
 
 function lessonScore(questions: StudentQuestion[], grades: QuizGrade[]) {
@@ -50,7 +51,7 @@ function mixOrder<T>(items: T[], enabled: boolean): T[] {
   return next
 }
 
-function QuizSession({ lessonId, programId, nextLessonId }: QuizEngineProps) {
+function QuizSession({ lessonId, programId, nextLessonId, onRecorded }: QuizEngineProps) {
   const { t, i18n } = useTranslation()
   const [questions, setQuestions] = useState<StudentQuestion[]>([])
   const [optionOrder, setOptionOrder] = useState<Record<string, number[]>>({})
@@ -100,6 +101,13 @@ function QuizSession({ lessonId, programId, nextLessonId }: QuizEngineProps) {
   }, [lessonId, t])
 
   const question = questions[index]
+  const currentScore = submitted ? lessonScore(questions, grades) : null
+  const recorded = !submitted || questions.length === 0 ? 0 : currentScore != null && currentScore >= (questions[0]?.passMark ?? passingScore) ? 100 : 40
+
+  useEffect(() => {
+    if (!recorded) return
+    onRecorded?.(recorded)
+  }, [recorded, onRecorded])
 
   async function onSubmit() {
     const missing = questions.some((item) =>

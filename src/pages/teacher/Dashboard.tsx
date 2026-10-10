@@ -374,7 +374,7 @@ export function TeacherDashboard() {
         <div className="grid gap-3">
           <ClassPick classes={classes} value={selectedClass} onChange={setSelectedClass} />
           {openClass ? (
-            <ReportExport key={selectedClass} programId={openClass.programId} studentIds={rows.filter((row) => row.classId === selectedClass).map((row) => row.studentId)} />
+            <ReportExport key={selectedClass} programId={openClass.programId} classLabel={openClass.name} studentIds={rows.filter((row) => row.classId === selectedClass).map((row) => row.studentId)} />
           ) : (
             <p className="text-sm text-muted">{t('teacher.pickClass')}</p>
           )}

@@ -77,6 +77,117 @@ export async function downloadPdf(sheet: DocumentSheet) {
   doc.save(`${sheet.filename}.pdf`)
 }
 
+export type ExamPdfSheet = {
+  schoolName: string
+  title: string
+  studentLine: string
+  meta: string[]
+  questions: { heading: string; lines: string[] }[]
+  result: string
+  signLeft: string
+  signRight: string
+  signHint: string
+}
+
+export async function downloadExamPdf(filename: string, sheets: ExamPdfSheet[]) {
+  const [{ jsPDF }, fontResponse, logo] = await Promise.all([
+    import('jspdf'),
+    fetch('/fonts/NotoSans-Regular.ttf'),
+    logoDataUrl(),
+  ])
+  if (!fontResponse.ok) throw new Error('font')
+  const font = arrayBufferToBase64(await fontResponse.arrayBuffer())
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' })
+  doc.addFileToVFS('NotoSans-Regular.ttf', font)
+  doc.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal')
+  doc.setFont('NotoSans')
+
+  const pageWidth = doc.internal.pageSize.getWidth()
+  const pageHeight = doc.internal.pageSize.getHeight()
+  const left = 48
+  const width = pageWidth - left * 2
+
+  sheets.forEach((sheet, sheetIndex) => {
+    if (sheetIndex > 0) doc.addPage()
+    let cursor = drawExamHead(doc, sheet, logo, pageWidth, left, width)
+
+    const ensure = (needed: number) => {
+      if (cursor + needed <= pageHeight - 48) return
+      doc.addPage()
+      cursor = drawExamHead(doc, sheet, logo, pageWidth, left, width, true)
+    }
+
+    for (const question of sheet.questions) {
+      doc.setFontSize(11)
+      const heading = doc.splitTextToSize(question.heading, width) as string[]
+      const body = question.lines.flatMap((line) => doc.splitTextToSize(line, width - 12) as string[])
+      ensure(heading.length * 15 + body.length * 14 + 16)
+      doc.setFontSize(11)
+      doc.text(heading, left, cursor)
+      cursor += heading.length * 15 + 4
+      doc.setFontSize(10)
+      doc.text(body, left + 12, cursor)
+      cursor += body.length * 14 + 12
+    }
+
+    ensure(36)
+    doc.setFontSize(12)
+    doc.text(sheet.result, left, cursor)
+    cursor += 36
+    ensure(92)
+    doc.setFontSize(11)
+    doc.text(sheet.signLeft, left, cursor)
+    doc.text(sheet.signRight, left + width / 2, cursor)
+    cursor += 16
+    doc.setFontSize(9)
+    doc.text(sheet.signHint, left, cursor)
+    doc.text(sheet.signHint, left + width / 2, cursor)
+    cursor += 48
+    doc.setDrawColor(30, 41, 59)
+    doc.line(left, cursor, left + 180, cursor)
+    doc.line(left + width / 2, cursor, left + width / 2 + 180, cursor)
+  })
+
+  doc.save(`${filename}.pdf`)
+}
+
+function drawExamHead(
+  doc: import('jspdf').jsPDF,
+  sheet: ExamPdfSheet,
+  logo: string | null,
+  pageWidth: number,
+  left: number,
+  width: number,
+  compact = false,
+) {
+  let cursor = 36
+  if (!compact && logo) {
+    const logoWidth = 168
+    const logoHeight = logoWidth * logoAspect
+    doc.addImage(logo, 'PNG', (pageWidth - logoWidth) / 2, cursor, logoWidth, logoHeight)
+    cursor += logoHeight + 10
+  }
+  doc.setFontSize(compact ? 11 : 12)
+  doc.text(sheet.schoolName, pageWidth / 2, cursor, { align: 'center' })
+  cursor += compact ? 16 : 18
+  doc.setFontSize(compact ? 13 : 15)
+  doc.text(sheet.title, pageWidth / 2, cursor, { align: 'center' })
+  cursor += 18
+  doc.setFontSize(11)
+  doc.text(sheet.studentLine, left, cursor)
+  cursor += 16
+  for (const line of sheet.meta) {
+    const wrapped = doc.splitTextToSize(line, width) as string[]
+    doc.text(wrapped, left, cursor)
+    cursor += wrapped.length * 14
+  }
+  cursor += 8
+  doc.setDrawColor(3, 105, 161)
+  doc.setLineWidth(1)
+  doc.line(left, cursor, left + width, cursor)
+  return cursor + 18
+}
+
 async function logoDataUrl(): Promise<string | null> {
   const response = await fetch('/logo-vietmy-blue.png')
   if (!response.ok) return null

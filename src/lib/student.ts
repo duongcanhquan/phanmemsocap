@@ -1,3 +1,4 @@
+import { splitLessonHtml } from './lessonParts'
 import { asLocalized, type LocalizedText } from './localized'
 import { supabase, type Json } from './supabase'
 
@@ -10,6 +11,7 @@ export type EnrolledProgram = {
   coverImageUrl: string
   done: number
   total: number
+  percent: number
   continueLessonId: string | null
 }
 
@@ -26,6 +28,10 @@ export type LessonPathItem = {
   passed: boolean
   waiting: boolean
   score: number | null
+  theoryPct: number
+  referencePct: number
+  exercisePct: number
+  percent: number
 }
 
 export type StudyHistoryItem = {
@@ -60,6 +66,40 @@ export type QuizSubmitResult = {
   results: QuizGrade[]
 }
 
+export function studyPercent(
+  contentUrl: string,
+  contentType: string,
+  hasQuiz: boolean,
+  parts: { theory: number; reference: number; exercise: number },
+) {
+  const html = contentType === 'pdf' || contentType === 'video' ? '' : contentUrl
+  const split = splitLessonHtml(html)
+  const weights: [number, number][] = [[parts.theory, contentType === 'pdf' || contentType === 'video' || split.theory.trim() ? 50 : 0]]
+  if (split.reference.trim()) weights.push([parts.reference, 20])
+  if (split.exercise.trim() || hasQuiz) weights.push([parts.exercise, hasQuiz ? 40 : 25])
+  const total = weights.reduce((sum, [, weight]) => sum + weight, 0)
+  if (total === 0) return 0
+  return Math.min(100, Math.round(weights.reduce((sum, [value, weight]) => sum + value * weight, 0) / total))
+}
+
+export async function rememberStudy(programId: string, lessonId: string, part: 'theory' | 'reference' | 'exercise', percent: number) {
+  const db = client()
+  const { data: userData } = await db.auth.getUser()
+  const studentId = userData.user?.id
+  if (!studentId) return
+  const next = Math.max(0, Math.min(100, Math.round(percent)))
+  const row = {
+    student_id: studentId,
+    lesson_id: lessonId,
+    program_id: programId,
+    ...(part === 'theory' ? { theory_pct: next } : {}),
+    ...(part === 'reference' ? { reference_pct: next } : {}),
+    ...(part === 'exercise' ? { exercise_pct: next } : {}),
+  }
+  const { error } = await db.from('lesson_progress').upsert(row, { onConflict: 'student_id,lesson_id,program_id' })
+  if (error) throw error
+}
+
 function client() {
   if (!supabase) throw new Error('missing-supabase')
   return supabase
@@ -91,14 +131,16 @@ export async function listEnrolledPrograms(): Promise<EnrolledProgram[]> {
   const rows = await Promise.all(
     (programs.data ?? []).map(async (program) => {
       const path = await listLessonPath(program.id)
-      const continueLesson = path.find((lesson) => !lesson.locked && !lesson.passed)
+      const continueLesson = path.find((lesson) => !lesson.locked && lesson.percent < 100) ?? path.find((lesson) => !lesson.locked && !lesson.passed)
+      const percent = path.length === 0 ? 0 : Math.round(path.reduce((sum, lesson) => sum + lesson.percent, 0) / path.length)
       return {
         id: program.id,
         title: asLocalized(program.title),
         category: program.category ?? '',
         coverImageUrl: program.cover_image_url ?? '',
-        done: path.filter((lesson) => lesson.passed).length,
+        done: path.filter((lesson) => lesson.percent >= 100).length,
         total: path.length,
+        percent,
         continueLessonId: continueLesson?.id ?? null,
       }
     }),
@@ -117,6 +159,19 @@ export async function listLessonPath(programId: string): Promise<LessonPathItem[
       ? { data: [], error: null }
       : await db.from('lessons').select('id, title, module_name, content_type, content_url').in('id', ids)
   if (lessons.error) throw lessons.error
+
+  const { data: userData } = await db.auth.getUser()
+  const studentId = userData.user?.id
+  const stored = studentId
+    ? await db.from('lesson_progress').select('lesson_id, theory_pct, reference_pct, exercise_pct').eq('program_id', programId).eq('student_id', studentId)
+    : { data: [], error: null }
+  if (stored.error) throw stored.error
+  const studied = new Map(
+    (stored.data ?? []).map((row) => [
+      row.lesson_id,
+      { theory: row.theory_pct, reference: row.reference_pct, exercise: row.exercise_pct },
+    ]),
+  )
 
   const [state, record] = await Promise.all([
     db.rpc('program_lesson_state', { program_id: programId }),
@@ -154,12 +209,15 @@ export async function listLessonPath(programId: string): Promise<LessonPathItem[
     const flag = flags.get(lesson.id)
     if (!flag) return []
     const mark = progress.get(lesson.id)
+    const contentUrl = lesson.content_url ?? ''
+    const saved = studied.get(lesson.id) ?? { theory: 0, reference: 0, exercise: 0 }
+    const parts = saved.exercise >= 100 || mark?.passed ? { ...saved, exercise: 100 } : saved
     return [{
       id: lesson.id,
       title: asLocalized(lesson.title),
       moduleName: asLocalized(lesson.module_name),
       contentType: lesson.content_type ?? 'text',
-      contentUrl: lesson.content_url ?? '',
+      contentUrl,
       orderIndex: order.get(lesson.id) ?? 0,
       locked: flag.locked,
       required: flag.required,
@@ -167,6 +225,10 @@ export async function listLessonPath(programId: string): Promise<LessonPathItem[
       passed: mark?.passed ?? false,
       waiting: mark?.waiting ?? false,
       score: mark?.score ?? null,
+      theoryPct: parts.theory,
+      referencePct: parts.reference,
+      exercisePct: parts.exercise,
+      percent: studyPercent(contentUrl, lesson.content_type ?? 'text', flag.hasQuiz, parts),
     }]
   })
 }
