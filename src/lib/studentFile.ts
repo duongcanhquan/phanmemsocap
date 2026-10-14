@@ -18,12 +18,16 @@ export type StudentPlacement = {
 
 export type StudentFile = {
   fullName: string
+  photoUrl: string
   dateOfBirth: string
   phone: string
   nationalId: string
   passport: string
   nationality: string
   studyStatus: string
+  isForeign: boolean
+  visaStatus: string
+  visaExpiresOn: string
   placements: StudentPlacement[]
 }
 
@@ -39,19 +43,11 @@ function average(values: number[]) {
 
 export async function loadStudentFile(studentId: string): Promise<StudentFile | null> {
   const db = client()
-  const withNation = await db
+  const profile = await db
     .from('profiles')
-    .select('full_name, date_of_birth, phone, national_id, passport, nationality, status, role')
+    .select('full_name, date_of_birth, phone, national_id, passport, nationality, status, role, photo_url, is_foreign, visa_status, visa_expires_on')
     .eq('id', studentId)
     .maybeSingle()
-  const missingNation = Boolean(withNation.error && /nationality/i.test(withNation.error.message))
-  const profile = missingNation
-    ? await db
-        .from('profiles')
-        .select('full_name, date_of_birth, phone, national_id, passport, status, role')
-        .eq('id', studentId)
-        .maybeSingle()
-    : withNation
   if (profile.error) throw profile.error
   if (!profile.data || profile.data.role !== 'student') return null
 
@@ -78,15 +74,18 @@ export async function loadStudentFile(studentId: string): Promise<StudentFile | 
     ),
   )
 
-  const row = profile.data as { nationality?: string | null }
   return {
     fullName: profile.data.full_name ?? '',
+    photoUrl: profile.data.photo_url ?? '',
     dateOfBirth: profile.data.date_of_birth ?? '',
     phone: profile.data.phone ?? '',
     nationalId: profile.data.national_id ?? '',
     passport: profile.data.passport ?? '',
-    nationality: row.nationality ?? '',
+    nationality: profile.data.nationality ?? '',
     studyStatus: profile.data.status || 'studying',
+    isForeign: profile.data.is_foreign === true,
+    visaStatus: profile.data.visa_status ?? '',
+    visaExpiresOn: profile.data.visa_expires_on ?? '',
     placements,
   }
 }

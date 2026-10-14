@@ -7,7 +7,7 @@ import StarterKit from '@tiptap/starter-kit'
 import { useEffect, useMemo, useRef, useState, type RefObject } from 'react'
 import { markdownToHtml } from '../../lib/markdown'
 import { useTranslation } from 'react-i18next'
-import { isR2Configured, uploadToR2 } from '../../lib/r2'
+import { isMediaUploadReady, uploadMedia } from '../../lib/media'
 import { EditorToolbar } from './EditorToolbar'
 import { ExampleMark, type ExampleAttrs, type ExampleMediaType } from './example-mark'
 
@@ -133,15 +133,15 @@ export function AdvancedEditor({ mode = 'teacher', content, onChange, editorRef 
   useEffect(() => {
     insertImagesRef.current = async function insertImages(files: File[], position?: number) {
     if (!editor) return
-    if (!isR2Configured) {
-      setStatus(t('editor.r2Missing'))
+    if (!isMediaUploadReady()) {
+      setStatus(t('editor.storageMissing'))
       return
     }
     setUploading(true)
     setStatus(t('editor.uploading'))
     try {
       for (const file of files) {
-        const url = await uploadToR2(file)
+        const url = await uploadMedia(file, 'lessons')
         const chain = editor.chain().focus()
         if (position != null) chain.setTextSelection(position)
         chain.setImage({ src: url, alt: file.name }).run()
@@ -179,13 +179,13 @@ export function AdvancedEditor({ mode = 'teacher', content, onChange, editorRef 
     let nextUrl = mediaUrl.trim()
     let nextType = mediaType
     if (mediaType === 'image' && exampleImage) {
-      if (!isR2Configured) {
-        setStatus(t('editor.r2Missing'))
+      if (!isMediaUploadReady()) {
+        setStatus(t('editor.storageMissing'))
         return
       }
       setUploading(true)
       try {
-        nextUrl = await uploadToR2(exampleImage)
+        nextUrl = await uploadMedia(exampleImage, 'lessons')
       } catch (error) {
         setStatus(error instanceof Error ? error.message : t('editor.uploadError'))
         setUploading(false)

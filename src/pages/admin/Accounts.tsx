@@ -25,7 +25,7 @@ import {
   type StudyStatus,
   type VisaStatus,
 } from '../../lib/accounts'
-import { isR2Configured, uploadToR2 } from '../../lib/r2'
+import { isMediaUploadReady, uploadMedia } from '../../lib/media'
 import { isSupabaseConfigured, type AppRole } from '../../lib/supabase'
 
 const emptyPerson = (role: AppRole): AccountInput => ({
@@ -161,9 +161,8 @@ export function Accounts() {
       {tab === 'student' ? (
         <VisaBoard
           people={people.filter((person) => person.role === 'student' && person.isForeign)}
-          onEdit={(person) => {
-            if (canEditPerson(role, person, user?.id)) setEditing(person)
-          }}
+          filter={visaFilter}
+          onFilter={setVisaFilter}
         />
       ) : null}
       <FilterBar query={query} onQuery={setQuery} count={visible.length}>
@@ -192,18 +191,6 @@ export function Accounts() {
               })),
             ]}
           />
-          <SelectFilter
-            id="student-visa"
-            label={t('accounts.visaBoard')}
-            value={visaFilter}
-            onChange={setVisaFilter}
-            options={[
-              { value: 'all', label: t('filters.all') },
-              { value: 'month', label: t('accounts.visaMonth') },
-              { value: 'quarter', label: t('accounts.visaQuarter') },
-              { value: 'expired', label: t('accounts.visa.expired') },
-            ]}
-          />
           </>
         ) : null}
         {canCreate ? (
@@ -227,14 +214,9 @@ export function Accounts() {
             <tr>
               <th className="px-3 py-3 font-medium">{t('accounts.name')}</th>
               <th className="px-3 py-3 font-medium">{t('accounts.email')}</th>
-              <th className="px-3 py-3 font-medium">{t('accounts.role')}</th>
-              <th className="px-3 py-3 font-medium">{t('accounts.dateOfBirth')}</th>
-              <th className="px-3 py-3 font-medium">{t('accounts.phone')}</th>
-              <th className="px-3 py-3 font-medium">{t('accounts.nationalId')}</th>
-              {tab === 'student' ? <th className="px-3 py-3 font-medium">{t('accounts.nationality')}</th> : null}
-              {tab === 'student' ? <th className="px-3 py-3 font-medium">{t('accounts.studyStatus')}</th> : null}
-              <th className="px-3 py-3 font-medium">{t('accounts.passport')}</th>
-              {tab === 'student' ? <th className="px-3 py-3 font-medium">{t('accounts.visaExpires')}</th> : null}
+              {tab === 'student' ? <th className="px-3 py-3 font-medium">{t('accounts.studyStatus')}</th> : <th className="px-3 py-3 font-medium">{t('accounts.role')}</th>}
+              {tab === 'student' ? <th className="px-3 py-3 font-medium">{t('accounts.nationality')}</th> : <th className="px-3 py-3 font-medium">{t('accounts.phone')}</th>}
+              {tab === 'student' ? <th className="px-3 py-3 font-medium">{t('accounts.visaExpires')}</th> : <th className="px-3 py-3 font-medium">{t('accounts.passport')}</th>}
               <th className="px-3 py-3 font-medium">{t('teacher.action')}</th>
             </tr>
           </thead>
@@ -242,7 +224,7 @@ export function Accounts() {
             {visible.map((person) => (
               <tr
                 key={person.id}
-                className={canEditPerson(role, person, user?.id) ? 'ui-row' : undefined}
+                className="ui-row"
                 onClick={() => {
                   if (person.role === 'student') navigate(`/students/${person.id}`)
                   else if (canEditPerson(role, person, user?.id)) setEditing(person)
@@ -251,20 +233,30 @@ export function Accounts() {
                 <td className="px-3 py-2 font-medium text-ink">
                   <span className="inline-flex items-center gap-2">
                     <Photo photoUrl={person.photoUrl} name={person.fullName} />
-                    {person.fullName || t('accounts.unnamed')}
+                    <span className="grid min-w-0">
+                      <span className="truncate">{person.fullName || t('accounts.unnamed')}</span>
+                      {tab === 'student' && person.phone ? <span className="truncate text-xs font-normal text-muted">{person.phone}</span> : null}
+                    </span>
                   </span>
                 </td>
                 <td className="px-3 py-2 text-ink">{person.email}</td>
-                <td className="px-3 py-2 text-ink">{t(`accounts.roles.${person.role}`)}</td>
-                <td className="px-3 py-2 text-ink">{person.dateOfBirth}</td>
-                <td className="px-3 py-2 text-ink">{person.phone}</td>
-                <td className="px-3 py-2 text-ink">{person.nationalId}</td>
-                {tab === 'student' ? <td className="px-3 py-2 text-ink">{person.nationality || '—'}</td> : null}
-                {tab === 'student' ? <td className="px-3 py-2 text-ink">{t(`accounts.study.${person.studyStatus}`)}</td> : null}
-                <td className="px-3 py-2 text-ink">{person.passport}</td>
                 {tab === 'student' ? (
-                  <td className="px-3 py-2 text-ink">{person.isForeign ? person.visaExpiresOn || '—' : '—'}</td>
-                ) : null}
+                  <td className="px-3 py-2 text-ink">{t(`accounts.study.${person.studyStatus}`)}</td>
+                ) : (
+                  <td className="px-3 py-2 text-ink">{t(`accounts.roles.${person.role}`)}</td>
+                )}
+                {tab === 'student' ? (
+                  <td className="px-3 py-2 text-ink">{person.nationality || '—'}</td>
+                ) : (
+                  <td className="px-3 py-2 text-ink">{person.phone || '—'}</td>
+                )}
+                {tab === 'student' ? (
+                  <td className={`px-3 py-2 text-ink ${person.isForeign && ['month', 'expired'].includes(visaWindow(person.visaExpiresOn)) ? 'font-semibold text-danger' : ''}`}>
+                    {person.isForeign ? person.visaExpiresOn || '—' : '—'}
+                  </td>
+                ) : (
+                  <td className="px-3 py-2 text-ink">{person.passport || '—'}</td>
+                )}
                 <td className="px-3 py-2">
                   {canEditPerson(role, person, user?.id) ? (
                     <span className="inline-flex gap-2" onClick={(event) => event.stopPropagation()}>
@@ -598,15 +590,15 @@ function PhotoField({
 
   async function onFile(file: File | undefined) {
     if (!file) return
-    if (!isR2Configured) {
-      onError(t('editor.r2Missing'))
+    if (!isMediaUploadReady()) {
+      onError(t('editor.storageMissing'))
       return
     }
     setPending(true)
     try {
-      onChange(await uploadToR2(file))
-    } catch (reason) {
-      onError(reason instanceof Error ? reason.message : t('editor.uploadError'))
+      onChange(await uploadMedia(file, 'photos'))
+    } catch {
+      onError(t('editor.uploadError'))
     } finally {
       setPending(false)
     }
@@ -655,51 +647,72 @@ function TextField({
   )
 }
 
-function VisaBoard({ people, onEdit }: { people: AccountPerson[]; onEdit: (person: AccountPerson) => void }) {
+function VisaBoard({
+  people,
+  filter,
+  onFilter,
+}: {
+  people: AccountPerson[]
+  filter: string
+  onFilter: (value: string) => void
+}) {
   const { t } = useTranslation()
-  const ranked = [...people].sort((left, right) => (left.visaExpiresOn || '9999').localeCompare(right.visaExpiresOn || '9999'))
-  const month = ranked.filter((person) => visaWindow(person.visaExpiresOn) === 'month').length
-  const quarter = ranked.filter((person) => visaWindow(person.visaExpiresOn) === 'quarter').length
-  const expired = ranked.filter((person) => visaWindow(person.visaExpiresOn) === 'expired').length
+  const month = people.filter((person) => visaWindow(person.visaExpiresOn) === 'month').length
+  const quarter = people.filter((person) => {
+    const span = visaWindow(person.visaExpiresOn)
+    return span === 'quarter' || span === 'month'
+  }).length
+  const expired = people.filter((person) => visaWindow(person.visaExpiresOn) === 'expired').length
 
   return (
-    <section className="ui-card mb-3 grid gap-3">
-      <h2 className="text-lg font-semibold text-ink">{t('accounts.visaBoard')}</h2>
-      <p className="text-sm text-muted">{t('accounts.visaLead')}</p>
-      <div className="flex flex-wrap gap-3 text-sm font-medium">
-        <span className="text-danger">{t('accounts.visaMonth')}: {month}</span>
-        <span className="text-accent">{t('accounts.visaQuarter')}: {quarter}</span>
-        <span className="text-danger">{t('accounts.visa.expired')}: {expired}</span>
-      </div>
-      {ranked.length === 0 ? <p className="text-sm text-muted">{t('accounts.visaNone')}</p> : (
-        <DataTable>
-          <thead>
-            <tr>
-              <th className="px-3 py-3 font-medium">{t('accounts.name')}</th>
-              <th className="px-3 py-3 font-medium">{t('accounts.nationality')}</th>
-              <th className="px-3 py-3 font-medium">{t('accounts.visaStatus')}</th>
-              <th className="px-3 py-3 font-medium">{t('accounts.visaExpires')}</th>
-              <th className="px-3 py-3 font-medium">{t('accounts.visaWatch')}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {ranked.map((person) => {
-              const span = visaWindow(person.visaExpiresOn)
-              const urgent = span === 'month' || span === 'expired'
-              return (
-                <tr key={person.id} className="ui-row" onClick={() => onEdit(person)}>
-                  <td className="px-3 py-2 font-medium text-ink">{person.fullName || t('accounts.unnamed')}</td>
-                  <td className="px-3 py-2">{person.nationality || '—'}</td>
-                  <td className="px-3 py-2">{person.visaStatus ? t(`accounts.visa.${person.visaStatus}`) : t('accounts.visaUnset')}</td>
-                  <td className={`px-3 py-2 ${urgent ? 'font-semibold text-danger' : ''}`}>{person.visaExpiresOn || '—'}</td>
-                  <td className={`px-3 py-2 ${urgent ? 'font-semibold text-danger' : ''}`}>{t(`accounts.visaWindows.${span}`)}</td>
-                </tr>
-              )
-            })}
-          </tbody>
-        </DataTable>
-      )}
+    <section className="mb-3 grid gap-2 sm:grid-cols-3">
+      <VisaCount
+        label={t('accounts.visaMonth')}
+        value={month}
+        active={filter === 'month'}
+        tone="danger"
+        onClick={() => onFilter(filter === 'month' ? 'all' : 'month')}
+      />
+      <VisaCount
+        label={t('accounts.visaQuarter')}
+        value={quarter}
+        active={filter === 'quarter'}
+        tone="accent"
+        onClick={() => onFilter(filter === 'quarter' ? 'all' : 'quarter')}
+      />
+      <VisaCount
+        label={t('accounts.visa.expired')}
+        value={expired}
+        active={filter === 'expired'}
+        tone="danger"
+        onClick={() => onFilter(filter === 'expired' ? 'all' : 'expired')}
+      />
     </section>
+  )
+}
+
+function VisaCount({
+  label,
+  value,
+  active,
+  tone,
+  onClick,
+}: {
+  label: string
+  value: number
+  active: boolean
+  tone: 'danger' | 'accent'
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      className={`ui-card grid gap-1 p-3 text-left ${active ? 'ring-2 ring-accent' : ''}`}
+      onClick={onClick}
+    >
+      <span className="text-xs font-medium text-muted">{label}</span>
+      <span className={`text-2xl font-semibold tabular-nums ${tone === 'danger' ? 'text-danger' : 'text-accent'}`}>{value}</span>
+    </button>
   )
 }
 

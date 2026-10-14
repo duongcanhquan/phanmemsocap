@@ -323,9 +323,12 @@ function lessonYoutube(lesson: LessonPathItem) {
 }
 
 function articleHtml(lesson: LessonPathItem) {
-  if (lesson.contentType === 'pdf') {
-    const url = httpsUrl(lesson.contentUrl)
-    return url ? `<iframe class="lesson-pdf" src="${escapeAttr(url)}" title=""></iframe>` : ''
+  if (lesson.contentType === 'pdf' || (lesson.contentType === 'slides' && /^https?:\/\//i.test(lesson.contentUrl.trim()))) {
+    const url = fileUrl(lesson.contentUrl)
+    if (!url) return ''
+    const safe = httpsUrl(url)
+    if (safe && /\.pdf($|\?)/i.test(safe)) return `<iframe class="lesson-pdf" src="${escapeAttr(safe)}" title=""></iframe>`
+    return `<p><a class="ui-inline ui-btn-primary" href="${escapeAttr(url)}" target="_blank" rel="noreferrer">${escapeAttr(url)}</a></p>`
   }
   if (lesson.contentType === 'video' && !lessonYoutube(lesson)) {
     const url = httpsUrl(lesson.contentUrl)
@@ -338,7 +341,9 @@ function articleHtml(lesson: LessonPathItem) {
 }
 
 function hasSlideMarkup(lesson: LessonPathItem) {
-  return lesson.contentType === 'slides' || isSlideDeck(lesson.contentUrl) || lesson.contentUrl.includes('class="reveal"') || lesson.contentUrl.includes("class='reveal'")
+  if (lesson.contentType !== 'slides' && !isSlideDeck(lesson.contentUrl)) return false
+  if (/^https?:\/\//i.test(lesson.contentUrl.trim())) return false
+  return isSlideDeck(lesson.contentUrl) || lesson.contentUrl.includes('class="reveal"') || lesson.contentUrl.includes("class='reveal'") || lesson.contentType === 'slides'
 }
 
 function sanitizeLessonHtml(html: string) {
@@ -374,6 +379,15 @@ function escapeAttr(value: string) {
 function httpsUrl(value: string) {
   try {
     return new URL(value).protocol === 'https:' ? value : ''
+  } catch {
+    return ''
+  }
+}
+
+function fileUrl(value: string) {
+  try {
+    const url = new URL(value.trim())
+    return url.protocol === 'https:' || url.protocol === 'http:' ? url.href : ''
   } catch {
     return ''
   }

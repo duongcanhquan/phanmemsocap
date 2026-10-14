@@ -32,6 +32,8 @@ import {
 } from '../lib/programs'
 import { isSchoolAdmin } from '../lib/roles'
 import { QuizSetup } from '../components/admin/QuizSetup'
+import { MediaField } from '../components/MediaField'
+import { isFileUrl } from '../lib/media'
 import { isSupabaseConfigured } from '../lib/supabase'
 
 const composeTypes = lessonTypes.filter((type) => type !== 'quiz')
@@ -336,7 +338,7 @@ function LessonComposer({
       setError('')
     }
     try {
-      const prose = current.contentType === 'text' || current.contentType === 'slides'
+      const prose = current.contentType === 'text' || (current.contentType === 'slides' && !isFileUrl(body))
       let titleText: LocalizedText = { ...copies.current.title, vi: current.title.trim() }
       let moduleText: LocalizedText = { ...copies.current.moduleName, vi: current.moduleName.trim() }
       let bodyText: LocalizedText = { ...copies.current.body, vi: prose ? body : '' }
@@ -591,15 +593,42 @@ function LessonComposer({
           </>
         ) : null}
         {contentType === 'slides' ? (
-          <label className="grid gap-1 text-sm font-medium text-ink" htmlFor="compose-slides">
-            {t('programs.slideBody')}
-            <textarea id="compose-slides" className="ui-field min-h-56 py-2" value={contentUrl} onChange={(event) => setContentUrl(event.target.value)} />
-          </label>
+          <div className="grid gap-3">
+            <MediaField
+              id="compose-slides-file"
+              label={t('programs.slideFile')}
+              value={isFileUrl(contentUrl) ? contentUrl : ''}
+              onChange={setContentUrl}
+              onError={setError}
+              accept=".pdf,.ppt,.pptx,application/pdf,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              folder="slides"
+              hint={t('programs.slideHint')}
+            />
+            {!isFileUrl(contentUrl) ? (
+              <label className="grid gap-1 text-sm font-medium text-ink" htmlFor="compose-slides">
+                {t('programs.slideBody')}
+                <textarea id="compose-slides" className="ui-field min-h-56 py-2" value={contentUrl} onChange={(event) => setContentUrl(event.target.value)} />
+              </label>
+            ) : null}
+          </div>
         ) : null}
-        {contentType === 'pdf' || contentType === 'video' ? (
-          <label className="grid gap-1 text-sm font-medium text-ink" htmlFor="compose-url">
-            {t('programs.contentUrl')}
-            <input id="compose-url" className="ui-field" value={contentUrl} onChange={(event) => setContentUrl(event.target.value)} />
+        {contentType === 'pdf' ? (
+          <MediaField
+            id="compose-pdf"
+            label={t('programs.pdfFile')}
+            value={contentUrl}
+            onChange={setContentUrl}
+            onError={setError}
+            accept="application/pdf,.pdf"
+            folder="pdfs"
+            hint={t('programs.pdfHint')}
+          />
+        ) : null}
+        {contentType === 'video' ? (
+          <label className="grid gap-1 text-sm font-medium text-ink" htmlFor="compose-video">
+            {t('programs.videoLink')}
+            <input id="compose-video" className="ui-field" value={contentUrl} onChange={(event) => setContentUrl(event.target.value)} placeholder="https://www.youtube.com/watch?v=..." />
+            <span className="text-xs font-normal text-muted">{t('programs.videoHint')}</span>
           </label>
         ) : null}
         <QuizSetup quizzes={quizzes} settings={quizSettings} onQuizzes={setQuizzes} onSettings={setQuizSettings} />

@@ -4,15 +4,19 @@ import { Link, useParams } from 'react-router-dom'
 import { MessageThread } from '../../components/messages/MessageThread'
 import { DataTable } from '../../components/ui/DataSheet'
 import { PageHeader } from '../../components/ui/PageHeader'
+import { useAuth } from '../../hooks/useAuth'
 import { localizedLabel } from '../../lib/localized'
+import { isSchoolAdmin } from '../../lib/roles'
 import { loadStudentFile, type StudentFile } from '../../lib/studentFile'
 
 export function StudentFilePage() {
   const { t, i18n } = useTranslation()
+  const { role } = useAuth()
   const { studentId = '' } = useParams()
   const [file, setFile] = useState<StudentFile | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const backTo = isSchoolAdmin(role) ? '/accounts' : '/teacher'
 
   useEffect(() => {
     let active = true
@@ -38,12 +42,22 @@ export function StudentFilePage() {
 
   return (
     <div className="ui-page">
-      <PageHeader title={file?.fullName || t('studentFile.title')} back={{ to: '/teacher', label: t('teacher.back') }} />
+      <PageHeader
+        title={file?.fullName || t('studentFile.title')}
+        back={{ to: backTo, label: isSchoolAdmin(role) ? t('nav.accounts') : t('teacher.back') }}
+      />
       {loading ? <p className="text-muted">{t('accounts.loading')}</p> : null}
       {error ? <p className="text-danger">{error}</p> : null}
       {file ? (
         <>
-          <section className="ui-card">
+          <section className="ui-card grid gap-4 sm:grid-cols-[auto_1fr] sm:items-start">
+            {file.photoUrl ? (
+              <img src={file.photoUrl} alt="" className="h-28 w-20 rounded-xl object-cover object-top" />
+            ) : (
+              <span className="grid h-28 w-20 place-items-center rounded-xl bg-canvas text-2xl font-semibold text-ink">
+                {(file.fullName.trim().charAt(0) || '•').toUpperCase()}
+              </span>
+            )}
             <dl className="grid gap-3 text-sm sm:grid-cols-2 xl:grid-cols-3">
               <Fact label={t('accounts.studyStatus')} value={t(`accounts.study.${file.studyStatus}`)} />
               <Fact label={t('accounts.nationality')} value={file.nationality || '—'} />
@@ -51,6 +65,12 @@ export function StudentFilePage() {
               <Fact label={t('accounts.phone')} value={file.phone || '—'} />
               <Fact label={t('accounts.nationalId')} value={file.nationalId || '—'} />
               <Fact label={t('accounts.passport')} value={file.passport || '—'} />
+              {file.isForeign ? (
+                <>
+                  <Fact label={t('accounts.visaStatus')} value={file.visaStatus ? t(`accounts.visa.${file.visaStatus}`) : t('accounts.visaUnset')} />
+                  <Fact label={t('accounts.visaExpires')} value={file.visaExpiresOn || '—'} />
+                </>
+              ) : null}
             </dl>
           </section>
           <MessageThread studentId={studentId} />

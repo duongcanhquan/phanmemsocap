@@ -18,6 +18,8 @@ import {
   type ProgramRecord,
   type QuizRecord,
 } from '../../lib/programs'
+import { MediaField } from '../MediaField'
+import { isFileUrl } from '../../lib/media'
 import { Dialog } from '../ui/Dialog'
 import { LocalizedFields } from './LocalizedFields'
 import { QuizSetup } from './QuizSetup'
@@ -111,7 +113,7 @@ export function LessonModal({ programId, lesson, nextOrder, onClose, onSaved }: 
     setPending(true)
     setError('')
     try {
-      const prose = contentType === 'text' || contentType === 'slides'
+      const prose = contentType === 'text' || (contentType === 'slides' && !isFileUrl(contentUrl))
       const result = await translateLesson({
         title: title.vi,
         module: moduleName.vi,
@@ -206,9 +208,9 @@ export function LessonModal({ programId, lesson, nextOrder, onClose, onSaved }: 
               ))}
             </div>
           </div>
-          {contentType === 'text' || contentType === 'slides' ? (
+          {contentType === 'text' ? (
             <label className="grid gap-1 text-sm font-medium text-ink lg:col-span-2" htmlFor="lesson-body">
-              {contentType === 'slides' ? t('programs.slideBody') : t('programs.contentUrl')}
+              {t('panels.write')}
               <textarea
                 id="lesson-body"
                 className="ui-field min-h-40 py-2"
@@ -216,17 +218,48 @@ export function LessonModal({ programId, lesson, nextOrder, onClose, onSaved }: 
                 onChange={(event) => setContentUrl(event.target.value)}
               />
             </label>
-          ) : contentType === 'quiz' ? null : (
-            <label className="grid gap-1 text-sm font-medium text-ink" htmlFor="lesson-url">
-              {t('programs.contentUrl')}
-              <input
-                id="lesson-url"
-                className="ui-field"
-                value={contentUrl}
-                onChange={(event) => setContentUrl(event.target.value)}
+          ) : null}
+          {contentType === 'slides' ? (
+            <div className="grid gap-3 lg:col-span-2">
+              <MediaField
+                id="lesson-slides-file"
+                label={t('programs.slideFile')}
+                value={isFileUrl(contentUrl) ? contentUrl : ''}
+                onChange={setContentUrl}
+                onError={setError}
+                accept=".pdf,.ppt,.pptx,application/pdf,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation"
+                folder="slides"
+                hint={t('programs.slideHint')}
               />
+              {!isFileUrl(contentUrl) ? (
+                <label className="grid gap-1 text-sm font-medium text-ink" htmlFor="lesson-body">
+                  {t('programs.slideBody')}
+                  <textarea id="lesson-body" className="ui-field min-h-40 py-2" value={contentUrl} onChange={(event) => setContentUrl(event.target.value)} />
+                </label>
+              ) : null}
+            </div>
+          ) : null}
+          {contentType === 'pdf' ? (
+            <div className="lg:col-span-2">
+              <MediaField
+                id="lesson-pdf"
+                label={t('programs.pdfFile')}
+                value={contentUrl}
+                onChange={setContentUrl}
+                onError={setError}
+                accept="application/pdf,.pdf"
+                folder="pdfs"
+                hint={t('programs.pdfHint')}
+              />
+            </div>
+          ) : null}
+          {contentType === 'video' ? (
+            <label className="grid gap-1 text-sm font-medium text-ink lg:col-span-2" htmlFor="lesson-video">
+              {t('programs.videoLink')}
+              <input id="lesson-video" className="ui-field" value={contentUrl} onChange={(event) => setContentUrl(event.target.value)} placeholder="https://www.youtube.com/watch?v=..." />
+              <span className="text-xs font-normal text-muted">{t('programs.videoHint')}</span>
             </label>
-          )}
+          ) : null}
           <fieldset className="grid gap-2 text-sm font-medium text-ink lg:col-span-2">
             <legend>{t('editor.assignCourse')}</legend>
             {programs.map((program) => (
