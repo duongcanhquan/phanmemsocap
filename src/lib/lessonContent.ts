@@ -126,7 +126,7 @@ export function resolveContentType(preferred: LessonKind, materials: LessonMater
   if (preferred === 'video' && flags.video) return 'video'
   if (preferred === 'text' && flags.article) return 'text'
   if (preferred === 'quiz') return primaryContentType(materials, 'quiz')
-  return primaryContentType(materials, preferred === 'quiz' ? 'quiz' : preferred)
+  return primaryContentType(materials, preferred)
 }
 
 export function materialFlags(materials: LessonMaterials) {

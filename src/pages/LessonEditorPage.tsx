@@ -74,8 +74,7 @@ function readLessonDraft(key: string): LessonDraft | null {
       !parsed.slideMarkdown?.trim() &&
       !parsed.videoUrl?.trim()
     if (empty) return null
-    const contentType =
-      parsed.contentType && composeTypes.includes(parsed.contentType) ? parsed.contentType : undefined
+    const contentType = composeTypes.find((type) => type === parsed.contentType)
     return {
       courseId: parsed.courseId ?? '',
       courseIds: Array.isArray(parsed.courseIds) ? parsed.courseIds.filter((id) => typeof id === 'string') : undefined,
