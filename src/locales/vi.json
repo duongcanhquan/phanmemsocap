@@ -551,7 +551,8 @@
     "inCourse": "Lớp đã gán vào khoá học này",
     "unassigned": "Chưa gán khoá học",
     "teachers": "Giảng viên phụ trách",
-    "noTeachers": "Chưa có giảng viên để chọn.",
+    "noTeachers": "Chưa có giảng viên trong hệ thống.",
+    "noStudents": "Chưa có sinh viên trong hệ thống.",
     "detach": "Gỡ khỏi khoá học",
     "noFree": "Không còn lớp nào chưa gán. Hãy tạo lớp ở trang Lớp học.",
     "untitled": "Lớp chưa đặt tên",
@@ -560,7 +561,17 @@
     "empty": "Chưa có lớp.",
     "nameRequired": "Nhập tên lớp.",
     "dateOrder": "Ngày kết thúc phải sau ngày bắt đầu.",
-    "saveError": "Không lưu được lớp. Hãy thử lại."
+    "saveError": "Không lưu được lớp. Hãy thử lại.",
+    "tabSetup": "Tạo lớp",
+    "tabTeachers": "Gán giảng viên",
+    "tabStudents": "Thêm sinh viên",
+    "setupHint": "Điền thông tin lớp, rồi chọn giảng viên và sinh viên ở các tab bên cạnh.",
+    "nextTab": "Tiếp",
+    "backTab": "Quay lại",
+    "saveAll": "Lưu lớp",
+    "selectAll": "Chọn tất cả",
+    "clearPick": "Bỏ chọn",
+    "pickedCount": "Đã chọn {{count}}"
   },
   "accounts": {
     "title": "Tài khoản",

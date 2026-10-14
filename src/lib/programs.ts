@@ -512,6 +512,7 @@ export async function createClass(input: {
   startsOn?: string
   endsOn?: string
   teacherIds?: string[]
+  studentIds?: string[]
 }): Promise<CourseClass> {
   const { data, error } = await client()
     .from('course_classes')
@@ -526,6 +527,7 @@ export async function createClass(input: {
   if (error) throw error
   const created = asClass(data)
   if (input.teacherIds?.length) await saveClassTeachers(created.id, input.teacherIds)
+  if (input.studentIds?.length) await enrollStudents(created.id, input.studentIds)
   return created
 }
 

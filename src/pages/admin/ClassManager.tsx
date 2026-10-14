@@ -1,13 +1,22 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { EnrollmentManager } from '../../components/admin/EnrollmentManager'
+import { ClassSetupDialog } from '../../components/admin/ClassSetupDialog'
 import { ExportButtons } from '../../components/ExportButtons'
-import { Dialog } from '../../components/ui/Dialog'
 import { DataTable, FilterBar, SelectFilter } from '../../components/ui/DataSheet'
 import { PageHeader } from '../../components/ui/PageHeader'
 import { localizedLabel } from '../../lib/localized'
 import { countsInClass } from '../../lib/accounts'
-import { assignClassProgram, classHeadcounts, createClass, deleteClass, listClassTeacherIds, listClasses, listPrograms, listTeachers, saveClassTeachers, updateClass, type CourseClass, type ProgramRecord, type StudentRecord } from '../../lib/programs'
+import {
+  classHeadcounts,
+  deleteClass,
+  listClassTeacherIds,
+  listClasses,
+  listPrograms,
+  listTeachers,
+  type CourseClass,
+  type ProgramRecord,
+  type StudentRecord,
+} from '../../lib/programs'
 import { isSupabaseConfigured } from '../../lib/supabase'
 import { listTeacherRoster } from '../../lib/teacher'
 
@@ -22,23 +31,12 @@ export function ClassManager() {
   const [query, setQuery] = useState('')
   const [course, setCourse] = useState('all')
   const [creating, setCreating] = useState(false)
-  const [draftName, setDraftName] = useState('')
-  const [draftProgramId, setDraftProgramId] = useState('')
-  const [draftStarts, setDraftStarts] = useState('')
-  const [draftEnds, setDraftEnds] = useState('')
-  const [draftTeachers, setDraftTeachers] = useState<string[]>([])
   const [editing, setEditing] = useState<CourseClass | null>(null)
   const [teachers, setTeachers] = useState<StudentRecord[]>([])
   const [classTeachers, setClassTeachers] = useState<Record<string, string[]>>({})
-  const [pickedTeachers, setPickedTeachers] = useState<string[]>([])
-  const [enrolling, setEnrolling] = useState<CourseClass | null>(null)
   const [pendingDelete, setPendingDelete] = useState('')
   const [pending, setPending] = useState(false)
   const [reloadKey, setReloadKey] = useState(0)
-
-  useEffect(() => {
-    setPickedTeachers(editing ? classTeachers[editing.id] ?? [] : [])
-  }, [editing, classTeachers])
 
   useEffect(() => {
     if (!isSupabaseConfigured) return
@@ -89,43 +87,6 @@ export function ClassManager() {
       await deleteClass(classId)
       setPendingDelete('')
       setEditing(null)
-      setReloadKey((value) => value + 1)
-    } catch {
-      setError(t('programs.saveError'))
-    } finally {
-      setPending(false)
-    }
-  }
-
-  function resetCreate() {
-    setCreating(false)
-    setDraftName('')
-    setDraftProgramId('')
-    setDraftStarts('')
-    setDraftEnds('')
-    setDraftTeachers([])
-  }
-
-  async function saveClass() {
-    if (!draftName.trim()) {
-      setError(t('classesPage.nameRequired'))
-      return
-    }
-    if (draftStarts && draftEnds && draftEnds < draftStarts) {
-      setError(t('classesPage.dateOrder'))
-      return
-    }
-    setPending(true)
-    setError('')
-    try {
-      await createClass({
-        name: draftName.trim(),
-        programId: draftProgramId || undefined,
-        startsOn: draftStarts,
-        endsOn: draftEnds,
-        teacherIds: draftTeachers,
-      })
-      resetCreate()
       setReloadKey((value) => value + 1)
     } catch {
       setError(t('classesPage.saveError'))
@@ -225,11 +186,8 @@ export function ClassManager() {
                   <td className="tabular-nums">{progress[item.id] ?? 0}%</td>
                   <td>
                     <span className="inline-flex gap-2" onClick={(event) => event.stopPropagation()}>
-                      <button type="button" className="ui-inline ui-btn-ghost" onClick={() => setEditing(item)}>
+                      <button type="button" className="ui-inline ui-btn-primary" onClick={() => setEditing(item)}>
                         {t('accounts.edit')}
-                      </button>
-                      <button type="button" className="ui-inline ui-btn-primary" onClick={() => setEnrolling(item)}>
-                        {t('classesPage.manage')}
                       </button>
                       {pendingDelete === item.id ? (
                         <button type="button" className="ui-inline bg-danger text-white" disabled={pending} onClick={() => void removeClass(item.id)}>
@@ -249,176 +207,37 @@ export function ClassManager() {
         </DataTable>
       </div>
       {creating ? (
-        <Dialog title={t('classesPage.add')} onClose={resetCreate}>
-          <form
-            className="grid gap-4"
-            onSubmit={(event) => {
-              event.preventDefault()
-              void saveClass()
-            }}
-          >
-            <label className="grid gap-1 text-sm font-medium text-ink">
-              {t('classesPage.className')}
-              <input className="ui-field" value={draftName} onChange={(event) => setDraftName(event.target.value)} required autoFocus />
-            </label>
-            <label className="grid gap-1 text-sm font-medium text-ink">
-              {t('classesPage.pickCourse')}
-              <select className="ui-field" value={draftProgramId} onChange={(event) => setDraftProgramId(event.target.value)}>
-                <option value="">{t('classesPage.unassigned')}</option>
-                {programs.map((program) => (
-                  <option key={program.id} value={program.id}>
-                    {localizedLabel(program.title, i18n.language) || t('programs.untitled')}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <label className="grid gap-1 text-sm font-medium text-ink">
-                {t('classesPage.startsOn')}
-                <input className="ui-field" type="date" value={draftStarts} onChange={(event) => setDraftStarts(event.target.value)} />
-              </label>
-              <label className="grid gap-1 text-sm font-medium text-ink">
-                {t('classesPage.endsOn')}
-                <input className="ui-field" type="date" value={draftEnds} onChange={(event) => setDraftEnds(event.target.value)} min={draftStarts || undefined} />
-              </label>
-            </div>
-            {teachers.length > 0 ? (
-              <fieldset className="grid gap-2 text-sm font-medium text-ink">
-                <legend>{t('classesPage.teachers')}</legend>
-                {teachers.map((teacher) => (
-                  <label key={teacher.id} className="flex min-h-9 items-center gap-2 font-normal">
-                    <input
-                      type="checkbox"
-                      checked={draftTeachers.includes(teacher.id)}
-                      onChange={() => {
-                        setDraftTeachers((current) =>
-                          current.includes(teacher.id) ? current.filter((id) => id !== teacher.id) : [...current, teacher.id],
-                        )
-                      }}
-                    />
-                    {teacher.fullName || teacher.id}
-                  </label>
-                ))}
-              </fieldset>
-            ) : (
-              <p className="text-sm text-muted">{t('classesPage.noTeachers')}</p>
-            )}
-            {error ? <p role="alert" className="text-sm text-danger">{error}</p> : null}
-            <div className="ui-dialog-foot">
-              <button type="button" className="ui-btn ui-btn-ghost border border-line" onClick={resetCreate}>
-                {t('accounts.cancel')}
-              </button>
-              <button type="submit" className="ui-btn ui-btn-primary" disabled={pending || !draftName.trim()}>
-                {pending ? t('programs.saving') : t('programs.save')}
-              </button>
-            </div>
-          </form>
-        </Dialog>
-      ) : null}
-      {editing ? (
-        <Dialog title={editing.name} onClose={() => setEditing(null)}>
-          <form
-            className="grid gap-4"
-            onSubmit={(event) => {
-              event.preventDefault()
-              const form = event.currentTarget
-              const name = (form.elements.namedItem('class-name') as HTMLInputElement).value.trim()
-              const startsOn = (form.elements.namedItem('class-start') as HTMLInputElement).value
-              const endsOn = (form.elements.namedItem('class-end') as HTMLInputElement).value
-              const programId = (form.elements.namedItem('class-program') as HTMLSelectElement).value
-              if (!name) {
-                setError(t('classesPage.nameRequired'))
-                return
-              }
-              if (startsOn && endsOn && endsOn < startsOn) {
-                setError(t('classesPage.dateOrder'))
-                return
-              }
-              setPending(true)
-              setError('')
-              void updateClass(editing.id, { name, startsOn, endsOn })
-                .then(() => assignClassProgram(editing.id, programId || null))
-                .then(() => saveClassTeachers(editing.id, pickedTeachers))
-                .then(() => {
-                  setEditing(null)
-                  setReloadKey((value) => value + 1)
-                })
-                .catch(() => setError(t('classesPage.saveError')))
-                .finally(() => setPending(false))
-            }}
-          >
-            <label className="grid gap-1 text-sm font-medium text-ink">
-              {t('classesPage.className')}
-              <input className="ui-field" name="class-name" defaultValue={editing.name} required />
-            </label>
-            <label className="grid gap-1 text-sm font-medium text-ink">
-              {t('classesPage.pickCourse')}
-              <select className="ui-field" name="class-program" defaultValue={editing.programId}>
-                <option value="">{t('classesPage.unassigned')}</option>
-                {programs.map((program) => (
-                  <option key={program.id} value={program.id}>
-                    {localizedLabel(program.title, i18n.language) || t('programs.untitled')}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <label className="grid gap-1 text-sm font-medium text-ink">
-                {t('classesPage.startsOn')}
-                <input className="ui-field" name="class-start" type="date" defaultValue={editing.startsOn} />
-              </label>
-              <label className="grid gap-1 text-sm font-medium text-ink">
-                {t('classesPage.endsOn')}
-                <input className="ui-field" name="class-end" type="date" defaultValue={editing.endsOn} />
-              </label>
-            </div>
-            <fieldset className="grid gap-2 text-sm font-medium text-ink">
-              <legend>{t('classesPage.teachers')}</legend>
-              {teachers.length === 0 ? <p className="text-sm font-normal text-muted">{t('classesPage.noTeachers')}</p> : null}
-              {teachers.map((teacher) => (
-                <label key={teacher.id} className="flex min-h-9 items-center gap-2 font-normal">
-                  <input
-                    type="checkbox"
-                    checked={pickedTeachers.includes(teacher.id)}
-                    onChange={() => {
-                      setPickedTeachers((current) => current.includes(teacher.id) ? current.filter((id) => id !== teacher.id) : [...current, teacher.id])
-                    }}
-                  />
-                  {teacher.fullName || teacher.id}
-                </label>
-              ))}
-            </fieldset>
-            {error ? <p role="alert" className="text-sm text-danger">{error}</p> : null}
-            <div className="ui-dialog-foot">
-              {pendingDelete === editing.id ? (
-                <button type="button" className="ui-btn bg-danger text-white" disabled={pending} onClick={() => void removeClass(editing.id)}>
-                  {t('programs.confirmRemove')}
-                </button>
-              ) : (
-                <button type="button" className="ui-btn bg-danger text-white" disabled={pending} onClick={() => setPendingDelete(editing.id)}>
-                  {t('programs.remove')}
-                </button>
-              )}
-              <button type="button" className="ui-btn ui-btn-ghost border border-line" onClick={() => setEditing(null)}>
-                {t('accounts.cancel')}
-              </button>
-              <button type="submit" className="ui-btn ui-btn-primary" disabled={pending}>
-                {pending ? t('programs.saving') : t('programs.save')}
-              </button>
-            </div>
-          </form>
-        </Dialog>
-      ) : null}
-      {enrolling ? (
-        <Dialog
-          title={enrolling.name}
-          onClose={() => {
-            setEnrolling(null)
+        <ClassSetupDialog
+          mode="create"
+          programs={programs}
+          teachers={teachers}
+          onClose={() => setCreating(false)}
+          onSaved={() => {
+            setCreating(false)
             setReloadKey((value) => value + 1)
           }}
-        >
-          <EnrollmentManager key={enrolling.id} classId={enrolling.id} />
-        </Dialog>
+        />
+      ) : null}
+      {editing ? (
+        <ClassSetupDialog
+          mode="edit"
+          classroom={editing}
+          programs={programs}
+          teachers={teachers}
+          initialTeacherIds={classTeachers[editing.id] ?? []}
+          pendingDelete={pendingDelete === editing.id}
+          onAskDelete={() => setPendingDelete(editing.id)}
+          onDelete={() => void removeClass(editing.id)}
+          onClose={() => {
+            setEditing(null)
+            setPendingDelete('')
+          }}
+          onSaved={() => {
+            setEditing(null)
+            setPendingDelete('')
+            setReloadKey((value) => value + 1)
+          }}
+        />
       ) : null}
     </div>
   )
