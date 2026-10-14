@@ -17,7 +17,9 @@ import { CSS } from '@dnd-kit/utilities'
 import { AlignLeft, FileText, GripVertical, ListChecks, Pencil, Presentation, Video, type LucideIcon } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { MaterialChips } from '../MaterialChips'
 import { FilterBar, SelectFilter } from '../ui/DataSheet'
+import { lessonMatchesType, materialFlags, parseLessonContent } from '../../lib/lessonContent'
 import { localizedLabel } from '../../lib/localized'
 import type { LessonRecord, LessonType } from '../../lib/programs'
 
@@ -61,7 +63,9 @@ export function LessonSorter({ lessons, onReorder, onRule, onEdit }: LessonSorte
   const shown = lessons.filter((lesson) => {
     const title = localizedLabel(lesson.title, i18n.language).toLowerCase()
     const matchesQuery = title.includes(query.trim().toLowerCase())
-    const matchesType = typeFilter === 'all' || lesson.contentType === typeFilter
+    const matchesType =
+      typeFilter === 'all' ||
+      lessonMatchesType(parseLessonContent(lesson.contentUrl, lesson.contentType), typeFilter, lesson.contentType === 'quiz')
     const matchesStatus =
       statusFilter === 'all' || (statusFilter === 'published' ? lesson.isPublished : !lesson.isPublished)
     return matchesQuery && matchesType && matchesStatus
@@ -136,7 +140,11 @@ function SortableLesson({
 }) {
   const { t, i18n } = useTranslation()
   const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: lesson.id })
-  const Icon = typeIcons[lesson.contentType]
+  const flags = materialFlags(parseLessonContent(lesson.contentUrl, lesson.contentType))
+  const Icon =
+    typeIcons[
+      flags.video ? 'video' : flags.pdf ? 'pdf' : flags.slides ? 'slides' : lesson.contentType === 'quiz' ? 'quiz' : 'text'
+    ]
   const title = localizedLabel(lesson.title, i18n.language) || t('programs.untitled')
 
   return (
@@ -164,7 +172,9 @@ function SortableLesson({
           {title}
         </span>
       </td>
-      <td>{t(`programs.types.${lesson.contentType}`)}</td>
+      <td>
+        <MaterialChips contentUrl={lesson.contentUrl} contentType={lesson.contentType} limit={3} />
+      </td>
       <td>{lesson.isPublished ? t('programs.published') : t('programs.draft')}</td>
       <td>
         <select

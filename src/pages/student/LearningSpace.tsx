@@ -7,6 +7,8 @@ import { StudyBar } from '../../components/student/StudyBar'
 import { DataTable, FilterBar } from '../../components/ui/DataSheet'
 import { PageHeader } from '../../components/ui/PageHeader'
 import { Tabs } from '../../components/ui/Tabs'
+import { MaterialChips } from '../../components/MaterialChips'
+import { materialFlags, parseLessonContent } from '../../lib/lessonContent'
 import { localizedLabel } from '../../lib/localized'
 import { isSupabaseConfigured } from '../../lib/supabase'
 import {
@@ -272,7 +274,6 @@ function LessonTimeline({ programId }: { programId: string }) {
                 index={index + 1}
                 title={localizedLabel(lesson.title, i18n.language) || t('programs.untitled')}
                 moduleName={localizedLabel(lesson.moduleName, i18n.language)}
-                typeLabel={t(`programs.types.${lesson.contentType}`, { defaultValue: lesson.contentType })}
                 status={lessonStatus(lesson, current?.id ?? null, t)}
                 scoreLabel={`${t('transcript.score')}: ${lesson.score === null ? t('reports.emptyScore') : lesson.score.toFixed(1)}`}
                 learned={t('student.learned', { percent: lesson.percent })}
@@ -322,9 +323,10 @@ function LessonMark({ lesson, locked }: { lesson: LessonPathItem; locked: boolea
   if (locked) return <Lock aria-hidden="true" className={className} />
   if (lesson.percent >= 100 || lesson.passed) return <CheckCircle2 aria-hidden="true" className={className} />
   if (lesson.hasQuiz) return <ClipboardList aria-hidden="true" className={className} />
-  if (lesson.contentType === 'video') return <CirclePlay aria-hidden="true" className={className} />
-  if (lesson.contentType === 'pdf') return <FileText aria-hidden="true" className={className} />
-  if (lesson.contentType === 'slides') return <Presentation aria-hidden="true" className={className} />
+  const flags = materialFlags(parseLessonContent(lesson.contentUrl, lesson.contentType))
+  if (flags.video) return <CirclePlay aria-hidden="true" className={className} />
+  if (flags.pdf) return <FileText aria-hidden="true" className={className} />
+  if (flags.slides) return <Presentation aria-hidden="true" className={className} />
   return <BookOpen aria-hidden="true" className={className} />
 }
 
@@ -333,7 +335,6 @@ function LessonCard({
   index,
   title,
   moduleName,
-  typeLabel,
   status,
   scoreLabel,
   learned,
@@ -344,7 +345,6 @@ function LessonCard({
   index: number
   title: string
   moduleName: string
-  typeLabel: string
   status: string
   scoreLabel: string
   learned: string
@@ -364,7 +364,7 @@ function LessonCard({
       <span className="grid min-w-0 gap-2">
         <span className="flex flex-wrap items-center gap-2">
           <span className="text-xs font-semibold uppercase tracking-wide text-muted">{index}</span>
-          <span className="rounded-full bg-canvas px-2 py-0.5 text-xs font-medium text-ink">{typeLabel}</span>
+          <MaterialChips contentUrl={lesson.contentUrl} contentType={lesson.contentType} hasQuiz={lesson.hasQuiz} limit={3} />
           <span className="rounded-full bg-accent/10 px-2 py-0.5 text-xs font-medium text-accent">{status}</span>
         </span>
         <span className="text-base font-semibold text-ink">{title}</span>

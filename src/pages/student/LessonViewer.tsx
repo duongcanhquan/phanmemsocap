@@ -1,6 +1,6 @@
 import { getEmbedUrlFromYoutubeUrl, isValidYoutubeUrl } from '@tiptap/extension-youtube'
-import { BookOpen, ChevronLeft, ChevronRight, Library, PenLine } from 'lucide-react'
-import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent } from 'react'
+import { BookOpen, CheckCircle2, ChevronLeft, ChevronRight, Circle, ExternalLink, Library, PenLine } from 'lucide-react'
+import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { QuizEngine } from '../../components/student/QuizEngine'
@@ -8,6 +8,7 @@ import { StudyBar } from '../../components/student/StudyBar'
 import { PageHeader } from '../../components/ui/PageHeader'
 import { Tabs } from '../../components/ui/Tabs'
 import { SlideDeck } from '../../components/slides/SlideDeck'
+import { materialFlags, parseLessonContent } from '../../lib/lessonContent'
 import { splitLessonHtml } from '../../lib/lessonParts'
 import { lessonBody, localizedLabel } from '../../lib/localized'
 import { isSlideDeck, markdownToHtml } from '../../lib/markdown'
@@ -28,12 +29,14 @@ type TermDetail = {
 export function LessonViewer({ programId, lessonId }: LessonViewerProps) {
   const { t, i18n } = useTranslation()
   const [lessons, setLessons] = useState<LessonPathItem[]>([])
+  const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [tab, setTab] = useState('theory')
   const [live, setLive] = useState({ lessonId: '', theory: 0, reference: 0, exercise: 0 })
 
   useEffect(() => {
     let active = true
+    setLoading(true)
     void listLessonPath(programId)
       .then((rows) => {
         if (active) setLessons(rows)
@@ -41,10 +44,17 @@ export function LessonViewer({ programId, lessonId }: LessonViewerProps) {
       .catch(() => {
         if (active) setError(t('student.loadError'))
       })
+      .finally(() => {
+        if (active) setLoading(false)
+      })
     return () => {
       active = false
     }
   }, [programId, t])
+
+  useEffect(() => {
+    setTab('theory')
+  }, [lessonId])
 
   const lesson = lessons.find((item) => item.id === lessonId)
   const saved = live.lessonId === lessonId
@@ -80,8 +90,27 @@ export function LessonViewer({ programId, lessonId }: LessonViewerProps) {
     const earlier = lessons[index - 1]
     return earlier && !earlier.locked ? earlier : null
   })()
-  const lessonPercent = lesson ? studyPercent(lesson.contentUrl, lesson.contentType, lesson.hasQuiz, parts) : 0
+  const lessonPercent = lesson
+    ? studyPercent(lesson.contentUrl, lesson.contentType, lesson.hasQuiz, parts, i18n.language)
+    : 0
   const recordExercise = useCallback((percent: number) => bump('exercise', percent), [bump])
+  const materials = lesson ? parseLessonContent(lesson.contentUrl, lesson.contentType) : null
+  const flags = materials ? materialFlags(materials) : null
+  const bodyHtml = materials ? lessonBody(JSON.stringify(materials.body), i18n.language) : ''
+  const sections = splitLessonHtml(bodyHtml)
+  const showReference = Boolean(sections.reference.trim())
+  const showExerciseBody = Boolean(sections.exercise.trim())
+  const showExerciseTab = showExerciseBody || Boolean(lesson?.hasQuiz)
+  const visibleTabs = [
+    { id: 'theory', label: t('student.theory'), icon: <BookOpen aria-hidden="true" className="size-4" /> },
+    ...(showReference
+      ? [{ id: 'reference', label: t('student.reference'), icon: <Library aria-hidden="true" className="size-4" /> }]
+      : []),
+    ...(showExerciseTab
+      ? [{ id: 'exercise', label: t('student.exercise'), icon: <PenLine aria-hidden="true" className="size-4" /> }]
+      : []),
+  ]
+  const activeTab = visibleTabs.some((item) => item.id === tab) ? tab : 'theory'
 
   return (
     <div className="ui-page">
@@ -94,26 +123,30 @@ export function LessonViewer({ programId, lessonId }: LessonViewerProps) {
           {error}
         </p>
       ) : null}
+      {loading ? <p className="text-muted">{t('student.loading')}</p> : null}
+      {!loading && !error && !lesson ? <p className="text-muted">{t('student.noContent')}</p> : null}
       {lesson?.locked ? <p className="text-muted">{t('student.locked')}</p> : null}
       {lesson && !lesson.locked ? (
         <>
           <StudyBar percent={lessonPercent} label={t('student.learned', { percent: lessonPercent })} />
-          <Tabs
-            label={t('panels.label')}
-            value={tab}
-            onChange={setTab}
-            tabs={[
-              { id: 'theory', label: t('student.theory'), icon: <BookOpen aria-hidden="true" className="size-4" /> },
-              { id: 'reference', label: t('student.reference'), icon: <Library aria-hidden="true" className="size-4" /> },
-              { id: 'exercise', label: t('student.exercise'), icon: <PenLine aria-hidden="true" className="size-4" /> },
-            ]}
-          />
+          {flags ? (
+            <MaterialsChecklist
+              flags={flags}
+              hasQuiz={lesson.hasQuiz}
+              theoryPct={parts.theory}
+              exercisePct={parts.exercise}
+              onJump={(section) => setTab(section)}
+            />
+          ) : null}
+          <Tabs label={t('panels.label')} value={activeTab} onChange={setTab} tabs={visibleTabs} />
           <div className="ui-fill">
-            {tab === 'theory' ? <LessonBody key={lesson.id} lesson={lesson} part="theory" onProgress={bump} /> : null}
-            {tab === 'reference' ? <LessonBody key={`${lesson.id}-reference`} lesson={lesson} part="reference" onProgress={bump} /> : null}
-            {tab === 'exercise' ? (
+            {activeTab === 'theory' ? <LessonBody key={lesson.id} lesson={lesson} part="theory" onProgress={bump} /> : null}
+            {activeTab === 'reference' ? <LessonBody key={`${lesson.id}-reference`} lesson={lesson} part="reference" onProgress={bump} /> : null}
+            {activeTab === 'exercise' ? (
               <div className="grid gap-4">
-                <LessonBody key={`${lesson.id}-exercise`} lesson={lesson} part="exercise" onProgress={bump} />
+                {showExerciseBody ? (
+                  <LessonBody key={`${lesson.id}-exercise`} lesson={lesson} part="exercise" onProgress={bump} />
+                ) : null}
                 <section className="ui-card" aria-label={t('student.practice')}>
                   <h2 className="mb-3 text-lg font-semibold text-ink">{t('student.practice')}</h2>
                   <QuizEngine lessonId={lesson.id} programId={programId} nextLessonId={nextLesson?.id ?? null} onRecorded={recordExercise} />
@@ -128,21 +161,101 @@ export function LessonViewer({ programId, lessonId }: LessonViewerProps) {
           </div>
           <div className="flex items-center justify-between gap-3">
             {previousLesson ? (
-              <Link to={`/student/${programId}/${previousLesson.id}`} className="ui-inline ui-btn-ghost">
-                <ChevronLeft aria-hidden="true" className="size-4" />
-                {localizedLabel(previousLesson.title, i18n.language) || t('student.previousLesson')}
+              <Link to={`/student/${programId}/${previousLesson.id}`} className="ui-inline ui-btn-ghost min-w-0 max-w-[45%]">
+                <ChevronLeft aria-hidden="true" className="size-4 shrink-0" />
+                <span className="truncate">{localizedLabel(previousLesson.title, i18n.language) || t('student.previousLesson')}</span>
               </Link>
             ) : <span />}
             {nextLesson ? (
-              <Link to={`/student/${programId}/${nextLesson.id}`} className="ui-inline ui-btn-primary">
-                {localizedLabel(nextLesson.title, i18n.language) || t('student.nextLesson')}
-                <ChevronRight aria-hidden="true" className="size-4" />
+              <Link to={`/student/${programId}/${nextLesson.id}`} className="ui-inline ui-btn-primary min-w-0 max-w-[45%]">
+                <span className="truncate">{localizedLabel(nextLesson.title, i18n.language) || t('student.nextLesson')}</span>
+                <ChevronRight aria-hidden="true" className="size-4 shrink-0" />
               </Link>
             ) : null}
           </div>
         </>
       ) : null}
     </div>
+  )
+}
+
+function MaterialsChecklist({
+  flags,
+  hasQuiz,
+  theoryPct,
+  exercisePct,
+  onJump,
+}: {
+  flags: ReturnType<typeof materialFlags>
+  hasQuiz: boolean
+  theoryPct: number
+  exercisePct: number
+  onJump: (tab: string) => void
+}) {
+  const { t } = useTranslation()
+  const theoryDone = theoryPct >= 40
+  const theoryBits = [
+    flags.article ? t('student.materialArticle') : null,
+    flags.video ? t('student.materialVideo') : null,
+    flags.pdf ? t('student.materialPdf') : null,
+    flags.slides ? t('student.materialSlides') : null,
+  ].filter(Boolean) as string[]
+  const items = [
+    theoryBits.length > 0
+      ? {
+          id: 'theory',
+          label: theoryBits.length === 1 ? theoryBits[0] : t('student.materialsTheory'),
+          detail: theoryBits.length > 1 ? theoryBits.join(' · ') : '',
+          icon: BookOpen,
+          done: theoryDone,
+          tab: 'theory',
+        }
+      : null,
+    hasQuiz
+      ? {
+          id: 'quiz',
+          label: t('student.materialQuiz'),
+          detail: '',
+          icon: PenLine,
+          done: exercisePct >= 100,
+          tab: 'exercise',
+        }
+      : null,
+  ].filter(Boolean) as { id: string; label: string; detail: string; icon: typeof BookOpen; done: boolean; tab: string }[]
+
+  if (items.length === 0) return null
+
+  return (
+    <section className="ui-card" aria-label={t('student.materials')}>
+      <h2 className="text-sm font-semibold text-ink">{t('student.materials')}</h2>
+      <p className="mt-1 text-xs text-muted">{t('student.materialsHint')}</p>
+      <ul className="mt-3 grid gap-2 sm:grid-cols-2">
+        {items.map((item) => {
+          const Icon = item.icon
+          return (
+            <li key={item.id}>
+              <button
+                type="button"
+                className="flex w-full items-center gap-3 rounded-xl border border-line bg-white px-3 py-2.5 text-left text-sm text-ink hover:bg-canvas"
+                onClick={() => onJump(item.tab)}
+              >
+                {item.done ? (
+                  <CheckCircle2 aria-hidden="true" className="size-4 shrink-0 text-accent" />
+                ) : (
+                  <Circle aria-hidden="true" className="size-4 shrink-0 text-muted" />
+                )}
+                <Icon aria-hidden="true" className="size-4 shrink-0 text-muted" />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate font-medium">{item.label}</span>
+                  {item.detail ? <span className="block truncate text-xs text-muted">{item.detail}</span> : null}
+                </span>
+                <span className="text-xs text-muted">{item.done ? t('student.materialsDone') : t('student.materialsTodo')}</span>
+              </button>
+            </li>
+          )
+        })}
+      </ul>
+    </section>
   )
 }
 
@@ -157,24 +270,23 @@ function LessonBody({
 }) {
   const { t, i18n } = useTranslation()
   const title = localizedLabel(lesson.title, i18n.language) || t('programs.untitled')
-  const viewed = {
-    ...lesson,
-    contentUrl: lesson.contentType === 'pdf' || lesson.contentType === 'video' ? lesson.contentUrl : lessonBody(lesson.contentUrl, i18n.language),
-  }
-  const slides = hasSlideMarkup(viewed)
-  const [mode, setMode] = useState<'article' | 'slides'>(lesson.contentType === 'slides' ? 'slides' : 'article')
+  const materials = parseLessonContent(lesson.contentUrl, lesson.contentType)
+  const bodyHtml = lessonBody(packBodyOnly(materials), i18n.language)
   const [term, setTerm] = useState<TermDetail | null>(null)
-  const parts = splitLessonHtml(articleHtml(viewed))
+  const parts = splitLessonHtml(sanitizeLessonHtml(articleFromHtml(bodyHtml)))
   const html = parts[part]
-  const youtube = part === 'theory' ? lessonYoutube(viewed) : null
-  const showSlides = part === 'theory' && slides
+  const youtube = part === 'theory' ? lessonYoutube(materials.videoUrl) : null
+  const showPdf = part === 'theory' && Boolean(materials.pdfUrl)
+  const showSlideFile = part === 'theory' && Boolean(materials.slideUrl)
+  const showSlideDeck = part === 'theory' && Boolean(materials.slideMarkdown) && isSlideDeck(materials.slideMarkdown)
+  const showSlideNotes = part === 'theory' && Boolean(materials.slideMarkdown) && !isSlideDeck(materials.slideMarkdown)
   const scroller = useRef<HTMLElement>(null)
-  const media = Boolean(youtube) || (part === 'theory' && (lesson.contentType === 'pdf' || lesson.contentType === 'video'))
+  const media = Boolean(youtube) || showPdf || showSlideFile || showSlideDeck || showSlideNotes
 
   useEffect(() => {
     const node = scroller.current
     if (!node) return
-    const empty = !html.trim() && !youtube && !(showSlides && mode === 'slides') && !media
+    const empty = !html.trim() && !media
     if (empty) return
     let timer = 0
     const send = () => {
@@ -192,7 +304,7 @@ function LessonBody({
       window.clearTimeout(timer)
       node.removeEventListener('scroll', onScroll)
     }
-  }, [html, youtube, showSlides, mode, media, part, onProgress, lesson.id])
+  }, [html, media, part, onProgress, lesson.id])
 
   function openTerm(target: HTMLElement) {
     const example = target.closest('[data-example]')
@@ -219,45 +331,92 @@ function LessonBody({
     openTerm(event.target)
   }
 
+  const emptySection = !html.trim() && !media && part !== 'theory'
+  const emptyTheory = part === 'theory' && !html.trim() && !media
+
   return (
     <section ref={scroller} className="ui-card h-full overflow-auto p-0" aria-label={t('student.content')}>
-      {showSlides ? (
-        <div className="sticky top-0 z-10 flex gap-2 border-b border-line bg-white/80 p-2 backdrop-blur-xl">
-          <button
-            type="button"
-            className={mode === 'article' ? 'ui-btn ui-btn-primary flex-1' : 'ui-btn ui-btn-ghost flex-1 border border-line'}
-            aria-pressed={mode === 'article'}
-            onClick={() => setMode('article')}
+      <article className="lesson-article prose prose-slate max-w-none px-5 py-6 sm:px-8" onClick={onClick} onKeyDown={onKeyDown}>
+        {part === 'theory' ? <h1>{title}</h1> : <h2>{t(`student.${part}`)}</h2>}
+        {youtube ? <YoutubeFrame src={youtube} title={title} /> : null}
+        {part === 'theory' && materials.videoUrl && !youtube ? (
+          <video className="my-4 aspect-video w-full rounded-xl" src={httpsUrl(materials.videoUrl) || fileUrl(materials.videoUrl)} controls />
+        ) : null}
+        {html ? <div dangerouslySetInnerHTML={{ __html: html }} /> : null}
+        {showPdf ? (
+          <MaterialBlock
+            title={materials.pdfLabel || title}
+            kindLabel={t('student.materialPdf')}
+            href={fileUrl(materials.pdfUrl)}
+            openLabel={t('student.openPdf')}
           >
-            {t('student.articleMode')}
-          </button>
-          <button
-            type="button"
-            className={mode === 'slides' ? 'ui-btn ui-btn-primary flex-1' : 'ui-btn ui-btn-ghost flex-1 border border-line'}
-            aria-pressed={mode === 'slides'}
-            onClick={() => setMode('slides')}
+            {isPdfUrl(materials.pdfUrl) ? (
+              <iframe className="lesson-pdf" src={fileUrl(materials.pdfUrl)} title={materials.pdfLabel || title} />
+            ) : null}
+          </MaterialBlock>
+        ) : null}
+        {showSlideFile ? (
+          <MaterialBlock
+            title={materials.slideLabel || title}
+            kindLabel={t('student.materialSlides')}
+            href={fileUrl(materials.slideUrl)}
+            openLabel={t('student.openSlides')}
           >
-            {t('student.slideMode')}
-          </button>
-        </div>
-      ) : null}
-      {mode === 'slides' && showSlides ? (
-        <div className="h-full min-h-[70dvh]">
-          <SlideDeck markdown={viewed.contentUrl} />
-        </div>
-      ) : (
-        <article
-          className="lesson-article prose prose-slate max-w-none px-5 py-6 sm:px-8"
-          onClick={onClick}
-          onKeyDown={onKeyDown}
-        >
-          {part === 'theory' ? <h1>{title}</h1> : <h2>{t(`student.${part}`)}</h2>}
-          {youtube ? <YoutubeFrame src={youtube} title={title} /> : null}
-          {html ? <div dangerouslySetInnerHTML={{ __html: html }} /> : null}
-          {!html && !youtube ? <p className="text-muted">{t('student.sectionEmpty')}</p> : null}
-        </article>
-      )}
+            {isPdfUrl(materials.slideUrl) ? (
+              <iframe className="lesson-pdf" src={fileUrl(materials.slideUrl)} title={materials.slideLabel || title} />
+            ) : (
+              <p className="text-sm text-muted">{t('student.slideOpenHint')}</p>
+            )}
+          </MaterialBlock>
+        ) : null}
+        {showSlideDeck ? (
+          <div className="not-prose my-6 overflow-hidden rounded-2xl border border-line">
+            <div className="border-b border-line bg-canvas px-4 py-2 text-sm font-medium text-ink">{t('student.materialSlides')}</div>
+            <div className="min-h-[60dvh]">
+              <SlideDeck markdown={materials.slideMarkdown} />
+            </div>
+          </div>
+        ) : null}
+        {showSlideNotes ? (
+          <MaterialBlock title={materials.slideLabel || title} kindLabel={t('student.materialSlides')} href="" openLabel="">
+            <div className="prose prose-slate max-w-none" dangerouslySetInnerHTML={{ __html: sanitizeLessonHtml(markdownToHtml(materials.slideMarkdown)) }} />
+          </MaterialBlock>
+        ) : null}
+        {emptySection || emptyTheory ? <p className="text-muted">{t('student.sectionEmpty')}</p> : null}
+      </article>
       {term ? <TermDialog detail={term} onClose={() => setTerm(null)} /> : null}
+    </section>
+  )
+}
+
+function MaterialBlock({
+  title,
+  kindLabel,
+  href,
+  openLabel,
+  children,
+}: {
+  title: string
+  kindLabel: string
+  href: string
+  openLabel: string
+  children?: ReactNode
+}) {
+  return (
+    <section className="not-prose my-6 overflow-hidden rounded-2xl border border-line bg-white">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line bg-canvas px-4 py-3">
+        <div>
+          <p className="text-xs font-medium uppercase tracking-wide text-muted">{kindLabel}</p>
+          <h3 className="text-base font-semibold text-ink">{title}</h3>
+        </div>
+        {href && openLabel ? (
+          <a className="ui-inline ui-btn-primary" href={href} target="_blank" rel="noreferrer">
+            {openLabel}
+            <ExternalLink aria-hidden="true" className="size-3.5" />
+          </a>
+        ) : null}
+      </div>
+      {children ? <div className="p-3">{children}</div> : null}
     </section>
   )
 }
@@ -315,38 +474,30 @@ function YoutubeFrame({ src, title }: { src: string; title: string }) {
   )
 }
 
-function lessonYoutube(lesson: LessonPathItem) {
-  if (lesson.contentType !== 'video') return null
-  const url = httpsUrl(lesson.contentUrl)
+function packBodyOnly(materials: ReturnType<typeof parseLessonContent>) {
+  return JSON.stringify({ vi: materials.body.vi, my: materials.body.my, bn: materials.body.bn })
+}
+
+function articleFromHtml(source: string) {
+  const trimmed = source.trim()
+  if (!trimmed) return ''
+  if (/<[a-z][\s\S]*>/i.test(trimmed)) return trimmed
+  return markdownToHtml(trimmed)
+}
+
+function lessonYoutube(videoUrl: string) {
+  const url = httpsUrl(videoUrl)
   if (!url || !isValidYoutubeUrl(url)) return null
   return getEmbedUrlFromYoutubeUrl({ url, nocookie: true, controls: true })
 }
 
-function articleHtml(lesson: LessonPathItem) {
-  if (lesson.contentType === 'pdf' || (lesson.contentType === 'slides' && /^https?:\/\//i.test(lesson.contentUrl.trim()))) {
-    const url = fileUrl(lesson.contentUrl)
-    if (!url) return ''
-    const safe = httpsUrl(url)
-    if (safe && /\.pdf($|\?)/i.test(safe)) return `<iframe class="lesson-pdf" src="${escapeAttr(safe)}" title=""></iframe>`
-    return `<p><a class="ui-inline ui-btn-primary" href="${escapeAttr(url)}" target="_blank" rel="noreferrer">${escapeAttr(url)}</a></p>`
-  }
-  if (lesson.contentType === 'video' && !lessonYoutube(lesson)) {
-    const url = httpsUrl(lesson.contentUrl)
-    return url ? `<video src="${escapeAttr(url)}" controls></video>` : ''
-  }
-  const source = lesson.contentUrl.trim()
-  if (!source || lesson.contentType === 'video') return ''
-  if (/<[a-z][\s\S]*>/i.test(source)) return sanitizeLessonHtml(source)
-  return markdownToHtml(source)
-}
-
-function hasSlideMarkup(lesson: LessonPathItem) {
-  if (lesson.contentType !== 'slides' && !isSlideDeck(lesson.contentUrl)) return false
-  if (/^https?:\/\//i.test(lesson.contentUrl.trim())) return false
-  return isSlideDeck(lesson.contentUrl) || lesson.contentUrl.includes('class="reveal"') || lesson.contentUrl.includes("class='reveal'") || lesson.contentType === 'slides'
+function isPdfUrl(value: string) {
+  const url = fileUrl(value)
+  return Boolean(url && /\.pdf($|\?)/i.test(url))
 }
 
 function sanitizeLessonHtml(html: string) {
+  if (!html.trim()) return ''
   const doc = new DOMParser().parseFromString(html, 'text/html')
   doc.querySelectorAll('script, style, object, embed').forEach((node) => node.remove())
   doc.querySelectorAll('*').forEach((node) => {
@@ -370,10 +521,6 @@ function sanitizeLessonHtml(html: string) {
     node.setAttribute('tabindex', '0')
   })
   return doc.body.innerHTML
-}
-
-function escapeAttr(value: string) {
-  return value.replaceAll('&', '&amp;').replaceAll('"', '&quot;').replaceAll('<', '&lt;')
 }
 
 function httpsUrl(value: string) {

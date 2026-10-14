@@ -1,5 +1,6 @@
+import { materialFlags, parseLessonContent } from './lessonContent'
 import { splitLessonHtml } from './lessonParts'
-import { asLocalized, type LocalizedText } from './localized'
+import { asLocalized, lessonBody, type LocalizedText } from './localized'
 import { supabase, type Json } from './supabase'
 
 export const passingScore = 5
@@ -71,10 +72,14 @@ export function studyPercent(
   contentType: string,
   hasQuiz: boolean,
   parts: { theory: number; reference: number; exercise: number },
+  language = 'vi',
 ) {
-  const html = contentType === 'pdf' || contentType === 'video' ? '' : contentUrl
+  const materials = parseLessonContent(contentUrl, contentType)
+  const flags = materialFlags(materials)
+  const html = lessonBody(JSON.stringify(materials.body), language)
   const split = splitLessonHtml(html)
-  const weights: [number, number][] = [[parts.theory, contentType === 'pdf' || contentType === 'video' || split.theory.trim() ? 50 : 0]]
+  const hasTheory = flags.article || flags.pdf || flags.slides || flags.video || Boolean(split.theory.trim())
+  const weights: [number, number][] = [[parts.theory, hasTheory ? 50 : 0]]
   if (split.reference.trim()) weights.push([parts.reference, 20])
   if (split.exercise.trim() || hasQuiz) weights.push([parts.exercise, hasQuiz ? 40 : 25])
   const total = weights.reduce((sum, [, weight]) => sum + weight, 0)

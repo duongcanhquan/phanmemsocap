@@ -32,12 +32,14 @@ async function getClient() {
   return client
 }
 
-export async function uploadToR2(file: File): Promise<string> {
+export async function uploadToR2(file: File, preferredName?: string): Promise<string> {
   if (!bucket || !publicUrl) {
     throw new Error('Missing Cloudflare R2 bucket configuration')
   }
 
-  const safeName = file.name.replace(/[^\w.-]+/g, '-').replace(/-+/g, '-').slice(0, 80)
+  const extension = file.name.includes('.') ? file.name.slice(file.name.lastIndexOf('.')) : ''
+  const raw = (preferredName?.trim() || file.name.replace(/\.[^.]+$/, '') || 'image') + extension
+  const safeName = raw.replace(/[^\w.-]+/g, '-').replace(/-+/g, '-').slice(0, 80)
   const key = `lessons/${crypto.randomUUID()}-${safeName || 'image'}`
 
   const { PutObjectCommand } = await import('@aws-sdk/client-s3')

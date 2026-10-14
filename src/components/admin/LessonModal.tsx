@@ -1,11 +1,16 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { translateLesson } from '../../lib/ai'
-import { emptyLocalized, hasLocalizedText, keepCopy, localizedLabel, packLessonBody, unpackLessonBody, type LocalizedText } from '../../lib/localized'
+import { emptyLocalized, hasLocalizedText, keepCopy, localizedLabel, type LocalizedText } from '../../lib/localized'
+import {
+  lessonFileStem,
+  packLessonContent,
+  parseLessonContent,
+  primaryContentType,
+} from '../../lib/lessonContent'
 import {
   deleteLesson,
   lessonCourseIds,
-  lessonTypes,
   listPrograms,
   getLessonQuizSettings,
   listQuizzes,
@@ -14,15 +19,14 @@ import {
   syncLessonCourses,
   type LessonQuizSettings,
   type LessonRecord,
-  type LessonType,
   type ProgramRecord,
   type QuizRecord,
 } from '../../lib/programs'
 import { MediaField } from '../MediaField'
-import { isFileUrl } from '../../lib/media'
 import { Dialog } from '../ui/Dialog'
 import { LocalizedFields } from './LocalizedFields'
 import { QuizSetup } from './QuizSetup'
+import { Link } from 'react-router-dom'
 
 type LessonModalProps = {
   programId: string
@@ -32,32 +36,29 @@ type LessonModalProps = {
   onSaved: () => void
 }
 
-function newQuiz(): QuizRecord {
-  return {
-    id: `new-${crypto.randomUUID()}`,
-    question: emptyLocalized(),
-    options: [emptyLocalized(), emptyLocalized()],
-    correctOptionIndex: 0,
-    isEssay: false,
-    points: 1,
-  }
-}
-
 export function LessonModal({ programId, lesson, nextOrder, onClose, onSaved }: LessonModalProps) {
   const { t, i18n } = useTranslation()
+  const source = parseLessonContent(lesson?.contentUrl ?? '', lesson?.contentType ?? 'text')
   const [programs, setPrograms] = useState<ProgramRecord[]>([])
   const [courseIds, setCourseIds] = useState<string[]>(programId ? [programId] : [])
   const [orderIndex, setOrderIndex] = useState(lesson?.orderIndex ?? nextOrder)
   const [title, setTitle] = useState<LocalizedText>(lesson?.title ?? emptyLocalized())
   const [moduleName, setModuleName] = useState<LocalizedText>(lesson?.moduleName ?? emptyLocalized())
-  const [contentType, setContentType] = useState<LessonType>(lesson?.contentType ?? 'text')
-  const [contentUrl, setContentUrl] = useState(unpackLessonBody(lesson?.contentUrl ?? '').vi)
+  const [contentUrl, setContentUrl] = useState(source.body.vi)
+  const [pdfUrl, setPdfUrl] = useState(source.pdfUrl)
+  const [pdfLabel, setPdfLabel] = useState(source.pdfLabel)
+  const [slideUrl, setSlideUrl] = useState(source.slideUrl)
+  const [slideLabel, setSlideLabel] = useState(source.slideLabel)
+  const [slideMarkdown, setSlideMarkdown] = useState(source.slideMarkdown)
+  const [videoUrl, setVideoUrl] = useState(source.videoUrl)
   const [isPublished, setIsPublished] = useState(lesson?.isPublished ?? false)
   const [quizzes, setQuizzes] = useState<QuizRecord[]>([])
   const [quizSettings, setQuizSettings] = useState<LessonQuizSettings>({ passMark: 5, shuffleQuestions: false, shuffleOptions: false })
   const [quizzesLoaded, setQuizzesLoaded] = useState(!lesson)
   const [error, setError] = useState('')
   const [pending, setPending] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [note, setNote] = useState('')
 
   useEffect(() => {
     let active = true
@@ -113,11 +114,10 @@ export function LessonModal({ programId, lesson, nextOrder, onClose, onSaved }: 
     setPending(true)
     setError('')
     try {
-      const prose = contentType === 'text' || (contentType === 'slides' && !isFileUrl(contentUrl))
       const result = await translateLesson({
         title: title.vi,
         module: moduleName.vi,
-        body: prose ? contentUrl : '',
+        body: contentUrl,
         quizzes: quizzes.map((quiz) => ({
           question: quiz.question.vi,
           options: quiz.isEssay ? [] : quiz.options.map((option) => option.vi),
@@ -125,9 +125,9 @@ export function LessonModal({ programId, lesson, nextOrder, onClose, onSaved }: 
       }).catch(() => null)
       const titleText = result ? { vi: title.vi, my: keepCopy(result.my.title, title.my), bn: keepCopy(result.bn.title, title.bn) } : title
       const moduleText = result ? { vi: moduleName.vi, my: keepCopy(result.my.module, moduleName.my), bn: keepCopy(result.bn.module, moduleName.bn) } : moduleName
-      const storedBody = prose
-        ? packLessonBody(result ? { vi: contentUrl, my: keepCopy(result.my.body, unpackLessonBody(lesson?.contentUrl ?? '').my), bn: keepCopy(result.bn.body, unpackLessonBody(lesson?.contentUrl ?? '').bn) } : { ...unpackLessonBody(lesson?.contentUrl ?? ''), vi: contentUrl })
-        : contentUrl
+      const bodyText = result
+        ? { vi: contentUrl, my: keepCopy(result.my.body, source.body.my), bn: keepCopy(result.bn.body, source.body.bn) }
+        : { ...source.body, vi: contentUrl }
       const ready = result
         ? quizzes.map((quiz, index) => ({
             ...quiz,
@@ -143,12 +143,22 @@ export function LessonModal({ programId, lesson, nextOrder, onClose, onSaved }: 
             })),
           }))
         : quizzes
+      const lessonName = localizedLabel(titleText, 'vi') || t('programs.untitled')
+      const materials = {
+        body: bodyText,
+        pdfUrl: pdfUrl.trim(),
+        pdfLabel: (pdfLabel.trim() || lessonName).trim(),
+        slideUrl: slideUrl.trim(),
+        slideLabel: (slideLabel.trim() || lessonName).trim(),
+        slideMarkdown: slideMarkdown.trim(),
+        videoUrl: videoUrl.trim(),
+      }
       const lessonId = await saveLesson(courseIds[0], {
         id: lesson?.id,
         title: titleText,
         moduleName: moduleText,
-        contentType,
-        contentUrl: storedBody,
+        contentType: primaryContentType(materials, lesson?.contentType === 'quiz' ? 'quiz' : 'text'),
+        contentUrl: packLessonContent(materials),
         isPublished,
         orderIndex,
         quiz: {
@@ -159,11 +169,7 @@ export function LessonModal({ programId, lesson, nextOrder, onClose, onSaved }: 
       })
       await syncLessonCourses(lessonId, courseIds, programId, orderIndex)
       await saveQuizzes(lessonId, ready)
-      if (!result) {
-        setError(t('editor.translateMissing'))
-        setPending(false)
-        return
-      }
+      if (!result) setNote(t('editor.translateMissing'))
       onSaved()
     } catch {
       setError(t('programs.saveError'))
@@ -173,6 +179,10 @@ export function LessonModal({ programId, lesson, nextOrder, onClose, onSaved }: 
 
   async function onDelete() {
     if (!lesson) return
+    if (!confirmDelete) {
+      setConfirmDelete(true)
+      return
+    }
     setPending(true)
     try {
       await deleteLesson(lesson.id)
@@ -183,125 +193,154 @@ export function LessonModal({ programId, lesson, nextOrder, onClose, onSaved }: 
     }
   }
 
+  const lessonName = localizedLabel(title, i18n.language) || t('programs.untitled')
+  const attachmentCount =
+    [pdfUrl, slideUrl, slideMarkdown, videoUrl].filter((value) => value.trim()).length +
+    (contentUrl.replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').trim() ? 1 : 0)
+  const richBody = /<[a-z][\s\S]*>/i.test(contentUrl)
+
   return (
     <Dialog title={lesson ? t('programs.editLesson') : t('programs.addLesson')} onClose={onClose}>
       <form className="grid gap-6" onSubmit={(event) => void onSubmit(event)}>
-        <div className="grid gap-4 lg:grid-cols-2">
+        <div className="grid gap-4">
           <LocalizedFields id="lesson-title" label={t('programs.name')} value={title} onChange={setTitle} />
-          <LocalizedFields id="lesson-module" label={t('programs.module')} value={moduleName} onChange={setModuleName} />
-          <div className="grid gap-2 lg:col-span-2">
-            <p className="text-sm font-medium text-ink">{t('programs.contentType')}</p>
-            <div className="flex flex-wrap gap-2">
-              {lessonTypes.map((type) => (
-                <button
-                  key={type}
-                  type="button"
-                  className={contentType === type ? 'ui-inline ui-btn-primary' : 'ui-inline ui-btn-ghost'}
-                  aria-pressed={contentType === type}
-                  onClick={() => {
-                    setContentType(type)
-                    if (type === 'quiz' && quizzes.length === 0) setQuizzes([newQuiz()])
-                  }}
-                >
-                  {t(`programs.types.${type}`)}
-                </button>
-              ))}
+          {richBody ? (
+            <div className="rounded-2xl border border-line bg-canvas/80 p-3 text-sm text-ink">
+              <p>{t('programs.editInComposer')}</p>
+              <Link className="ui-inline ui-btn-primary mt-2" to="/lessons" onClick={onClose}>
+                {t('editor.title')}
+              </Link>
             </div>
-          </div>
-          {contentType === 'text' ? (
-            <label className="grid gap-1 text-sm font-medium text-ink lg:col-span-2" htmlFor="lesson-body">
+          ) : (
+            <label className="grid gap-1 text-sm font-medium text-ink" htmlFor="lesson-body">
               {t('panels.write')}
               <textarea
                 id="lesson-body"
-                className="ui-field min-h-40 py-2"
+                className="ui-field min-h-48 py-2"
                 value={contentUrl}
                 onChange={(event) => setContentUrl(event.target.value)}
               />
             </label>
-          ) : null}
-          {contentType === 'slides' ? (
-            <div className="grid gap-3 lg:col-span-2">
-              <MediaField
-                id="lesson-slides-file"
-                label={t('programs.slideFile')}
-                value={isFileUrl(contentUrl) ? contentUrl : ''}
-                onChange={setContentUrl}
-                onError={setError}
-                accept=".pdf,.ppt,.pptx,application/pdf,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation"
-                folder="slides"
-                hint={t('programs.slideHint')}
-              />
-              {!isFileUrl(contentUrl) ? (
-                <label className="grid gap-1 text-sm font-medium text-ink" htmlFor="lesson-body">
-                  {t('programs.slideBody')}
-                  <textarea id="lesson-body" className="ui-field min-h-40 py-2" value={contentUrl} onChange={(event) => setContentUrl(event.target.value)} />
-                </label>
-              ) : null}
-            </div>
-          ) : null}
-          {contentType === 'pdf' ? (
-            <div className="lg:col-span-2">
+          )}
+          <details className="rounded-2xl border border-line bg-white/60 p-3" open={attachmentCount > 0}>
+            <summary className="cursor-pointer text-sm font-medium text-ink">
+              {t('programs.attachments')} · {t('programs.attachmentsCount', { count: attachmentCount })}
+            </summary>
+            <div className="mt-3 grid gap-3">
+              <p className="text-xs text-muted">{t('programs.attachmentsHint')}</p>
               <MediaField
                 id="lesson-pdf"
                 label={t('programs.pdfFile')}
-                value={contentUrl}
-                onChange={setContentUrl}
+                value={pdfUrl}
+                onChange={(url) => {
+                  setPdfUrl(url)
+                  if (url && !pdfLabel.trim()) setPdfLabel(lessonName)
+                }}
                 onError={setError}
                 accept="application/pdf,.pdf"
                 folder="pdfs"
                 hint={t('programs.pdfHint')}
+                displayName={pdfLabel.trim() || lessonName}
+                uploadName={lessonFileStem(lessonName, 'pdf')}
               />
+              {pdfUrl ? (
+                <label className="grid gap-1 text-sm font-medium text-ink" htmlFor="lesson-pdf-label">
+                  {t('programs.fileDisplayName')}
+                  <input id="lesson-pdf-label" className="ui-field" value={pdfLabel} onChange={(event) => setPdfLabel(event.target.value)} placeholder={lessonName} />
+                </label>
+              ) : null}
+              <MediaField
+                id="lesson-slides-file"
+                label={t('programs.slideFile')}
+                value={slideUrl}
+                onChange={(url) => {
+                  setSlideUrl(url)
+                  if (url && !slideLabel.trim()) setSlideLabel(lessonName)
+                }}
+                onError={setError}
+                accept=".pdf,.ppt,.pptx,application/pdf,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation"
+                folder="slides"
+                hint={t('programs.slideHint')}
+                placeholder={t('programs.slideLink')}
+                displayName={slideLabel.trim() || lessonName}
+                uploadName={lessonFileStem(lessonName, 'slides')}
+              />
+              {slideUrl ? (
+                <label className="grid gap-1 text-sm font-medium text-ink" htmlFor="lesson-slide-label">
+                  {t('programs.fileDisplayName')}
+                  <input id="lesson-slide-label" className="ui-field" value={slideLabel} onChange={(event) => setSlideLabel(event.target.value)} placeholder={lessonName} />
+                </label>
+              ) : null}
+              <label className="grid gap-1 text-sm font-medium text-ink" htmlFor="lesson-slide-body">
+                {t('programs.slideBody')}
+                <textarea id="lesson-slide-body" className="ui-field min-h-28 py-2" value={slideMarkdown} onChange={(event) => setSlideMarkdown(event.target.value)} />
+              </label>
+              <label className="grid gap-1 text-sm font-medium text-ink" htmlFor="lesson-video">
+                {t('programs.videoLink')}
+                <input id="lesson-video" className="ui-field" value={videoUrl} onChange={(event) => setVideoUrl(event.target.value)} placeholder={t('editor.youtubePrompt')} />
+                <span className="text-xs font-normal text-muted">{t('programs.videoHint')}</span>
+              </label>
             </div>
-          ) : null}
-          {contentType === 'video' ? (
-            <label className="grid gap-1 text-sm font-medium text-ink lg:col-span-2" htmlFor="lesson-video">
-              {t('programs.videoLink')}
-              <input id="lesson-video" className="ui-field" value={contentUrl} onChange={(event) => setContentUrl(event.target.value)} placeholder="https://www.youtube.com/watch?v=..." />
-              <span className="text-xs font-normal text-muted">{t('programs.videoHint')}</span>
-            </label>
-          ) : null}
-          <fieldset className="grid gap-2 text-sm font-medium text-ink lg:col-span-2">
-            <legend>{t('editor.assignCourse')}</legend>
-            {programs.map((program) => (
-              <label key={program.id} className="flex min-h-9 items-center gap-2 font-normal">
+          </details>
+          <details className="rounded-2xl border border-line bg-white/60 p-3">
+            <summary className="cursor-pointer text-sm font-medium text-ink">
+              {t('editor.moreOptions')} · {t('editor.coursesPicked', { count: courseIds.length })}
+            </summary>
+            <div className="mt-3 grid gap-3">
+              <LocalizedFields id="lesson-module" label={t('programs.module')} value={moduleName} onChange={setModuleName} />
+              <p className="text-xs text-muted">{t('programs.moduleHint')}</p>
+              <fieldset className="grid max-h-36 gap-1 overflow-y-auto rounded-xl border border-line p-2 text-sm font-medium text-ink">
+                <legend className="px-1">{t('editor.assignCourse')}</legend>
+                {programs.map((program) => (
+                  <label key={program.id} className="flex min-h-9 items-center gap-2 font-normal">
+                    <input
+                      type="checkbox"
+                      checked={courseIds.includes(program.id)}
+                      onChange={() => {
+                        setCourseIds((current) => {
+                          if (current.includes(program.id)) {
+                            const next = current.filter((id) => id !== program.id)
+                            return next.length === 0 ? current : next
+                          }
+                          return [...current, program.id]
+                        })
+                      }}
+                    />
+                    {localizedLabel(program.title, i18n.language) || t('programs.untitled')}
+                  </label>
+                ))}
+              </fieldset>
+              <label className="grid max-w-40 gap-1 text-sm font-medium text-ink" htmlFor="lesson-order">
+                {t('editor.sortOrder')}
+                <input
+                  id="lesson-order"
+                  className="ui-field"
+                  type="number"
+                  min={0}
+                  value={orderIndex}
+                  onChange={(event) => setOrderIndex(Number(event.target.value))}
+                />
+              </label>
+              <label className="flex min-h-11 items-center gap-2 text-sm font-medium text-ink">
                 <input
                   type="checkbox"
-                  checked={courseIds.includes(program.id)}
-                  onChange={() => {
-                    setCourseIds((current) => {
-                      if (current.includes(program.id)) {
-                        const next = current.filter((id) => id !== program.id)
-                        return next.length === 0 ? current : next
-                      }
-                      return [...current, program.id]
-                    })
-                  }}
+                  checked={isPublished}
+                  onChange={(event) => setIsPublished(event.target.checked)}
                 />
-                {localizedLabel(program.title, i18n.language) || t('programs.untitled')}
+                {t('programs.published')}
               </label>
-            ))}
-          </fieldset>
-          <label className="grid gap-1 text-sm font-medium text-ink" htmlFor="lesson-order">
-            {t('editor.sortOrder')}
-            <input
-              id="lesson-order"
-              className="ui-field"
-              type="number"
-              min={0}
-              value={orderIndex}
-              onChange={(event) => setOrderIndex(Number(event.target.value))}
-            />
-          </label>
-          <label className="flex min-h-11 items-center gap-2 text-sm font-medium text-ink">
-            <input
-              type="checkbox"
-              checked={isPublished}
-              onChange={(event) => setIsPublished(event.target.checked)}
-            />
-            {t('programs.published')}
-          </label>
+            </div>
+          </details>
         </div>
-        <QuizSetup quizzes={quizzes} settings={quizSettings} onQuizzes={setQuizzes} onSettings={setQuizSettings} />
+        <details className="rounded-2xl border border-line bg-white/60 p-3" open={quizzes.length > 0}>
+          <summary className="cursor-pointer text-sm font-medium text-ink">
+            {t('student.materialQuiz')} · {quizzes.length}
+          </summary>
+          <div className="mt-3">
+            <QuizSetup quizzes={quizzes} settings={quizSettings} onQuizzes={setQuizzes} onSettings={setQuizSettings} />
+          </div>
+        </details>
+        {note ? <p className="text-sm text-muted">{note}</p> : null}
         {error ? (
           <p role="alert" className="text-sm text-danger">
             {error}
@@ -310,7 +349,7 @@ export function LessonModal({ programId, lesson, nextOrder, onClose, onSaved }: 
         <div className="ui-dialog-foot">
           {lesson ? (
             <button type="button" className="ui-btn text-danger" disabled={pending} onClick={() => void onDelete()}>
-              {t('programs.remove')}
+              {confirmDelete ? t('programs.confirmRemove') : t('programs.remove')}
             </button>
           ) : null}
           <button type="button" className="ui-btn ui-btn-ghost border border-line" onClick={onClose}>

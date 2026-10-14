@@ -14,12 +14,26 @@ type MediaFieldProps = {
   folder: MediaFolder
   hint?: string
   placeholder?: string
+  displayName?: string
+  uploadName?: string
 }
 
-export function MediaField({ id, label, value, onChange, onError, accept, folder, hint, placeholder }: MediaFieldProps) {
+export function MediaField({
+  id,
+  label,
+  value,
+  onChange,
+  onError,
+  accept,
+  folder,
+  hint,
+  placeholder,
+  displayName,
+  uploadName,
+}: MediaFieldProps) {
   const { t } = useTranslation()
   const [pending, setPending] = useState(false)
-  const name = value ? decodeURIComponent(value.split('/').pop() || '') : ''
+  const shown = displayName?.trim() || (value ? decodeURIComponent(value.split('/').pop() || '') : '')
 
   async function onFile(file: File | undefined) {
     if (!file) return
@@ -29,7 +43,7 @@ export function MediaField({ id, label, value, onChange, onError, accept, folder
     }
     setPending(true)
     try {
-      onChange(await uploadMedia(file, folder))
+      onChange(await uploadMedia(file, folder, uploadName || displayName))
     } catch (reason) {
       onError?.(reason instanceof Error && reason.message === 'storage-missing' ? t('editor.storageMissing') : t('editor.uploadError'))
     } finally {
@@ -41,7 +55,14 @@ export function MediaField({ id, label, value, onChange, onError, accept, folder
     <div className="grid gap-2">
       <label className="grid gap-1 text-sm font-medium text-ink" htmlFor={id}>
         {label}
-        <input id={id} className="ui-field" type="url" value={value} placeholder={placeholder || t('programs.contentUrl')} onChange={(event) => onChange(event.target.value)} />
+        <input
+          id={id}
+          className="ui-field"
+          type="url"
+          value={value}
+          placeholder={placeholder || t('programs.contentUrl')}
+          onChange={(event) => onChange(event.target.value)}
+        />
       </label>
       <div className="flex flex-wrap items-center gap-2">
         <label className="ui-inline ui-btn-ghost cursor-pointer">
@@ -53,7 +74,7 @@ export function MediaField({ id, label, value, onChange, onError, accept, folder
             {t('programs.clearFile')}
           </button>
         ) : null}
-        {name ? <span className="max-w-48 truncate text-xs text-muted">{name}</span> : null}
+        {shown ? <span className="max-w-56 truncate text-xs text-muted">{shown}</span> : null}
       </div>
       {hint ? <p className="text-xs text-muted">{hint}</p> : null}
     </div>

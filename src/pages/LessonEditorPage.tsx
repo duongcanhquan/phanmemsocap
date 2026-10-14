@@ -9,9 +9,14 @@ import { PageHeader } from '../components/ui/PageHeader'
 import { Tabs } from '../components/ui/Tabs'
 import { useAuth } from '../hooks/useAuth'
 import { translateLesson } from '../lib/ai'
-import { emptyLocalized, keepCopy, localizedLabel, packLessonBody, unpackLessonBody, type LocalizedText } from '../lib/localized'
+import { emptyLocalized, keepCopy, localizedLabel, type LocalizedText } from '../lib/localized'
 import {
-  lessonTypes,
+  lessonFileStem,
+  packLessonContent,
+  parseLessonContent,
+  primaryContentType,
+} from '../lib/lessonContent'
+import {
   deleteLesson,
   getLessonQuizSettings,
   lessonCourseIds,
@@ -25,26 +30,28 @@ import {
   syncLessonCourses,
   type LessonQuizSettings,
   type LessonRecord,
-  type LessonType,
   type ProgramRecord,
   type QuizRecord,
   type StudentRecord,
 } from '../lib/programs'
 import { isSchoolAdmin } from '../lib/roles'
 import { QuizSetup } from '../components/admin/QuizSetup'
+import { MaterialChips } from '../components/MaterialChips'
 import { MediaField } from '../components/MediaField'
-import { isFileUrl } from '../lib/media'
 import { isSupabaseConfigured } from '../lib/supabase'
-
-const composeTypes = lessonTypes.filter((type) => type !== 'quiz')
 
 type LessonDraft = {
   courseId: string
   courseIds?: string[]
   title: string
   moduleName: string
-  contentType: LessonType
   body: string
+  pdfUrl?: string
+  pdfLabel?: string
+  slideUrl?: string
+  slideLabel?: string
+  slideMarkdown?: string
+  videoUrl?: string
   orderIndex: number
   authorId: string
 }
@@ -54,15 +61,26 @@ function readLessonDraft(key: string): LessonDraft | null {
     const raw = localStorage.getItem(key)
     if (!raw) return null
     const parsed = JSON.parse(raw) as Partial<LessonDraft>
-    if (!parsed.title?.trim() && !parsed.body?.trim()) return null
-    if (!parsed.contentType || !lessonTypes.includes(parsed.contentType)) return null
+    const empty =
+      !parsed.title?.trim() &&
+      !parsed.body?.trim() &&
+      !parsed.pdfUrl?.trim() &&
+      !parsed.slideUrl?.trim() &&
+      !parsed.slideMarkdown?.trim() &&
+      !parsed.videoUrl?.trim()
+    if (empty) return null
     return {
       courseId: parsed.courseId ?? '',
       courseIds: Array.isArray(parsed.courseIds) ? parsed.courseIds.filter((id) => typeof id === 'string') : undefined,
       title: parsed.title ?? '',
       moduleName: parsed.moduleName ?? '',
-      contentType: parsed.contentType,
       body: parsed.body ?? '',
+      pdfUrl: parsed.pdfUrl ?? '',
+      pdfLabel: parsed.pdfLabel ?? '',
+      slideUrl: parsed.slideUrl ?? '',
+      slideLabel: parsed.slideLabel ?? '',
+      slideMarkdown: parsed.slideMarkdown ?? '',
+      videoUrl: parsed.videoUrl ?? '',
       orderIndex: Number(parsed.orderIndex ?? 0),
       authorId: parsed.authorId ?? '',
     }
@@ -165,7 +183,7 @@ export function LessonEditorPage() {
             <tr>
               <th>#</th>
               <th>{t('programs.name')}</th>
-              <th>{t('programs.contentType')}</th>
+              <th>{t('programs.materials')}</th>
               <th>{t('programs.module')}</th>
               <th>{t('programs.author')}</th>
               <th>{t('editor.createdAt')}</th>
@@ -178,7 +196,9 @@ export function LessonEditorPage() {
               <tr key={lesson.id} className="ui-row" onClick={() => setEditing(lesson)}>
                 <td className="tabular-nums">{sort === 'order' ? lesson.orderIndex + 1 : index + 1}</td>
                 <td className="font-medium text-ink">{localizedLabel(lesson.title, i18n.language) || t('programs.untitled')}</td>
-                <td>{t(`programs.types.${lesson.contentType}`)}</td>
+                <td>
+                  <MaterialChips contentUrl={lesson.contentUrl} contentType={lesson.contentType} limit={3} />
+                </td>
                 <td>{localizedLabel(lesson.moduleName, i18n.language) || '—'}</td>
                 <td>{teachers.find((teacher) => teacher.id === lesson.authorId)?.fullName || '—'}</td>
                 <td>{lesson.createdAt ? new Date(lesson.createdAt).toLocaleString(i18n.language) : '—'}</td>
@@ -278,12 +298,23 @@ function LessonComposer({
     if (stored?.courseId) return [stored.courseId]
     return programId ? [programId] : []
   })
-  const sourceBody = unpackLessonBody(lesson?.contentUrl ?? '').vi
+  const source = parseLessonContent(lesson?.contentUrl ?? '', lesson?.contentType ?? 'text')
   const [title, setTitle] = useState(stored?.title ?? localizedLabel(lesson?.title ?? emptyLocalized(), 'vi'))
   const [moduleName, setModuleName] = useState(stored?.moduleName ?? localizedLabel(lesson?.moduleName ?? emptyLocalized(), 'vi'))
-  const [contentType, setContentType] = useState<LessonType>(stored?.contentType ?? lesson?.contentType ?? 'text')
-  const [contentUrl, setContentUrl] = useState(stored?.body ?? sourceBody)
-  const [content, setContent] = useState<JSONContent | string | undefined>(stored?.body || sourceBody || undefined)
+  const [contentUrl, setContentUrl] = useState(stored?.body ?? source.body.vi)
+  const [content, setContent] = useState<JSONContent | string | undefined>(stored?.body || source.body.vi || undefined)
+
+  function onEditorChange(next: JSONContent) {
+    setContent(next)
+    const html = editorRef.current?.getHTML()
+    if (html !== undefined) setContentUrl(html)
+  }
+  const [pdfUrl, setPdfUrl] = useState(stored?.pdfUrl ?? source.pdfUrl)
+  const [pdfLabel, setPdfLabel] = useState(stored?.pdfLabel ?? source.pdfLabel)
+  const [slideUrl, setSlideUrl] = useState(stored?.slideUrl ?? source.slideUrl)
+  const [slideLabel, setSlideLabel] = useState(stored?.slideLabel ?? source.slideLabel)
+  const [slideMarkdown, setSlideMarkdown] = useState(stored?.slideMarkdown ?? source.slideMarkdown)
+  const [videoUrl, setVideoUrl] = useState(stored?.videoUrl ?? source.videoUrl)
   const [orderIndex, setOrderIndex] = useState(stored?.orderIndex ?? lesson?.orderIndex ?? nextOrder)
   const [authorId, setAuthorId] = useState(stored?.authorId || lesson?.authorId || selfId)
   const [published, setPublished] = useState(lesson?.isPublished ?? false)
@@ -295,24 +326,46 @@ function LessonComposer({
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [error, setError] = useState('')
   const [draftNote, setDraftNote] = useState('')
+  const [courseQuery, setCourseQuery] = useState('')
+  const [teacherQuery, setTeacherQuery] = useState('')
   const copies = useRef({
     title: lesson?.title ?? emptyLocalized(),
     moduleName: lesson?.moduleName ?? emptyLocalized(),
-    body: unpackLessonBody(lesson?.contentUrl ?? ''),
+    body: source.body,
   })
-  const latest = useRef({ courseIds, title, moduleName, contentType, contentUrl, orderIndex, authorId, quizzes, quizSettings })
+  const latest = useRef({
+    courseIds,
+    title,
+    moduleName,
+    contentUrl,
+    pdfUrl,
+    pdfLabel,
+    slideUrl,
+    slideLabel,
+    slideMarkdown,
+    videoUrl,
+    orderIndex,
+    authorId,
+    quizzes,
+    quizSettings,
+  })
   const queue = useRef(Promise.resolve())
 
   function writeLocal() {
     const current = latest.current
-    const body = current.contentType === 'text' ? (editorRef.current?.getHTML() || current.contentUrl) : current.contentUrl
+    const body = editorRef.current?.getHTML() || current.contentUrl
     localStorage.setItem(storageKey.current, JSON.stringify({
       courseId: current.courseIds[0] ?? '',
       courseIds: current.courseIds,
       title: current.title,
       moduleName: current.moduleName,
-      contentType: current.contentType,
       body,
+      pdfUrl: current.pdfUrl,
+      pdfLabel: current.pdfLabel,
+      slideUrl: current.slideUrl,
+      slideLabel: current.slideLabel,
+      slideMarkdown: current.slideMarkdown,
+      videoUrl: current.videoUrl,
       orderIndex: current.orderIndex,
       authorId: current.authorId,
     }))
@@ -326,7 +379,7 @@ function LessonComposer({
 
   async function persistNow(mode: 'auto' | 'draft' | 'publish') {
     const current = latest.current
-    const body = current.contentType === 'text' ? (editorRef.current?.getHTML() || current.contentUrl) : current.contentUrl
+    const body = editorRef.current?.getHTML() || current.contentUrl
     if (!current.title.trim()) {
       writeLocal()
       if (mode !== 'auto' && mounted.current) setError(t('programs.titleRequired'))
@@ -338,17 +391,16 @@ function LessonComposer({
       setError('')
     }
     try {
-      const prose = current.contentType === 'text' || (current.contentType === 'slides' && !isFileUrl(body))
       let titleText: LocalizedText = { ...copies.current.title, vi: current.title.trim() }
       let moduleText: LocalizedText = { ...copies.current.moduleName, vi: current.moduleName.trim() }
-      let bodyText: LocalizedText = { ...copies.current.body, vi: prose ? body : '' }
+      let bodyText: LocalizedText = { ...copies.current.body, vi: body }
       let ready = current.quizzes.filter((quiz) => quiz.question.vi.trim() || quiz.options.some((option) => option.vi.trim()))
       let translated = false
       if (mode !== 'auto') {
         const result = await translateLesson({
           title: titleText.vi,
           module: moduleText.vi,
-          body: prose ? body : '',
+          body,
           quizzes: ready.map((quiz) => ({
             question: quiz.question.vi,
             options: quiz.isEssay ? [] : quiz.options.map((option) => option.vi),
@@ -375,12 +427,22 @@ function LessonComposer({
           copies.current = { title: titleText, moduleName: moduleText, body: bodyText }
         }
       }
+      const lessonName = titleText.vi.trim() || t('programs.untitled')
+      const materials = {
+        body: bodyText,
+        pdfUrl: current.pdfUrl.trim(),
+        pdfLabel: (current.pdfLabel.trim() || lessonName).trim(),
+        slideUrl: current.slideUrl.trim(),
+        slideLabel: (current.slideLabel.trim() || lessonName).trim(),
+        slideMarkdown: current.slideMarkdown.trim(),
+        videoUrl: current.videoUrl.trim(),
+      }
       const id = await saveLesson(current.courseIds[0] ?? '', {
         id: savedId.current,
         title: titleText,
         moduleName: moduleText,
-        contentType: current.contentType,
-        contentUrl: prose ? packLessonBody(bodyText) : body,
+        contentType: primaryContentType(materials, lesson?.contentType === 'quiz' ? 'quiz' : 'text'),
+        contentUrl: packLessonContent(materials),
         isPublished: publish,
         orderIndex: current.orderIndex,
         authorId: current.authorId || selfId,
@@ -455,14 +517,29 @@ function LessonComposer({
   const persistRef = useRef(persist)
 
   useEffect(() => {
-    latest.current = { courseIds, title, moduleName, contentType, contentUrl, orderIndex, authorId, quizzes, quizSettings }
+    latest.current = {
+      courseIds,
+      title,
+      moduleName,
+      contentUrl,
+      pdfUrl,
+      pdfLabel,
+      slideUrl,
+      slideLabel,
+      slideMarkdown,
+      videoUrl,
+      orderIndex,
+      authorId,
+      quizzes,
+      quizSettings,
+    }
     persistRef.current = persist
     writeLocal()
     const timer = window.setTimeout(() => void persistRef.current('auto'), 1600)
     return () => window.clearTimeout(timer)
     // persist is stored on persistRef so a new function identity does not reset the draft timer.
     // oxlint-disable-next-line react-hooks/exhaustive-deps
-  }, [courseIds, title, moduleName, contentType, contentUrl, orderIndex, authorId, content, quizzes, quizSettings])
+  }, [courseIds, title, moduleName, contentUrl, pdfUrl, pdfLabel, slideUrl, slideLabel, slideMarkdown, videoUrl, orderIndex, authorId, content, quizzes, quizSettings])
 
   useEffect(() => {
     const flush = () => {
@@ -503,135 +580,200 @@ function LessonComposer({
     }
   }
 
+  const visibleCourses = programs.filter((program) => {
+    const label = localizedLabel(program.title, i18n.language) || t('programs.untitled')
+    return label.toLowerCase().includes(courseQuery.trim().toLowerCase())
+  })
+  const visibleTeachers = teachers.filter((teacher) =>
+    (teacher.fullName || teacher.id).toLowerCase().includes(teacherQuery.trim().toLowerCase()),
+  )
+  const authorName = teachers.find((teacher) => teacher.id === authorId)?.fullName || t('programs.unassigned')
+
+  const lessonName = title.trim() || t('programs.untitled')
+  const attachmentCount =
+    [pdfUrl, slideUrl, slideMarkdown, videoUrl].filter((value) => value.trim()).length +
+    (contentUrl.replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').trim() ? 1 : 0)
+
   return (
     <Dialog title={lesson ? t('programs.editLesson') : t('editor.newLesson')} onClose={() => void leave()}>
       <div className="grid gap-4">
-        <div className="flex flex-wrap gap-2">
-          {(lesson?.contentType === 'quiz' ? lessonTypes : composeTypes).map((type) => (
-            <button
-              key={type}
-              type="button"
-              className={contentType === type ? 'ui-inline ui-btn-primary' : 'ui-inline ui-btn-ghost'}
-              aria-pressed={contentType === type}
-              onClick={() => setContentType(type)}
-            >
-              {t(`programs.types.${type}`)}
-            </button>
-          ))}
+        <label className="grid gap-1 text-sm font-medium text-ink" htmlFor="compose-title">
+          {t('programs.name')}
+          <input id="compose-title" className="ui-field text-base font-semibold" value={title} onChange={(event) => setTitle(event.target.value)} autoFocus />
+        </label>
+        <Tabs
+          label={t('panels.label')}
+          value={pane}
+          onChange={setPane}
+          tabs={[
+            { id: 'write', label: t('panels.write') },
+            { id: 'assist', label: t('panels.assist') },
+          ]}
+        />
+        <div className={pane === 'write' ? 'min-h-[24rem]' : 'hidden'}>
+          <AdvancedEditor content={content} onChange={onEditorChange} editorRef={editorRef} />
         </div>
-        <div className="grid gap-4 lg:grid-cols-2">
-          <label className="grid gap-1 text-sm font-medium text-ink" htmlFor="compose-title">
-            {t('programs.name')}
-            <input id="compose-title" className="ui-field" value={title} onChange={(event) => setTitle(event.target.value)} />
-          </label>
-          <label className="grid gap-1 text-sm font-medium text-ink" htmlFor="compose-module">
-            {t('programs.module')}
-            <input id="compose-module" className="ui-field" value={moduleName} onChange={(event) => setModuleName(event.target.value)} />
-          </label>
-          {canPlaceCourse ? null : <p className="text-sm text-muted lg:col-span-2">{t('editor.adminPlaces')}</p>}
-          {canPlaceCourse ? <fieldset className="grid gap-2 text-sm font-medium text-ink">
-            <legend>{t('editor.assignCourse')}</legend>
-            {programs.map((program) => (
-              <label key={program.id} className="flex min-h-9 items-center gap-2 font-normal">
-                <input
-                  type="checkbox"
-                  checked={courseIds.includes(program.id)}
-                  onChange={() => {
-                    setCourseIds((current) =>
-                      current.includes(program.id) ? current.filter((id) => id !== program.id) : [...current, program.id],
-                    )
-                  }}
-                />
-                {localizedLabel(program.title, i18n.language) || t('programs.untitled')}
-              </label>
-            ))}
-          </fieldset> : null}
-          {canPlaceCourse && courseIds.length > 0 ? (
-            <label className="grid gap-1 text-sm font-medium text-ink" htmlFor="compose-order">
-              {t('editor.sortOrder')}
-              <input id="compose-order" className="ui-field" type="number" min={0} value={orderIndex} onChange={(event) => setOrderIndex(Number(event.target.value))} />
-            </label>
-          ) : null}
-          {canAssignAuthor ? (
-            <label className="grid gap-1 text-sm font-medium text-ink" htmlFor="compose-author">
-              {t('programs.author')}
-              <select id="compose-author" className="ui-field" value={authorId} onChange={(event) => setAuthorId(event.target.value)}>
-                <option value="">{t('programs.unassigned')}</option>
-                {teachers.map((teacher) => (
-                  <option key={teacher.id} value={teacher.id}>{teacher.fullName || teacher.id}</option>
-                ))}
-              </select>
-            </label>
-          ) : null}
-          <p className="flex min-h-10 items-center text-sm font-medium text-ink">
-            {published ? t('programs.published') : t('programs.draft')}
-          </p>
-        </div>
-        {contentType === 'text' ? (
-          <>
-            <Tabs
-              label={t('panels.label')}
-              value={pane}
-              onChange={setPane}
-              tabs={[
-                { id: 'write', label: t('panels.write') },
-                { id: 'assist', label: t('panels.assist') },
-              ]}
-            />
-            <div className={pane === 'write' ? 'min-h-[24rem]' : 'hidden'}>
-              <AdvancedEditor content={content} onChange={setContent} editorRef={editorRef} />
-            </div>
-            {pane === 'assist' ? (
-              <AILessonGenerator
-                getContent={() => editorRef.current?.getText() ?? ''}
-                onInsert={(markdown) => {
-                  setPane('write')
-                  editorRef.current?.insertMarkdown(markdown)
-                }}
-              />
-            ) : null}
-          </>
+        {pane === 'assist' ? (
+          <AILessonGenerator
+            getContent={() => editorRef.current?.getText() ?? ''}
+            onInsert={(markdown) => {
+              setPane('write')
+              editorRef.current?.insertMarkdown(markdown)
+            }}
+          />
         ) : null}
-        {contentType === 'slides' ? (
-          <div className="grid gap-3">
+        <details className="rounded-2xl border border-line bg-white/60 p-3" open={attachmentCount > 0}>
+          <summary className="cursor-pointer list-none text-sm font-medium text-ink">
+            <span className="inline-flex flex-wrap items-center gap-2">
+              <span>{t('programs.attachments')}</span>
+              <span className="rounded-full bg-canvas px-2 py-0.5 text-xs font-normal text-muted">
+                {t('programs.attachmentsCount', { count: attachmentCount })}
+              </span>
+            </span>
+          </summary>
+          <div className="mt-3 grid gap-3">
+            <p className="text-xs text-muted">{t('programs.attachmentsHint')}</p>
+            <MediaField
+              id="compose-pdf"
+              label={t('programs.pdfFile')}
+              value={pdfUrl}
+              onChange={(url) => {
+                setPdfUrl(url)
+                if (url && !pdfLabel.trim()) setPdfLabel(lessonName)
+              }}
+              onError={setError}
+              accept="application/pdf,.pdf"
+              folder="pdfs"
+              hint={t('programs.pdfHint')}
+              displayName={pdfLabel.trim() || lessonName}
+              uploadName={lessonFileStem(lessonName, 'pdf')}
+            />
+            {pdfUrl ? (
+              <label className="grid gap-1 text-sm font-medium text-ink" htmlFor="compose-pdf-label">
+                {t('programs.fileDisplayName')}
+                <input id="compose-pdf-label" className="ui-field" value={pdfLabel} onChange={(event) => setPdfLabel(event.target.value)} placeholder={lessonName} />
+              </label>
+            ) : null}
             <MediaField
               id="compose-slides-file"
               label={t('programs.slideFile')}
-              value={isFileUrl(contentUrl) ? contentUrl : ''}
-              onChange={setContentUrl}
+              value={slideUrl}
+              onChange={(url) => {
+                setSlideUrl(url)
+                if (url && !slideLabel.trim()) setSlideLabel(lessonName)
+              }}
               onError={setError}
               accept=".pdf,.ppt,.pptx,application/pdf,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation"
               folder="slides"
               hint={t('programs.slideHint')}
+              placeholder={t('programs.slideLink')}
+              displayName={slideLabel.trim() || lessonName}
+              uploadName={lessonFileStem(lessonName, 'slides')}
             />
-            {!isFileUrl(contentUrl) ? (
-              <label className="grid gap-1 text-sm font-medium text-ink" htmlFor="compose-slides">
-                {t('programs.slideBody')}
-                <textarea id="compose-slides" className="ui-field min-h-56 py-2" value={contentUrl} onChange={(event) => setContentUrl(event.target.value)} />
+            {slideUrl ? (
+              <label className="grid gap-1 text-sm font-medium text-ink" htmlFor="compose-slide-label">
+                {t('programs.fileDisplayName')}
+                <input id="compose-slide-label" className="ui-field" value={slideLabel} onChange={(event) => setSlideLabel(event.target.value)} placeholder={lessonName} />
               </label>
             ) : null}
+            <label className="grid gap-1 text-sm font-medium text-ink" htmlFor="compose-slides">
+              {t('programs.slideBody')}
+              <textarea id="compose-slides" className="ui-field min-h-28 py-2" value={slideMarkdown} onChange={(event) => setSlideMarkdown(event.target.value)} />
+            </label>
+            <label className="grid gap-1 text-sm font-medium text-ink" htmlFor="compose-video">
+              {t('programs.videoLink')}
+              <input id="compose-video" className="ui-field" value={videoUrl} onChange={(event) => setVideoUrl(event.target.value)} placeholder={t('editor.youtubePrompt')} />
+              <span className="text-xs font-normal text-muted">{t('programs.videoHint')}</span>
+            </label>
           </div>
-        ) : null}
-        {contentType === 'pdf' ? (
-          <MediaField
-            id="compose-pdf"
-            label={t('programs.pdfFile')}
-            value={contentUrl}
-            onChange={setContentUrl}
-            onError={setError}
-            accept="application/pdf,.pdf"
-            folder="pdfs"
-            hint={t('programs.pdfHint')}
-          />
-        ) : null}
-        {contentType === 'video' ? (
-          <label className="grid gap-1 text-sm font-medium text-ink" htmlFor="compose-video">
-            {t('programs.videoLink')}
-            <input id="compose-video" className="ui-field" value={contentUrl} onChange={(event) => setContentUrl(event.target.value)} placeholder="https://www.youtube.com/watch?v=..." />
-            <span className="text-xs font-normal text-muted">{t('programs.videoHint')}</span>
-          </label>
-        ) : null}
-        <QuizSetup quizzes={quizzes} settings={quizSettings} onQuizzes={setQuizzes} onSettings={setQuizSettings} />
+        </details>
+        <details className="rounded-2xl border border-line bg-white/60 p-3">
+          <summary className="cursor-pointer list-none text-sm font-medium text-ink">
+            <span className="inline-flex flex-wrap items-center gap-2">
+              <span>{t('editor.moreOptions')}</span>
+              <span className="rounded-full bg-canvas px-2 py-0.5 text-xs font-normal text-muted">
+                {t('editor.coursesPicked', { count: courseIds.length })}
+              </span>
+              {canAssignAuthor ? (
+                <span className="rounded-full bg-canvas px-2 py-0.5 text-xs font-normal text-muted">{authorName}</span>
+              ) : null}
+              <span className="rounded-full bg-canvas px-2 py-0.5 text-xs font-normal text-muted">
+                {published ? t('programs.published') : t('programs.draft')}
+              </span>
+            </span>
+          </summary>
+          <div className="mt-3 grid gap-3">
+            <label className="grid gap-1 text-sm font-medium text-ink" htmlFor="compose-module">
+              {t('programs.module')}
+              <input id="compose-module" className="ui-field" value={moduleName} onChange={(event) => setModuleName(event.target.value)} placeholder={t('programs.modulePlaceholder')} />
+              <span className="text-xs font-normal text-muted">{t('programs.moduleHint')}</span>
+            </label>
+            {canPlaceCourse ? (
+              <div className="grid gap-2">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-sm font-medium text-ink">{t('editor.assignCourse')}</p>
+                  <button type="button" className="ui-inline ui-btn-ghost" onClick={() => setCourseIds([])} disabled={courseIds.length === 0}>
+                    {t('classesPage.clearPick')}
+                  </button>
+                </div>
+                <input className="ui-field" value={courseQuery} onChange={(event) => setCourseQuery(event.target.value)} placeholder={t('filters.search')} />
+                <div className="max-h-36 overflow-y-auto rounded-xl border border-line bg-white/80 p-1">
+                  {visibleCourses.length === 0 ? <p className="px-2 py-2 text-sm text-muted">{t('filters.noMatch')}</p> : null}
+                  {visibleCourses.map((program) => (
+                    <label key={program.id} className="flex min-h-9 cursor-pointer items-center gap-2 rounded-lg px-2 text-sm font-normal text-ink hover:bg-canvas">
+                      <input
+                        type="checkbox"
+                        checked={courseIds.includes(program.id)}
+                        onChange={() => {
+                          setCourseIds((current) =>
+                            current.includes(program.id) ? current.filter((id) => id !== program.id) : [...current, program.id],
+                          )
+                        }}
+                      />
+                      <span className="truncate">{localizedLabel(program.title, i18n.language) || t('programs.untitled')}</span>
+                    </label>
+                  ))}
+                </div>
+                {courseIds.length > 0 ? (
+                  <label className="grid max-w-40 gap-1 text-sm font-medium text-ink" htmlFor="compose-order">
+                    {t('editor.sortOrder')}
+                    <input id="compose-order" className="ui-field" type="number" min={0} value={orderIndex} onChange={(event) => setOrderIndex(Number(event.target.value))} />
+                  </label>
+                ) : null}
+              </div>
+            ) : (
+              <p className="text-sm text-muted">{t('editor.adminPlaces')}</p>
+            )}
+            {canAssignAuthor ? (
+              <div className="grid gap-2">
+                <p className="text-sm font-medium text-ink">{t('programs.author')}</p>
+                <span className="text-xs text-muted">{t('programs.authorHint')}</span>
+                <input className="ui-field" value={teacherQuery} onChange={(event) => setTeacherQuery(event.target.value)} placeholder={t('filters.search')} />
+                <div className="max-h-32 overflow-y-auto rounded-xl border border-line bg-white/80 p-1">
+                  <label className="flex min-h-9 cursor-pointer items-center gap-2 rounded-lg px-2 text-sm text-ink hover:bg-canvas">
+                    <input type="radio" name="compose-author" checked={!authorId} onChange={() => setAuthorId('')} />
+                    {t('programs.unassigned')}
+                  </label>
+                  {visibleTeachers.map((teacher) => (
+                    <label key={teacher.id} className="flex min-h-9 cursor-pointer items-center gap-2 rounded-lg px-2 text-sm text-ink hover:bg-canvas">
+                      <input type="radio" name="compose-author" checked={authorId === teacher.id} onChange={() => setAuthorId(teacher.id)} />
+                      <span className="truncate">{teacher.fullName || teacher.id}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+            <p className="text-sm font-medium text-ink">{published ? t('programs.published') : t('programs.draft')}</p>
+          </div>
+        </details>
+        <details className="rounded-2xl border border-line bg-white/60 p-3" open={quizzes.length > 0}>
+          <summary className="cursor-pointer list-none text-sm font-medium text-ink">
+            {t('student.materialQuiz')} · {quizzes.length}
+          </summary>
+          <div className="mt-3">
+            <QuizSetup quizzes={quizzes} settings={quizSettings} onQuizzes={setQuizzes} onSettings={setQuizSettings} />
+          </div>
+        </details>
         {error ? <p role="alert" className="text-sm text-danger">{error}</p> : null}
         {draftNote ? <p className="text-sm text-muted">{draftNote}</p> : null}
         <div className="ui-dialog-foot">
