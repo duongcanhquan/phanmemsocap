@@ -194,16 +194,16 @@ export function Accounts() {
           </>
         ) : null}
         {canCreate ? (
-          <button type="button" className="ui-inline ui-btn-primary shrink-0" onClick={() => setCreating(true)}>
+          <button type="button" className="ui-btn ui-btn-primary shrink-0" onClick={() => setCreating(true)}>
             {t('accounts.create')}
           </button>
         ) : null}
         {canCreate && tab !== 'manager' ? (
-          <button type="button" className="ui-inline ui-btn-ghost shrink-0" onClick={() => setImporting(true)}>
+          <button type="button" className="ui-btn ui-btn-ghost shrink-0" onClick={() => setImporting(true)}>
             {t('accounts.importTitle')}
           </button>
         ) : null}
-        <button type="button" className="ui-inline ui-btn-ghost shrink-0" onClick={() => navigate('/account')}>
+        <button type="button" className="ui-btn ui-btn-ghost shrink-0" onClick={() => navigate('/account')}>
           {t('accounts.savePassword')}
         </button>
       </FilterBar>
@@ -261,11 +261,11 @@ export function Accounts() {
                   {canEditPerson(role, person, user?.id) ? (
                     <span className="inline-flex gap-2" onClick={(event) => event.stopPropagation()}>
                       {person.role === 'student' ? (
-                        <button type="button" className="ui-inline ui-btn-primary" onClick={() => navigate(`/students/${person.id}`)}>
+                        <button type="button" className="ui-btn ui-btn-primary" onClick={() => navigate(`/students/${person.id}`)}>
                           {t('accounts.detail')}
                         </button>
                       ) : null}
-                      <button type="button" className="ui-inline ui-btn-ghost" onClick={() => setEditing(person)}>
+                      <button type="button" className="ui-btn ui-btn-ghost" onClick={() => setEditing(person)}>
                         {t('accounts.edit')}
                       </button>
                       {person.id === user?.id ? (
@@ -273,7 +273,7 @@ export function Accounts() {
                       ) : pendingDelete === person.id ? (
                         <button
                           type="button"
-                          className="ui-inline bg-danger text-white"
+                          className="ui-btn bg-danger text-white"
                           onClick={() => {
                             void deleteAccount(person.id)
                               .then((rows) => {
@@ -286,7 +286,7 @@ export function Accounts() {
                           {t('accounts.confirmRemove')}
                         </button>
                       ) : (
-                        <button type="button" className="ui-inline text-danger" onClick={() => setPendingDelete(person.id)}>
+                        <button type="button" className="ui-btn ui-btn-danger" onClick={() => setPendingDelete(person.id)}>
                           {t('accounts.remove')}
                         </button>
                       )}
@@ -493,7 +493,7 @@ function PersonForm({
       ) : null}
       <div className="ui-dialog-foot sm:col-span-2">
         {onCancel ? (
-          <button type="button" className="ui-btn ui-btn-ghost border border-line" onClick={onCancel}>{t('accounts.cancel')}</button>
+          <button type="button" className="ui-btn ui-btn-ghost" onClick={onCancel}>{t('accounts.cancel')}</button>
         ) : null}
         <button type="submit" className="ui-btn ui-btn-primary" disabled={pending}>
           {pending ? t('accounts.saving') : submitLabel}
@@ -554,7 +554,7 @@ function ImportPeople({
         </select>
       </label>
       <div className="grid gap-2 sm:grid-cols-2">
-        <button type="button" className="ui-btn ui-btn-ghost border border-line" onClick={downloadTemplate}>
+        <button type="button" className="ui-btn ui-btn-ghost" onClick={downloadTemplate}>
           {t('accounts.template')}
         </button>
         <label className="ui-btn ui-btn-primary cursor-pointer">

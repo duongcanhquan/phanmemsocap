@@ -166,7 +166,7 @@ function ProgramList() {
             {program.continueLessonId ? (
               <Link
                 to={`/student/${program.id}/${program.continueLessonId}`}
-                className="ui-inline ui-btn-primary w-fit"
+                className="ui-btn ui-btn-primary w-fit"
                 onClick={(event) => event.stopPropagation()}
               >
                 {t('student.continue')}
@@ -240,7 +240,7 @@ function LessonTimeline({ programId }: { programId: string }) {
         back={{ to: '/student', label: t('student.backPrograms') }}
         action={
           current ? (
-            <Link to={`/student/${programId}/${current.id}`} className="ui-inline ui-btn-primary">
+            <Link to={`/student/${programId}/${current.id}`} className="ui-btn ui-btn-primary">
               {t('student.continue')}
             </Link>
           ) : lessons.length > 0 ? (

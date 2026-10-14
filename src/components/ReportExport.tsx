@@ -230,7 +230,7 @@ export function ReportExport({ programId, studentIds, classLabel = '' }: ReportE
             ))}
             <button
               type="button"
-              className="ui-inline ui-btn-primary"
+              className="ui-btn ui-btn-primary"
               disabled={examining || pickedStudents.length === 0 || pickedLessons.length === 0}
               onClick={() => void downloadExams()}
             >

@@ -91,7 +91,7 @@ export function AILessonGenerator({ getContent, onInsert }: AILessonGeneratorPro
           <button
             key={task}
             type="button"
-            className="ui-btn ui-btn-ghost border border-line justify-start"
+            className="ui-btn ui-btn-ghost justify-start"
             disabled={pending !== null || !model}
             onClick={() => void run(task)}
           >

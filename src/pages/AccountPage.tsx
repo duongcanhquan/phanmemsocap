@@ -136,7 +136,7 @@ export function AccountPage() {
           {role ? <p className="text-sm text-muted">{t(`accounts.roles.${role}`)}</p> : null}
           {role === 'student' ? <p className="text-sm text-muted">{t('accounts.readOnly')}</p> : (
           <div className="mt-2 flex flex-wrap gap-2">
-            <label className="ui-inline ui-btn-primary">
+            <label className="ui-btn ui-btn-primary cursor-pointer">
               {t('header.selfIconChange')}
               <input
                 className="sr-only"
@@ -151,7 +151,7 @@ export function AccountPage() {
               />
             </label>
             {avatarUrl ? (
-              <button type="button" className="ui-inline ui-btn-ghost" disabled={pending} onClick={() => void onRemove()}>
+              <button type="button" className="ui-btn ui-btn-ghost" disabled={pending} onClick={() => void onRemove()}>
                 {t('header.selfIconRemove')}
               </button>
             ) : null}

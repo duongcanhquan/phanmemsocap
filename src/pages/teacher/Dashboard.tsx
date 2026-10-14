@@ -236,7 +236,7 @@ export function TeacherDashboard() {
                       <td className="tabular-nums">{row.averageScore === null ? t('teacher.noScore') : row.averageScore.toFixed(1)}</td>
                       <td>{row.progress >= 100 ? t('teacher.finishedAll') : t('teacher.stillLearning')}</td>
                       <td>
-                        <Link to={`/teacher/grading?student=${row.studentId}&class=${row.classId}`} className="ui-inline ui-btn-ghost">
+                        <Link to={`/teacher/grading?student=${row.studentId}&class=${row.classId}`} className="ui-btn ui-btn-ghost">
                           {t('teacher.gradeStudent')}
                         </Link>
                       </td>
@@ -356,7 +356,7 @@ export function TeacherDashboard() {
                           : `${row.averageScore.toFixed(1)} · ${row.progress < 100 ? t('teacher.incomplete') : t(row.averageScore >= passingScore ? 'teacher.passed' : 'teacher.belowPass')}`}
                       </td>
                       <td>
-                        <Link to={`/students/${row.studentId}`} className="ui-inline ui-btn-ghost">
+                        <Link to={`/students/${row.studentId}`} className="ui-btn ui-btn-ghost">
                           {t('teacher.viewLog')}
                         </Link>
                       </td>

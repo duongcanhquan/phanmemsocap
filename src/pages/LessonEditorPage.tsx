@@ -172,15 +172,15 @@ export function LessonEditorPage() {
             ))}
           </select>
         </label>
-        <button type="button" className="ui-inline ui-btn-primary" onClick={() => setEditing(null)}>
+        <button type="button" className="ui-btn ui-btn-primary" onClick={() => setEditing(null)}>
           {t('editor.newLesson')}
         </button>
       </div>
       <div className="flex shrink-0 items-center gap-2">
-        <button type="button" className={sort === 'order' ? 'ui-inline ui-btn-primary' : 'ui-inline ui-btn-ghost'} onClick={() => setSort('order')}>
+        <button type="button" className={sort === 'order' ? 'ui-btn ui-btn-primary' : 'ui-btn ui-btn-ghost'} onClick={() => setSort('order')}>
           {t('editor.sortOrder')}
         </button>
-        <button type="button" className={sort === 'time' ? 'ui-inline ui-btn-primary' : 'ui-inline ui-btn-ghost'} onClick={() => setSort('time')}>
+        <button type="button" className={sort === 'time' ? 'ui-btn ui-btn-primary' : 'ui-btn ui-btn-ghost'} onClick={() => setSort('time')}>
           {t('editor.sortTime')}
         </button>
       </div>
@@ -212,13 +212,13 @@ export function LessonEditorPage() {
                 <td>{lesson.isPublished ? t('programs.published') : t('programs.draft')}</td>
                 <td>
                   <span className="inline-flex gap-2" onClick={(event) => event.stopPropagation()}>
-                    <button type="button" className="ui-inline ui-btn-ghost" onClick={() => setEditing(lesson)}>
+                    <button type="button" className="ui-btn ui-btn-ghost" onClick={() => setEditing(lesson)}>
                       {t('accounts.edit')}
                     </button>
                     {pendingDelete === lesson.id ? (
                       <button
                         type="button"
-                        className="ui-inline bg-danger text-white"
+                        className="ui-btn bg-danger text-white"
                         onClick={() => {
                           void deleteLesson(lesson.id)
                             .then(() => {
@@ -232,7 +232,7 @@ export function LessonEditorPage() {
                         {t('programs.confirmRemove')}
                       </button>
                     ) : (
-                      <button type="button" className="ui-inline text-danger" onClick={() => setPendingDelete(lesson.id)}>
+                      <button type="button" className="ui-btn ui-btn-danger" onClick={() => setPendingDelete(lesson.id)}>
                         {t('programs.remove')}
                       </button>
                     )}
@@ -656,7 +656,7 @@ function LessonComposer({
               <button
                 key={type}
                 type="button"
-                className={focusType === type ? 'ui-inline ui-btn-primary' : 'ui-inline ui-btn-ghost'}
+                className={focusType === type ? 'ui-btn ui-btn-primary' : 'ui-btn ui-btn-ghost'}
                 aria-pressed={focusType === type}
                 onClick={() => setFocusType(type)}
               >
@@ -746,7 +746,7 @@ function LessonComposer({
               <div className="grid gap-2">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <p className="text-sm font-medium text-ink">{t('editor.assignCourse')}</p>
-                  <button type="button" className="ui-inline ui-btn-ghost" onClick={() => setCourseIds([])} disabled={courseIds.length === 0}>
+                  <button type="button" className="ui-btn ui-btn-ghost" onClick={() => setCourseIds([])} disabled={courseIds.length === 0}>
                     {t('classesPage.clearPick')}
                   </button>
                 </div>
@@ -812,15 +812,15 @@ function LessonComposer({
         {draftNote ? <p className="text-sm text-muted">{draftNote}</p> : null}
         <div className="ui-dialog-foot">
           {hasSaved ? (
-            <button type="button" className="ui-inline bg-danger text-white" disabled={pending} onClick={() => void onDelete()}>
+            <button type="button" className="ui-btn ui-btn-danger" disabled={pending} onClick={() => void onDelete()}>
               {confirmDelete ? t('programs.confirmRemove') : t('programs.remove')}
             </button>
           ) : null}
-          <button type="button" className="ui-inline ui-btn-ghost" onClick={() => void leave()}>{t('programs.cancel')}</button>
-          <button type="button" className="ui-inline ui-btn-ghost" disabled={pending} onClick={() => void persist('draft')}>
+          <button type="button" className="ui-btn ui-btn-ghost" onClick={() => void leave()}>{t('programs.cancel')}</button>
+          <button type="button" className="ui-btn ui-btn-ghost" disabled={pending} onClick={() => void persist('draft')}>
             {pending ? t('editor.draftSaving') : t('editor.saveDraft')}
           </button>
-          <button type="button" className="ui-inline ui-btn-primary" disabled={pending} onClick={() => void persist('publish')}>
+          <button type="button" className="ui-btn ui-btn-primary" disabled={pending} onClick={() => void persist('publish')}>
             {t('editor.publish')}
           </button>
         </div>

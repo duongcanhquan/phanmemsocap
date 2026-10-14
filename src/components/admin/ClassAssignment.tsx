@@ -79,7 +79,7 @@ export function ClassAssignment({ programId, canEdit = true }: ClassAssignmentPr
                 {item.startsOn || item.endsOn ? ` · ${item.startsOn || '—'} – ${item.endsOn || '—'}` : ''}
               </span>
               {canEdit ? (
-                <button type="button" className="ui-inline ui-btn-ghost" disabled={pending} onClick={() => void detach(item.id)}>
+                <button type="button" className="ui-btn ui-btn-ghost" disabled={pending} onClick={() => void detach(item.id)}>
                   {t('classesPage.detach')}
                 </button>
               ) : null}
@@ -100,7 +100,7 @@ export function ClassAssignment({ programId, canEdit = true }: ClassAssignmentPr
               ))}
             </select>
           </label>
-          <button type="button" className="ui-inline ui-btn-primary" disabled={pending || !pick} onClick={() => void assign()}>
+          <button type="button" className="ui-btn ui-btn-primary" disabled={pending || !pick} onClick={() => void assign()}>
             {t('programs.assignClass')}
           </button>
         </div>

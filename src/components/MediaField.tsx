@@ -65,12 +65,12 @@ export function MediaField({
         />
       </label>
       <div className="flex flex-wrap items-center gap-2">
-        <label className="ui-inline ui-btn-ghost cursor-pointer">
+        <label className="ui-btn ui-btn-ghost cursor-pointer">
           <input className="sr-only" type="file" accept={accept} disabled={pending} onChange={(event) => void onFile(event.target.files?.[0])} />
           {pending ? t('editor.uploading') : value ? t('programs.replaceFile') : t('programs.uploadFile')}
         </label>
         {value ? (
-          <button type="button" className="ui-inline ui-btn-ghost" onClick={() => onChange('')}>
+          <button type="button" className="ui-btn ui-btn-ghost" onClick={() => onChange('')}>
             {t('programs.clearFile')}
           </button>
         ) : null}

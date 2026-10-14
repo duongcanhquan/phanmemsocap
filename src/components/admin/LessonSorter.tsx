@@ -157,7 +157,7 @@ function SortableLesson({
       <td>
         <button
           type="button"
-          className="ui-btn ui-btn-ghost"
+          className="ui-btn ui-btn-ghost px-2"
           aria-label={t('programs.reorder')}
           {...attributes}
           {...listeners}
@@ -201,7 +201,7 @@ function SortableLesson({
         </select>
       </td>
       <td>
-        <button type="button" className="ui-inline ui-btn-ghost" onClick={(event) => { event.stopPropagation(); onEdit(lesson) }}>
+        <button type="button" className="ui-btn ui-btn-ghost" onClick={(event) => { event.stopPropagation(); onEdit(lesson) }}>
           <Pencil aria-hidden="true" className="size-4" />
           {t('programs.edit')}
         </button>

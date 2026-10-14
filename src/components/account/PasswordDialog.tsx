@@ -55,7 +55,7 @@ export function PasswordDialog({
       >
         <div className="flex items-start justify-between gap-3">
           <h2 className="text-lg font-semibold uppercase">{t('accounts.savePassword')}</h2>
-          <button type="button" className="ui-inline ui-btn-ghost" onClick={onClose}>
+          <button type="button" className="ui-btn ui-btn-ghost" onClick={onClose}>
             {t('teacher.close')}
           </button>
         </div>

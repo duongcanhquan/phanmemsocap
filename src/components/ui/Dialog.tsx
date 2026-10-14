@@ -32,7 +32,7 @@ export function Dialog({ title, onClose, children }: DialogProps) {
           <h2 id="sheet-dialog-title" className="text-xl font-semibold tracking-tight">
             {title}
           </h2>
-          <button type="button" className="ui-inline ui-btn-ghost" onClick={onClose}>
+          <button type="button" className="ui-btn ui-btn-ghost px-2" onClick={onClose}>
             <X aria-hidden="true" className="size-4" />
             {t('teacher.close')}
           </button>

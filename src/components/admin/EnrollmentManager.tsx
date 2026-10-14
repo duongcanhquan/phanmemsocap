@@ -123,7 +123,7 @@ export function EnrollmentManager({ classId }: EnrollmentManagerProps) {
           </button>
           <button
             type="button"
-            className="ui-btn ui-btn-ghost border border-line"
+            className="ui-btn ui-btn-ghost"
             aria-label={t('enrollment.remove')}
             disabled={pending || enrolledSelection.length === 0}
             onClick={() => void moveOut()}

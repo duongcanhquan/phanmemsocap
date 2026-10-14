@@ -98,7 +98,7 @@ export function StudentFilePage() {
                 <Fact label={t('transcript.summary')} value={place.average === null ? t('teacher.noScore') : place.average.toFixed(1)} />
               </div>
               {place.programId ? (
-                <Link to={`/teacher/students/${studentId}/${place.programId}`} className="ui-inline ui-btn-ghost w-fit">
+                <Link to={`/teacher/students/${studentId}/${place.programId}`} className="ui-btn ui-btn-ghost w-fit">
                   {t('studentFile.history')}
                 </Link>
               ) : null}

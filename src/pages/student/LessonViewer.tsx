@@ -163,13 +163,13 @@ export function LessonViewer({ programId, lessonId }: LessonViewerProps) {
           </div>
           <div className="flex items-center justify-between gap-3">
             {previousLesson ? (
-              <Link to={`/student/${programId}/${previousLesson.id}`} className="ui-inline ui-btn-ghost min-w-0 max-w-[45%]">
+              <Link to={`/student/${programId}/${previousLesson.id}`} className="ui-btn ui-btn-ghost min-w-0 max-w-[45%]">
                 <ChevronLeft aria-hidden="true" className="size-4 shrink-0" />
                 <span className="truncate">{localizedLabel(previousLesson.title, i18n.language) || t('student.previousLesson')}</span>
               </Link>
             ) : <span />}
             {nextLesson ? (
-              <Link to={`/student/${programId}/${nextLesson.id}`} className="ui-inline ui-btn-primary min-w-0 max-w-[45%]">
+              <Link to={`/student/${programId}/${nextLesson.id}`} className="ui-btn ui-btn-primary min-w-0 max-w-[45%]">
                 <span className="truncate">{localizedLabel(nextLesson.title, i18n.language) || t('student.nextLesson')}</span>
                 <ChevronRight aria-hidden="true" className="size-4 shrink-0" />
               </Link>
@@ -412,7 +412,7 @@ function MaterialBlock({
           <h3 className="text-base font-semibold text-ink">{title}</h3>
         </div>
         {href && openLabel ? (
-          <a className="ui-inline ui-btn-primary" href={href} target="_blank" rel="noreferrer">
+          <a className="ui-btn ui-btn-primary" href={href} target="_blank" rel="noreferrer">
             {openLabel}
             <ExternalLink aria-hidden="true" className="size-3.5" />
           </a>

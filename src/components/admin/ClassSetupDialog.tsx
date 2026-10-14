@@ -240,11 +240,11 @@ export function ClassSetupDialog({
               </button>
             )
           ) : null}
-          <button type="button" className="ui-btn ui-btn-ghost border border-line" onClick={onClose}>
+          <button type="button" className="ui-btn ui-btn-ghost" onClick={onClose}>
             {t('accounts.cancel')}
           </button>
           {tab !== 'setup' ? (
-            <button type="button" className="ui-btn ui-btn-ghost border border-line" onClick={() => setTab(tab === 'students' ? 'teachers' : 'setup')}>
+            <button type="button" className="ui-btn ui-btn-ghost" onClick={() => setTab(tab === 'students' ? 'teachers' : 'setup')}>
               {t('classesPage.backTab')}
             </button>
           ) : null}
@@ -301,10 +301,10 @@ function PeoplePicker({
         placeholder={t('filters.search')}
       />
       <div className="flex flex-wrap gap-2">
-        <button type="button" className="ui-inline ui-btn-ghost" onClick={onSelectAll} disabled={people.length === 0}>
+        <button type="button" className="ui-btn ui-btn-ghost" onClick={onSelectAll} disabled={people.length === 0}>
           {selectAllLabel}
         </button>
-        <button type="button" className="ui-inline ui-btn-ghost" onClick={onClear} disabled={selected.length === 0}>
+        <button type="button" className="ui-btn ui-btn-ghost" onClick={onClear} disabled={selected.length === 0}>
           {t('classesPage.clearPick')}
         </button>
         <span className="self-center text-xs text-muted">{t('classesPage.pickedCount', { count: selected.length })}</span>

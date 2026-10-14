@@ -147,13 +147,27 @@
   }
 
   .ui-btn-ghost {
-    @apply text-ink;
-    border: 1px solid rgb(255 255 255 / 0.7);
-    background: rgb(255 255 255 / 0.35);
+    @apply border border-line bg-white text-ink shadow-sm;
   }
 
   .ui-btn-ghost:hover {
-    background: rgb(255 255 255 / 0.55);
+    @apply bg-canvas;
+  }
+
+  .ui-btn-ghost:active:not(:disabled) {
+    background: #e2eef6;
+  }
+
+  .ui-btn-danger {
+    @apply border border-danger/40 bg-white text-danger shadow-sm;
+  }
+
+  .ui-btn-danger:hover {
+    background: rgb(185 28 28 / 0.08);
+  }
+
+  .ui-btn-danger:active:not(:disabled) {
+    background: rgb(185 28 28 / 0.14);
   }
 
   .ui-field {

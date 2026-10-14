@@ -248,7 +248,7 @@ export function LessonModal({ programId, lesson, nextOrder, onClose, onSaved }: 
                 <button
                   key={type}
                   type="button"
-                  className={focusType === type ? 'ui-inline ui-btn-primary' : 'ui-inline ui-btn-ghost'}
+                  className={focusType === type ? 'ui-btn ui-btn-primary' : 'ui-btn ui-btn-ghost'}
                   aria-pressed={focusType === type}
                   onClick={() => setFocusType(type)}
                 >
@@ -262,7 +262,7 @@ export function LessonModal({ programId, lesson, nextOrder, onClose, onSaved }: 
             richBody ? (
               <div className="rounded-2xl border border-line bg-canvas/80 p-3 text-sm text-ink">
                 <p>{t('programs.editInComposer')}</p>
-                <Link className="ui-inline ui-btn-primary mt-2" to="/lessons" onClick={onClose}>
+                <Link className="ui-btn ui-btn-primary mt-2 w-fit" to="/lessons" onClick={onClose}>
                   {t('editor.title')}
                 </Link>
               </div>
@@ -364,11 +364,11 @@ export function LessonModal({ programId, lesson, nextOrder, onClose, onSaved }: 
         ) : null}
         <div className="ui-dialog-foot">
           {lesson ? (
-            <button type="button" className="ui-btn text-danger" disabled={pending} onClick={() => void onDelete()}>
+            <button type="button" className="ui-btn ui-btn-danger" disabled={pending} onClick={() => void onDelete()}>
               {confirmDelete ? t('programs.confirmRemove') : t('programs.remove')}
             </button>
           ) : null}
-          <button type="button" className="ui-btn ui-btn-ghost border border-line" onClick={onClose}>
+          <button type="button" className="ui-btn ui-btn-ghost" onClick={onClose}>
             {t('programs.cancel')}
           </button>
           <button type="submit" className="ui-btn ui-btn-primary" disabled={pending || (Boolean(lesson) && !quizzesLoaded)}>

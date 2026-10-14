@@ -91,7 +91,7 @@ export function OwnAccount({
           ) : (
             <span className="inline-flex size-16 items-center justify-center rounded-full bg-accent text-lg font-semibold text-white">{initial}</span>
           )}
-          <label className="ui-inline ui-btn-primary">
+          <label className="ui-btn ui-btn-primary cursor-pointer">
             {t('header.selfIconChange')}
             <input
               className="sr-only"
@@ -106,7 +106,7 @@ export function OwnAccount({
             />
           </label>
           {avatarUrl ? (
-            <button type="button" className="ui-inline ui-btn-ghost" disabled={pending} onClick={() => void onRemove()}>
+            <button type="button" className="ui-btn ui-btn-ghost" disabled={pending} onClick={() => void onRemove()}>
               {t('header.selfIconRemove')}
             </button>
           ) : null}

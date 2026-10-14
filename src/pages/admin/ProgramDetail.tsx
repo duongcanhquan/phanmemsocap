@@ -124,7 +124,7 @@ export function ProgramDetail() {
 
   return (
     <div className="ui-page">
-      <Link to={admin ? '/programs' : '/teacher'} className="ui-btn ui-btn-ghost w-fit px-2">
+      <Link to={admin ? '/programs' : '/teacher'} className="ui-btn ui-btn-ghost w-fit">
         <ArrowLeft aria-hidden="true" className="size-4" />
         {t('programs.back')}
       </Link>
@@ -224,7 +224,7 @@ export function ProgramDetail() {
                   </select>
                 </label>
               ) : null}
-              <button type="button" className="ui-inline ui-btn-primary" onClick={() => setEditing(null)}>
+              <button type="button" className="ui-btn ui-btn-primary" onClick={() => setEditing(null)}>
                 <Plus aria-hidden="true" className="size-4" />
                 {t('programs.addLesson')}
               </button>

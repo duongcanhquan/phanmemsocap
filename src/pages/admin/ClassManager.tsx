@@ -103,7 +103,7 @@ export function ClassManager() {
           <>
             <button
               type="button"
-              className="ui-inline ui-btn-primary"
+              className="ui-btn ui-btn-primary"
               disabled={!isSupabaseConfigured || loading}
               onClick={() => {
                 setError('')
@@ -186,15 +186,15 @@ export function ClassManager() {
                   <td className="tabular-nums">{progress[item.id] ?? 0}%</td>
                   <td>
                     <span className="inline-flex gap-2" onClick={(event) => event.stopPropagation()}>
-                      <button type="button" className="ui-inline ui-btn-primary" onClick={() => setEditing(item)}>
+                      <button type="button" className="ui-btn ui-btn-ghost" onClick={() => setEditing(item)}>
                         {t('accounts.edit')}
                       </button>
                       {pendingDelete === item.id ? (
-                        <button type="button" className="ui-inline bg-danger text-white" disabled={pending} onClick={() => void removeClass(item.id)}>
+                        <button type="button" className="ui-btn bg-danger text-white" disabled={pending} onClick={() => void removeClass(item.id)}>
                           {t('programs.confirmRemove')}
                         </button>
                       ) : (
-                        <button type="button" className="ui-inline text-danger" onClick={() => setPendingDelete(item.id)}>
+                        <button type="button" className="ui-btn ui-btn-danger" onClick={() => setPendingDelete(item.id)}>
                           {t('programs.remove')}
                         </button>
                       )}

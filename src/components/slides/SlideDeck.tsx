@@ -45,7 +45,7 @@ export function SlideDeck({ markdown }: SlideDeckProps) {
         </div>
       </div>
       <div className="flex gap-2 border-t border-line p-2">
-        <button type="button" className="ui-btn ui-btn-ghost border border-line flex-1" onClick={() => deckRef.current?.prev()}>
+        <button type="button" className="ui-btn ui-btn-ghost flex-1" onClick={() => deckRef.current?.prev()}>
           <ChevronLeft aria-hidden="true" className="size-4" />
           {t('ai.previous')}
         </button>

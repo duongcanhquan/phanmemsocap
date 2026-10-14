@@ -228,7 +228,7 @@ function QuizSession({ lessonId, programId, nextLessonId, onRecorded }: QuizEngi
       ) : null}
       <div className="grid grid-cols-2 gap-2">
         {index > 0 ? (
-          <button type="button" className="ui-btn ui-btn-ghost border border-line" onClick={() => setIndex(index - 1)}>
+          <button type="button" className="ui-btn ui-btn-ghost" onClick={() => setIndex(index - 1)}>
             {t('student.previous')}
           </button>
         ) : null}

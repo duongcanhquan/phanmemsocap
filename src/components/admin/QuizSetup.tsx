@@ -51,10 +51,10 @@ export function QuizSetup({ quizzes, settings, onQuizzes, onSettings }: QuizSetu
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h3 className="text-base font-semibold text-ink">{t('exam.title')}</h3>
         <div className="flex flex-wrap gap-2">
-          <button type="button" className="ui-inline ui-btn-ghost" onClick={() => void downloadQuizTemplate()}>
+          <button type="button" className="ui-btn ui-btn-ghost" onClick={() => void downloadQuizTemplate()}>
             {t('exam.download')}
           </button>
-          <button type="button" className="ui-inline ui-btn-ghost" onClick={() => fileRef.current?.click()}>
+          <button type="button" className="ui-btn ui-btn-ghost" onClick={() => fileRef.current?.click()}>
             {t('exam.upload')}
           </button>
           <input
@@ -111,10 +111,10 @@ export function QuizSetup({ quizzes, settings, onQuizzes, onSettings }: QuizSetu
         />
       ))}
       <div className="flex flex-wrap gap-2">
-        <button type="button" className="ui-inline ui-btn-primary" onClick={() => onQuizzes([...quizzes, blankQuiz(false)])}>
+        <button type="button" className="ui-btn ui-btn-primary" onClick={() => onQuizzes([...quizzes, blankQuiz(false)])}>
           {t('exam.addChoice')}
         </button>
-        <button type="button" className="ui-inline ui-btn-ghost" onClick={() => onQuizzes([...quizzes, blankQuiz(true)])}>
+        <button type="button" className="ui-btn ui-btn-ghost" onClick={() => onQuizzes([...quizzes, blankQuiz(true)])}>
           {t('exam.addEssay')}
         </button>
       </div>
@@ -144,7 +144,7 @@ function QuestionCard({
           {' · '}
           {quiz.isEssay ? t('programs.essay') : t('exam.choice')}
         </p>
-        <button type="button" className="ui-btn text-danger" onClick={onRemove}>
+        <button type="button" className="ui-btn ui-btn-danger" onClick={onRemove}>
           {t('programs.remove')}
         </button>
       </div>
@@ -196,7 +196,7 @@ function QuestionCard({
           ))}
           <button
             type="button"
-            className="ui-btn ui-btn-ghost border border-line"
+            className="ui-btn ui-btn-ghost"
             onClick={() => onChange({ ...quiz, options: [...quiz.options, emptyLocalized()] })}
           >
             {t('programs.addOption')}

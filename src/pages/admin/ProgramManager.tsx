@@ -72,7 +72,7 @@ export function ProgramManager() {
               program.isActive ? t('programs.active') : t('programs.inactive'),
             ])}
           />
-          <button type="button" className="ui-inline ui-btn-primary" onClick={() => setCreating(true)}>
+          <button type="button" className="ui-btn ui-btn-primary" onClick={() => setCreating(true)}>
             <Plus aria-hidden="true" className="size-4" />
             {t('programs.create')}
           </button>
@@ -136,16 +136,16 @@ export function ProgramManager() {
                   <td>{program.isActive ? t('programs.active') : t('programs.inactive')}</td>
                   <td>
                     <span className="inline-flex gap-2" onClick={(event) => event.stopPropagation()}>
-                      <button type="button" className="ui-inline ui-btn-ghost" onClick={() => setEditing(program)}>
+                      <button type="button" className="ui-btn ui-btn-ghost" onClick={() => setEditing(program)}>
                         {t('accounts.edit')}
                       </button>
-                      <Link to={`/programs/${program.id}`} className="ui-inline ui-btn-primary">
+                      <Link to={`/programs/${program.id}`} className="ui-btn ui-btn-primary">
                         {t('programs.open')}
                       </Link>
                       {pendingDelete === program.id ? (
                         <button
                           type="button"
-                          className="ui-inline bg-danger text-white"
+                          className="ui-btn bg-danger text-white"
                           onClick={() => {
                             void deleteProgram(program.id)
                               .then(() => {
@@ -159,7 +159,7 @@ export function ProgramManager() {
                           {t('programs.confirmRemove')}
                         </button>
                       ) : (
-                        <button type="button" className="ui-inline text-danger" onClick={() => setPendingDelete(program.id)}>
+                        <button type="button" className="ui-btn ui-btn-danger" onClick={() => setPendingDelete(program.id)}>
                           {t('programs.remove')}
                         </button>
                       )}
@@ -315,7 +315,7 @@ function ProgramDialog({
               {teachers.map((teacher) => {
                 const checked = staffIds.includes(teacher.id)
                 return (
-                  <label key={teacher.id} className={checked ? 'ui-inline ui-btn-primary' : 'ui-inline ui-btn-ghost'}>
+                  <label key={teacher.id} className={checked ? 'ui-btn ui-btn-primary cursor-pointer' : 'ui-btn ui-btn-ghost cursor-pointer'}>
                     <input
                       type="checkbox"
                       className="sr-only"
@@ -346,7 +346,7 @@ function ProgramDialog({
                 {confirmDelete ? t('programs.confirmRemove') : t('programs.remove')}
               </button>
             ) : null}
-            <button type="button" className="ui-btn ui-btn-ghost border border-line" onClick={onClose}>
+            <button type="button" className="ui-btn ui-btn-ghost" onClick={onClose}>
               {t('programs.cancel')}
             </button>
             <button type="submit" className="ui-btn ui-btn-primary" disabled={pending}>

@@ -161,7 +161,7 @@ export function Grading({ embedded = false }: { embedded?: boolean }) {
                 <td>{row.submittedAt ? new Date(row.submittedAt).toLocaleString(i18n.language) : '—'}</td>
                 <td className="tabular-nums font-semibold">{row.score === null ? t('teacher.ungraded') : row.score.toFixed(1)}</td>
                 <td>
-                  <button type="button" className="ui-inline ui-btn-primary" onClick={() => openRow(row)}>
+                  <button type="button" className="ui-btn ui-btn-primary" onClick={() => openRow(row)}>
                     {row.score === null ? t('teacher.grade') : t('teacher.regrade')}
                   </button>
                 </td>
@@ -183,7 +183,7 @@ export function Grading({ embedded = false }: { embedded?: boolean }) {
               <h2 id="grade-title" className="text-lg font-semibold text-ink">
                 {selected.studentName || t('enrollment.unnamed')}
               </h2>
-              <button type="button" className="ui-btn ui-btn-ghost" aria-label={t('teacher.close')} onClick={() => setSelected(null)}>
+              <button type="button" className="ui-btn ui-btn-ghost shrink-0" aria-label={t('teacher.close')} onClick={() => setSelected(null)}>
                 <X aria-hidden="true" className="size-4" />
               </button>
             </div>
