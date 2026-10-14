@@ -506,11 +506,17 @@ export async function listClasses(programId?: string): Promise<CourseClass[]> {
   return (data ?? []).map(asClass)
 }
 
-export async function createClass(input: { name: string; startsOn?: string; endsOn?: string }): Promise<CourseClass> {
+export async function createClass(input: {
+  name: string
+  programId?: string
+  startsOn?: string
+  endsOn?: string
+  teacherIds?: string[]
+}): Promise<CourseClass> {
   const { data, error } = await client()
     .from('course_classes')
     .insert({
-      program_id: null,
+      program_id: input.programId || null,
       name: input.name,
       starts_on: input.startsOn || null,
       ends_on: input.endsOn || null,
@@ -518,7 +524,9 @@ export async function createClass(input: { name: string; startsOn?: string; ends
     .select('id, program_id, name, starts_on, ends_on')
     .single()
   if (error) throw error
-  return asClass(data)
+  const created = asClass(data)
+  if (input.teacherIds?.length) await saveClassTeachers(created.id, input.teacherIds)
+  return created
 }
 
 export async function updateClass(
