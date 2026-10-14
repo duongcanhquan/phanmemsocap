@@ -42,7 +42,7 @@ function asString(value: unknown) {
   return typeof value === 'string' ? value.trim() : ''
 }
 
-function hasBodyHtml(html: string) {
+export function hasVisibleText(html: string) {
   return html.replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').trim().length > 0
 }
 
@@ -65,7 +65,7 @@ export function parseLessonContent(raw: string, contentType: string = 'text'): L
       materials.slideLabel = asString(parsed.slideLabel)
       materials.slideMarkdown = asString(parsed.slideMarkdown)
       materials.videoUrl = asString(parsed.videoUrl)
-      if (materials.pdfUrl || materials.slideUrl || materials.slideMarkdown || materials.videoUrl || hasBodyHtml(materials.body.vi)) {
+      if (materials.pdfUrl || materials.slideUrl || materials.slideMarkdown || materials.videoUrl || hasVisibleText(materials.body.vi)) {
         return materials
       }
     } catch {
@@ -111,7 +111,7 @@ export function packLessonContent(materials: LessonMaterials): string {
 }
 
 export function primaryContentType(materials: LessonMaterials, fallback: LessonKind = 'text'): LessonKind {
-  if (hasBodyHtml(materials.body.vi) || hasBodyHtml(materials.body.my) || hasBodyHtml(materials.body.bn)) return 'text'
+  if (hasVisibleText(materials.body.vi) || hasVisibleText(materials.body.my) || hasVisibleText(materials.body.bn)) return 'text'
   if (materials.videoUrl) return 'video'
   if (materials.pdfUrl) return 'pdf'
   if (materials.slideUrl || materials.slideMarkdown) return 'slides'
@@ -125,13 +125,12 @@ export function resolveContentType(preferred: LessonKind, materials: LessonMater
   if (preferred === 'slides' && flags.slides) return 'slides'
   if (preferred === 'video' && flags.video) return 'video'
   if (preferred === 'text' && flags.article) return 'text'
-  if (preferred === 'quiz') return primaryContentType(materials, 'quiz')
   return primaryContentType(materials, preferred)
 }
 
 export function materialFlags(materials: LessonMaterials) {
   return {
-    article: hasBodyHtml(materials.body.vi) || hasBodyHtml(materials.body.my) || hasBodyHtml(materials.body.bn),
+    article: hasVisibleText(materials.body.vi) || hasVisibleText(materials.body.my) || hasVisibleText(materials.body.bn),
     pdf: Boolean(materials.pdfUrl),
     slides: Boolean(materials.slideUrl || materials.slideMarkdown),
     slideDeck: Boolean(materials.slideMarkdown && isSlideDeck(materials.slideMarkdown)),

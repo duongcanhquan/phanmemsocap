@@ -12,6 +12,8 @@ import { materialFlags, parseLessonContent } from '../../lib/lessonContent'
 import { splitLessonHtml } from '../../lib/lessonParts'
 import { lessonBody, localizedLabel } from '../../lib/localized'
 import { isSlideDeck, markdownToHtml } from '../../lib/markdown'
+import { fileUrl, httpsUrl } from '../../lib/media'
+import { sanitizeLessonHtml } from '../../lib/sanitizeHtml'
 import { listLessonPath, rememberStudy, studyPercent, type LessonPathItem } from '../../lib/student'
 
 type LessonViewerProps = {
@@ -494,48 +496,4 @@ function lessonYoutube(videoUrl: string) {
 function isPdfUrl(value: string) {
   const url = fileUrl(value)
   return Boolean(url && /\.pdf($|\?)/i.test(url))
-}
-
-function sanitizeLessonHtml(html: string) {
-  if (!html.trim()) return ''
-  const doc = new DOMParser().parseFromString(html, 'text/html')
-  doc.querySelectorAll('script, style, object, embed').forEach((node) => node.remove())
-  doc.querySelectorAll('*').forEach((node) => {
-    for (const attr of [...node.attributes]) {
-      if (attr.name.startsWith('on')) node.removeAttribute(attr.name)
-    }
-  })
-  doc.querySelectorAll('iframe').forEach((frame) => {
-    const src = frame.getAttribute('src') ?? ''
-    const embed = isValidYoutubeUrl(src) ? getEmbedUrlFromYoutubeUrl({ url: src, nocookie: true, controls: true }) : null
-    if (!embed) {
-      frame.remove()
-      return
-    }
-    frame.setAttribute('src', embed)
-    frame.setAttribute('loading', 'lazy')
-    frame.setAttribute('allowfullscreen', '')
-  })
-  doc.querySelectorAll('[data-example]').forEach((node) => {
-    node.setAttribute('role', 'button')
-    node.setAttribute('tabindex', '0')
-  })
-  return doc.body.innerHTML
-}
-
-function httpsUrl(value: string) {
-  try {
-    return new URL(value).protocol === 'https:' ? value : ''
-  } catch {
-    return ''
-  }
-}
-
-function fileUrl(value: string) {
-  try {
-    const url = new URL(value.trim())
-    return url.protocol === 'https:' || url.protocol === 'http:' ? url.href : ''
-  } catch {
-    return ''
-  }
 }

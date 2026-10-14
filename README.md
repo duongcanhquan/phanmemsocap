@@ -14,4 +14,15 @@ npm run dev
 
 Ngôn ngữ mặc định là Tiếng Việt. Có thể đổi sang Tiếng Myanmar hoặc Tiếng Bengali trên header.
 
-Trang **Bài giảng** dùng TipTap. Ảnh kéo thả được tải lên Cloudflare R2 qua `src/lib/r2.ts`. Bucket cần bật CORS cho origin của ứng dụng và cho phép `PUT`. Các biến `VITE_R2_*` nằm trong bundle trình duyệt, nên token R2 chỉ nên có quyền ghi vào prefix `lessons/`.
+Trang **Bài giảng** dùng TipTap. Ảnh/PDF/slide tải lên bucket Supabase Storage `media` (publishable key + RLS). Không đưa secret R2/`service_role` vào biến `VITE_*`.
+
+## Vị trí code bài giảng
+
+| Việc | File |
+|------|------|
+| Đóng gói / đọc PDF·slide·video·bài viết | `src/lib/lessonContent.ts` |
+| Upload file | `src/lib/media.ts` |
+| Lọc HTML khi học viên xem | `src/lib/sanitizeHtml.ts` |
+| Form PDF/slide/video dùng chung | `src/components/lesson/MaterialFields.tsx` |
+| Soạn bài (admin/GV) | `src/pages/LessonEditorPage.tsx` |
+| Xem bài (sinh viên) | `src/pages/student/LessonViewer.tsx` |
