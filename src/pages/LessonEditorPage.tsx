@@ -14,12 +14,13 @@ import {
   lessonFileStem,
   packLessonContent,
   parseLessonContent,
-  primaryContentType,
+  resolveContentType,
 } from '../lib/lessonContent'
 import {
   deleteLesson,
   getLessonQuizSettings,
   lessonCourseIds,
+  lessonTypes,
   listAllLessons,
   listLessons,
   listQuizzes,
@@ -30,10 +31,13 @@ import {
   syncLessonCourses,
   type LessonQuizSettings,
   type LessonRecord,
+  type LessonType,
   type ProgramRecord,
   type QuizRecord,
   type StudentRecord,
 } from '../lib/programs'
+
+const composeTypes = lessonTypes.filter((type) => type !== 'quiz')
 import { isSchoolAdmin } from '../lib/roles'
 import { QuizSetup } from '../components/admin/QuizSetup'
 import { MaterialChips } from '../components/MaterialChips'
@@ -45,6 +49,7 @@ type LessonDraft = {
   courseIds?: string[]
   title: string
   moduleName: string
+  contentType?: LessonType
   body: string
   pdfUrl?: string
   pdfLabel?: string
@@ -69,11 +74,14 @@ function readLessonDraft(key: string): LessonDraft | null {
       !parsed.slideMarkdown?.trim() &&
       !parsed.videoUrl?.trim()
     if (empty) return null
+    const contentType =
+      parsed.contentType && composeTypes.includes(parsed.contentType) ? parsed.contentType : undefined
     return {
       courseId: parsed.courseId ?? '',
       courseIds: Array.isArray(parsed.courseIds) ? parsed.courseIds.filter((id) => typeof id === 'string') : undefined,
       title: parsed.title ?? '',
       moduleName: parsed.moduleName ?? '',
+      contentType,
       body: parsed.body ?? '',
       pdfUrl: parsed.pdfUrl ?? '',
       pdfLabel: parsed.pdfLabel ?? '',
@@ -299,8 +307,13 @@ function LessonComposer({
     return programId ? [programId] : []
   })
   const source = parseLessonContent(lesson?.contentUrl ?? '', lesson?.contentType ?? 'text')
+  const initialFocus: LessonType =
+    stored?.contentType ||
+    (lesson?.contentType && lesson.contentType !== 'quiz' ? lesson.contentType : null) ||
+    'text'
   const [title, setTitle] = useState(stored?.title ?? localizedLabel(lesson?.title ?? emptyLocalized(), 'vi'))
   const [moduleName, setModuleName] = useState(stored?.moduleName ?? localizedLabel(lesson?.moduleName ?? emptyLocalized(), 'vi'))
+  const [focusType, setFocusType] = useState<LessonType>(initialFocus)
   const [contentUrl, setContentUrl] = useState(stored?.body ?? source.body.vi)
   const [content, setContent] = useState<JSONContent | string | undefined>(stored?.body || source.body.vi || undefined)
 
@@ -337,6 +350,7 @@ function LessonComposer({
     courseIds,
     title,
     moduleName,
+    focusType,
     contentUrl,
     pdfUrl,
     pdfLabel,
@@ -359,6 +373,7 @@ function LessonComposer({
       courseIds: current.courseIds,
       title: current.title,
       moduleName: current.moduleName,
+      contentType: current.focusType,
       body,
       pdfUrl: current.pdfUrl,
       pdfLabel: current.pdfLabel,
@@ -441,7 +456,10 @@ function LessonComposer({
         id: savedId.current,
         title: titleText,
         moduleName: moduleText,
-        contentType: primaryContentType(materials, lesson?.contentType === 'quiz' ? 'quiz' : 'text'),
+        contentType: resolveContentType(
+          lesson?.contentType === 'quiz' ? 'quiz' : current.focusType,
+          materials,
+        ),
         contentUrl: packLessonContent(materials),
         isPublished: publish,
         orderIndex: current.orderIndex,
@@ -521,6 +539,7 @@ function LessonComposer({
       courseIds,
       title,
       moduleName,
+      focusType,
       contentUrl,
       pdfUrl,
       pdfLabel,
@@ -539,7 +558,7 @@ function LessonComposer({
     return () => window.clearTimeout(timer)
     // persist is stored on persistRef so a new function identity does not reset the draft timer.
     // oxlint-disable-next-line react-hooks/exhaustive-deps
-  }, [courseIds, title, moduleName, contentUrl, pdfUrl, pdfLabel, slideUrl, slideLabel, slideMarkdown, videoUrl, orderIndex, authorId, content, quizzes, quizSettings])
+  }, [courseIds, title, moduleName, focusType, contentUrl, pdfUrl, pdfLabel, slideUrl, slideLabel, slideMarkdown, videoUrl, orderIndex, authorId, content, quizzes, quizSettings])
 
   useEffect(() => {
     const flush = () => {
@@ -590,9 +609,83 @@ function LessonComposer({
   const authorName = teachers.find((teacher) => teacher.id === authorId)?.fullName || t('programs.unassigned')
 
   const lessonName = title.trim() || t('programs.untitled')
-  const attachmentCount =
-    [pdfUrl, slideUrl, slideMarkdown, videoUrl].filter((value) => value.trim()).length +
-    (contentUrl.replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').trim() ? 1 : 0)
+  const extraCount = [
+    focusType !== 'text' && contentUrl.replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').trim() ? 1 : 0,
+    focusType !== 'pdf' && pdfUrl.trim() ? 1 : 0,
+    focusType !== 'slides' && (slideUrl.trim() || slideMarkdown.trim()) ? 1 : 0,
+    focusType !== 'video' && videoUrl.trim() ? 1 : 0,
+  ].reduce((sum, value) => sum + value, 0)
+
+  function pdfFields(idPrefix: string) {
+    return (
+      <div className="grid gap-3">
+        <MediaField
+          id={`${idPrefix}-pdf`}
+          label={t('programs.pdfFile')}
+          value={pdfUrl}
+          onChange={(url) => {
+            setPdfUrl(url)
+            if (url && !pdfLabel.trim()) setPdfLabel(lessonName)
+          }}
+          onError={setError}
+          accept="application/pdf,.pdf"
+          folder="pdfs"
+          hint={t('programs.pdfHint')}
+          displayName={pdfLabel.trim() || lessonName}
+          uploadName={lessonFileStem(lessonName, 'pdf')}
+        />
+        {pdfUrl ? (
+          <label className="grid gap-1 text-sm font-medium text-ink" htmlFor={`${idPrefix}-pdf-label`}>
+            {t('programs.fileDisplayName')}
+            <input id={`${idPrefix}-pdf-label`} className="ui-field" value={pdfLabel} onChange={(event) => setPdfLabel(event.target.value)} placeholder={lessonName} />
+          </label>
+        ) : null}
+      </div>
+    )
+  }
+
+  function slideFields(idPrefix: string) {
+    return (
+      <div className="grid gap-3">
+        <MediaField
+          id={`${idPrefix}-slides`}
+          label={t('programs.slideFile')}
+          value={slideUrl}
+          onChange={(url) => {
+            setSlideUrl(url)
+            if (url && !slideLabel.trim()) setSlideLabel(lessonName)
+          }}
+          onError={setError}
+          accept=".pdf,.ppt,.pptx,application/pdf,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation"
+          folder="slides"
+          hint={t('programs.slideHint')}
+          placeholder={t('programs.slideLink')}
+          displayName={slideLabel.trim() || lessonName}
+          uploadName={lessonFileStem(lessonName, 'slides')}
+        />
+        {slideUrl ? (
+          <label className="grid gap-1 text-sm font-medium text-ink" htmlFor={`${idPrefix}-slide-label`}>
+            {t('programs.fileDisplayName')}
+            <input id={`${idPrefix}-slide-label`} className="ui-field" value={slideLabel} onChange={(event) => setSlideLabel(event.target.value)} placeholder={lessonName} />
+          </label>
+        ) : null}
+        <label className="grid gap-1 text-sm font-medium text-ink" htmlFor={`${idPrefix}-slide-body`}>
+          {t('programs.slideBody')}
+          <textarea id={`${idPrefix}-slide-body`} className="ui-field min-h-28 py-2" value={slideMarkdown} onChange={(event) => setSlideMarkdown(event.target.value)} />
+        </label>
+      </div>
+    )
+  }
+
+  function videoFields(idPrefix: string) {
+    return (
+      <label className="grid gap-1 text-sm font-medium text-ink" htmlFor={`${idPrefix}-video`}>
+        {t('programs.videoLink')}
+        <input id={`${idPrefix}-video`} className="ui-field" value={videoUrl} onChange={(event) => setVideoUrl(event.target.value)} placeholder={t('editor.youtubePrompt')} />
+        <span className="text-xs font-normal text-muted">{t('programs.videoHint')}</span>
+      </label>
+    )
+  }
 
   return (
     <Dialog title={lesson ? t('programs.editLesson') : t('editor.newLesson')} onClose={() => void leave()}>
@@ -601,90 +694,75 @@ function LessonComposer({
           {t('programs.name')}
           <input id="compose-title" className="ui-field text-base font-semibold" value={title} onChange={(event) => setTitle(event.target.value)} autoFocus />
         </label>
-        <Tabs
-          label={t('panels.label')}
-          value={pane}
-          onChange={setPane}
-          tabs={[
-            { id: 'write', label: t('panels.write') },
-            { id: 'assist', label: t('panels.assist') },
-          ]}
-        />
-        <div className={pane === 'write' ? 'min-h-[24rem]' : 'hidden'}>
-          <AdvancedEditor content={content} onChange={onEditorChange} editorRef={editorRef} />
+        <div className="grid gap-2">
+          <div className="flex flex-wrap gap-2">
+            {composeTypes.map((type) => (
+              <button
+                key={type}
+                type="button"
+                className={focusType === type ? 'ui-inline ui-btn-primary' : 'ui-inline ui-btn-ghost'}
+                aria-pressed={focusType === type}
+                onClick={() => setFocusType(type)}
+              >
+                {t(`programs.types.${type}`)}
+              </button>
+            ))}
+          </div>
+          <p className="text-xs text-muted">{t('programs.focusHint')}</p>
         </div>
-        {pane === 'assist' ? (
-          <AILessonGenerator
-            getContent={() => editorRef.current?.getText() ?? ''}
-            onInsert={(markdown) => {
-              setPane('write')
-              editorRef.current?.insertMarkdown(markdown)
-            }}
-          />
+        {focusType === 'text' ? (
+          <>
+            <Tabs
+              label={t('panels.label')}
+              value={pane}
+              onChange={setPane}
+              tabs={[
+                { id: 'write', label: t('panels.write') },
+                { id: 'assist', label: t('panels.assist') },
+              ]}
+            />
+            <div className={pane === 'write' ? 'min-h-[24rem]' : 'hidden'}>
+              <AdvancedEditor content={content} onChange={onEditorChange} editorRef={editorRef} />
+            </div>
+            {pane === 'assist' ? (
+              <AILessonGenerator
+                getContent={() => editorRef.current?.getText() ?? ''}
+                onInsert={(markdown) => {
+                  setPane('write')
+                  editorRef.current?.insertMarkdown(markdown)
+                }}
+              />
+            ) : null}
+          </>
         ) : null}
-        <details className="rounded-2xl border border-line bg-white/60 p-3" open={attachmentCount > 0}>
+        {focusType === 'pdf' ? pdfFields('compose-main') : null}
+        {focusType === 'slides' ? slideFields('compose-main') : null}
+        {focusType === 'video' ? videoFields('compose-main') : null}
+        <details className="rounded-2xl border border-line bg-white/60 p-3" open={extraCount > 0}>
           <summary className="cursor-pointer list-none text-sm font-medium text-ink">
             <span className="inline-flex flex-wrap items-center gap-2">
               <span>{t('programs.attachments')}</span>
               <span className="rounded-full bg-canvas px-2 py-0.5 text-xs font-normal text-muted">
-                {t('programs.attachmentsCount', { count: attachmentCount })}
+                {t('programs.attachmentsCount', { count: extraCount })}
               </span>
             </span>
           </summary>
           <div className="mt-3 grid gap-3">
             <p className="text-xs text-muted">{t('programs.attachmentsHint')}</p>
-            <MediaField
-              id="compose-pdf"
-              label={t('programs.pdfFile')}
-              value={pdfUrl}
-              onChange={(url) => {
-                setPdfUrl(url)
-                if (url && !pdfLabel.trim()) setPdfLabel(lessonName)
-              }}
-              onError={setError}
-              accept="application/pdf,.pdf"
-              folder="pdfs"
-              hint={t('programs.pdfHint')}
-              displayName={pdfLabel.trim() || lessonName}
-              uploadName={lessonFileStem(lessonName, 'pdf')}
-            />
-            {pdfUrl ? (
-              <label className="grid gap-1 text-sm font-medium text-ink" htmlFor="compose-pdf-label">
-                {t('programs.fileDisplayName')}
-                <input id="compose-pdf-label" className="ui-field" value={pdfLabel} onChange={(event) => setPdfLabel(event.target.value)} placeholder={lessonName} />
+            {focusType !== 'text' ? (
+              <label className="grid gap-1 text-sm font-medium text-ink" htmlFor="compose-extra-body">
+                {t('panels.write')}
+                <textarea
+                  id="compose-extra-body"
+                  className="ui-field min-h-28 py-2"
+                  value={contentUrl}
+                  onChange={(event) => setContentUrl(event.target.value)}
+                />
               </label>
             ) : null}
-            <MediaField
-              id="compose-slides-file"
-              label={t('programs.slideFile')}
-              value={slideUrl}
-              onChange={(url) => {
-                setSlideUrl(url)
-                if (url && !slideLabel.trim()) setSlideLabel(lessonName)
-              }}
-              onError={setError}
-              accept=".pdf,.ppt,.pptx,application/pdf,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation"
-              folder="slides"
-              hint={t('programs.slideHint')}
-              placeholder={t('programs.slideLink')}
-              displayName={slideLabel.trim() || lessonName}
-              uploadName={lessonFileStem(lessonName, 'slides')}
-            />
-            {slideUrl ? (
-              <label className="grid gap-1 text-sm font-medium text-ink" htmlFor="compose-slide-label">
-                {t('programs.fileDisplayName')}
-                <input id="compose-slide-label" className="ui-field" value={slideLabel} onChange={(event) => setSlideLabel(event.target.value)} placeholder={lessonName} />
-              </label>
-            ) : null}
-            <label className="grid gap-1 text-sm font-medium text-ink" htmlFor="compose-slides">
-              {t('programs.slideBody')}
-              <textarea id="compose-slides" className="ui-field min-h-28 py-2" value={slideMarkdown} onChange={(event) => setSlideMarkdown(event.target.value)} />
-            </label>
-            <label className="grid gap-1 text-sm font-medium text-ink" htmlFor="compose-video">
-              {t('programs.videoLink')}
-              <input id="compose-video" className="ui-field" value={videoUrl} onChange={(event) => setVideoUrl(event.target.value)} placeholder={t('editor.youtubePrompt')} />
-              <span className="text-xs font-normal text-muted">{t('programs.videoHint')}</span>
-            </label>
+            {focusType !== 'pdf' ? pdfFields('compose-extra') : null}
+            {focusType !== 'slides' ? slideFields('compose-extra') : null}
+            {focusType !== 'video' ? videoFields('compose-extra') : null}
           </div>
         </details>
         <details className="rounded-2xl border border-line bg-white/60 p-3">

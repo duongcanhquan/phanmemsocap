@@ -118,6 +118,17 @@ export function primaryContentType(materials: LessonMaterials, fallback: LessonK
   return fallback === 'quiz' ? 'quiz' : 'text'
 }
 
+/** Keep the teacher's chosen tab when that material exists; otherwise fall back. */
+export function resolveContentType(preferred: LessonKind, materials: LessonMaterials): LessonKind {
+  const flags = materialFlags(materials)
+  if (preferred === 'pdf' && flags.pdf) return 'pdf'
+  if (preferred === 'slides' && flags.slides) return 'slides'
+  if (preferred === 'video' && flags.video) return 'video'
+  if (preferred === 'text' && flags.article) return 'text'
+  if (preferred === 'quiz') return primaryContentType(materials, 'quiz')
+  return primaryContentType(materials, preferred === 'quiz' ? 'quiz' : preferred)
+}
+
 export function materialFlags(materials: LessonMaterials) {
   return {
     article: hasBodyHtml(materials.body.vi) || hasBodyHtml(materials.body.my) || hasBodyHtml(materials.body.bn),

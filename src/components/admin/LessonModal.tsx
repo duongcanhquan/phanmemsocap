@@ -6,11 +6,12 @@ import {
   lessonFileStem,
   packLessonContent,
   parseLessonContent,
-  primaryContentType,
+  resolveContentType,
 } from '../../lib/lessonContent'
 import {
   deleteLesson,
   lessonCourseIds,
+  lessonTypes,
   listPrograms,
   getLessonQuizSettings,
   listQuizzes,
@@ -19,9 +20,12 @@ import {
   syncLessonCourses,
   type LessonQuizSettings,
   type LessonRecord,
+  type LessonType,
   type ProgramRecord,
   type QuizRecord,
 } from '../../lib/programs'
+
+const composeTypes = lessonTypes.filter((type) => type !== 'quiz')
 import { MediaField } from '../MediaField'
 import { Dialog } from '../ui/Dialog'
 import { LocalizedFields } from './LocalizedFields'
@@ -44,6 +48,9 @@ export function LessonModal({ programId, lesson, nextOrder, onClose, onSaved }: 
   const [orderIndex, setOrderIndex] = useState(lesson?.orderIndex ?? nextOrder)
   const [title, setTitle] = useState<LocalizedText>(lesson?.title ?? emptyLocalized())
   const [moduleName, setModuleName] = useState<LocalizedText>(lesson?.moduleName ?? emptyLocalized())
+  const [focusType, setFocusType] = useState<LessonType>(
+    lesson?.contentType && lesson.contentType !== 'quiz' ? lesson.contentType : 'text',
+  )
   const [contentUrl, setContentUrl] = useState(source.body.vi)
   const [pdfUrl, setPdfUrl] = useState(source.pdfUrl)
   const [pdfLabel, setPdfLabel] = useState(source.pdfLabel)
@@ -157,7 +164,7 @@ export function LessonModal({ programId, lesson, nextOrder, onClose, onSaved }: 
         id: lesson?.id,
         title: titleText,
         moduleName: moduleText,
-        contentType: primaryContentType(materials, lesson?.contentType === 'quiz' ? 'quiz' : 'text'),
+        contentType: resolveContentType(lesson?.contentType === 'quiz' ? 'quiz' : focusType, materials),
         contentUrl: packLessonContent(materials),
         isPublished,
         orderIndex,
@@ -194,92 +201,144 @@ export function LessonModal({ programId, lesson, nextOrder, onClose, onSaved }: 
   }
 
   const lessonName = localizedLabel(title, i18n.language) || t('programs.untitled')
-  const attachmentCount =
-    [pdfUrl, slideUrl, slideMarkdown, videoUrl].filter((value) => value.trim()).length +
-    (contentUrl.replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').trim() ? 1 : 0)
+  const extraCount = [
+    focusType !== 'text' && contentUrl.replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').trim() ? 1 : 0,
+    focusType !== 'pdf' && pdfUrl.trim() ? 1 : 0,
+    focusType !== 'slides' && (slideUrl.trim() || slideMarkdown.trim()) ? 1 : 0,
+    focusType !== 'video' && videoUrl.trim() ? 1 : 0,
+  ].reduce((sum, value) => sum + value, 0)
   const richBody = /<[a-z][\s\S]*>/i.test(contentUrl)
+
+  function pdfBlock(idPrefix: string) {
+    return (
+      <div className="grid gap-3">
+        <MediaField
+          id={`${idPrefix}-pdf`}
+          label={t('programs.pdfFile')}
+          value={pdfUrl}
+          onChange={(url) => {
+            setPdfUrl(url)
+            if (url && !pdfLabel.trim()) setPdfLabel(lessonName)
+          }}
+          onError={setError}
+          accept="application/pdf,.pdf"
+          folder="pdfs"
+          hint={t('programs.pdfHint')}
+          displayName={pdfLabel.trim() || lessonName}
+          uploadName={lessonFileStem(lessonName, 'pdf')}
+        />
+        {pdfUrl ? (
+          <label className="grid gap-1 text-sm font-medium text-ink" htmlFor={`${idPrefix}-pdf-label`}>
+            {t('programs.fileDisplayName')}
+            <input id={`${idPrefix}-pdf-label`} className="ui-field" value={pdfLabel} onChange={(event) => setPdfLabel(event.target.value)} placeholder={lessonName} />
+          </label>
+        ) : null}
+      </div>
+    )
+  }
+
+  function slideBlock(idPrefix: string) {
+    return (
+      <div className="grid gap-3">
+        <MediaField
+          id={`${idPrefix}-slides`}
+          label={t('programs.slideFile')}
+          value={slideUrl}
+          onChange={(url) => {
+            setSlideUrl(url)
+            if (url && !slideLabel.trim()) setSlideLabel(lessonName)
+          }}
+          onError={setError}
+          accept=".pdf,.ppt,.pptx,application/pdf,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation"
+          folder="slides"
+          hint={t('programs.slideHint')}
+          placeholder={t('programs.slideLink')}
+          displayName={slideLabel.trim() || lessonName}
+          uploadName={lessonFileStem(lessonName, 'slides')}
+        />
+        {slideUrl ? (
+          <label className="grid gap-1 text-sm font-medium text-ink" htmlFor={`${idPrefix}-slide-label`}>
+            {t('programs.fileDisplayName')}
+            <input id={`${idPrefix}-slide-label`} className="ui-field" value={slideLabel} onChange={(event) => setSlideLabel(event.target.value)} placeholder={lessonName} />
+          </label>
+        ) : null}
+        <label className="grid gap-1 text-sm font-medium text-ink" htmlFor={`${idPrefix}-slide-body`}>
+          {t('programs.slideBody')}
+          <textarea id={`${idPrefix}-slide-body`} className="ui-field min-h-28 py-2" value={slideMarkdown} onChange={(event) => setSlideMarkdown(event.target.value)} />
+        </label>
+      </div>
+    )
+  }
+
+  function videoBlock(idPrefix: string) {
+    return (
+      <label className="grid gap-1 text-sm font-medium text-ink" htmlFor={`${idPrefix}-video`}>
+        {t('programs.videoLink')}
+        <input id={`${idPrefix}-video`} className="ui-field" value={videoUrl} onChange={(event) => setVideoUrl(event.target.value)} placeholder={t('editor.youtubePrompt')} />
+        <span className="text-xs font-normal text-muted">{t('programs.videoHint')}</span>
+      </label>
+    )
+  }
 
   return (
     <Dialog title={lesson ? t('programs.editLesson') : t('programs.addLesson')} onClose={onClose}>
       <form className="grid gap-6" onSubmit={(event) => void onSubmit(event)}>
         <div className="grid gap-4">
           <LocalizedFields id="lesson-title" label={t('programs.name')} value={title} onChange={setTitle} />
-          {richBody ? (
-            <div className="rounded-2xl border border-line bg-canvas/80 p-3 text-sm text-ink">
-              <p>{t('programs.editInComposer')}</p>
-              <Link className="ui-inline ui-btn-primary mt-2" to="/lessons" onClick={onClose}>
-                {t('editor.title')}
-              </Link>
+          <div className="grid gap-2">
+            <div className="flex flex-wrap gap-2">
+              {composeTypes.map((type) => (
+                <button
+                  key={type}
+                  type="button"
+                  className={focusType === type ? 'ui-inline ui-btn-primary' : 'ui-inline ui-btn-ghost'}
+                  aria-pressed={focusType === type}
+                  onClick={() => setFocusType(type)}
+                >
+                  {t(`programs.types.${type}`)}
+                </button>
+              ))}
             </div>
-          ) : (
-            <label className="grid gap-1 text-sm font-medium text-ink" htmlFor="lesson-body">
-              {t('panels.write')}
-              <textarea
-                id="lesson-body"
-                className="ui-field min-h-48 py-2"
-                value={contentUrl}
-                onChange={(event) => setContentUrl(event.target.value)}
-              />
-            </label>
-          )}
-          <details className="rounded-2xl border border-line bg-white/60 p-3" open={attachmentCount > 0}>
+            <p className="text-xs text-muted">{t('programs.focusHint')}</p>
+          </div>
+          {focusType === 'text' ? (
+            richBody ? (
+              <div className="rounded-2xl border border-line bg-canvas/80 p-3 text-sm text-ink">
+                <p>{t('programs.editInComposer')}</p>
+                <Link className="ui-inline ui-btn-primary mt-2" to="/lessons" onClick={onClose}>
+                  {t('editor.title')}
+                </Link>
+              </div>
+            ) : (
+              <label className="grid gap-1 text-sm font-medium text-ink" htmlFor="lesson-body">
+                {t('panels.write')}
+                <textarea
+                  id="lesson-body"
+                  className="ui-field min-h-48 py-2"
+                  value={contentUrl}
+                  onChange={(event) => setContentUrl(event.target.value)}
+                />
+              </label>
+            )
+          ) : null}
+          {focusType === 'pdf' ? pdfBlock('lesson-main') : null}
+          {focusType === 'slides' ? slideBlock('lesson-main') : null}
+          {focusType === 'video' ? videoBlock('lesson-main') : null}
+          <details className="rounded-2xl border border-line bg-white/60 p-3" open={extraCount > 0}>
             <summary className="cursor-pointer text-sm font-medium text-ink">
-              {t('programs.attachments')} · {t('programs.attachmentsCount', { count: attachmentCount })}
+              {t('programs.attachments')} · {t('programs.attachmentsCount', { count: extraCount })}
             </summary>
             <div className="mt-3 grid gap-3">
               <p className="text-xs text-muted">{t('programs.attachmentsHint')}</p>
-              <MediaField
-                id="lesson-pdf"
-                label={t('programs.pdfFile')}
-                value={pdfUrl}
-                onChange={(url) => {
-                  setPdfUrl(url)
-                  if (url && !pdfLabel.trim()) setPdfLabel(lessonName)
-                }}
-                onError={setError}
-                accept="application/pdf,.pdf"
-                folder="pdfs"
-                hint={t('programs.pdfHint')}
-                displayName={pdfLabel.trim() || lessonName}
-                uploadName={lessonFileStem(lessonName, 'pdf')}
-              />
-              {pdfUrl ? (
-                <label className="grid gap-1 text-sm font-medium text-ink" htmlFor="lesson-pdf-label">
-                  {t('programs.fileDisplayName')}
-                  <input id="lesson-pdf-label" className="ui-field" value={pdfLabel} onChange={(event) => setPdfLabel(event.target.value)} placeholder={lessonName} />
+              {focusType !== 'text' && !richBody ? (
+                <label className="grid gap-1 text-sm font-medium text-ink" htmlFor="lesson-extra-body">
+                  {t('panels.write')}
+                  <textarea id="lesson-extra-body" className="ui-field min-h-28 py-2" value={contentUrl} onChange={(event) => setContentUrl(event.target.value)} />
                 </label>
               ) : null}
-              <MediaField
-                id="lesson-slides-file"
-                label={t('programs.slideFile')}
-                value={slideUrl}
-                onChange={(url) => {
-                  setSlideUrl(url)
-                  if (url && !slideLabel.trim()) setSlideLabel(lessonName)
-                }}
-                onError={setError}
-                accept=".pdf,.ppt,.pptx,application/pdf,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation"
-                folder="slides"
-                hint={t('programs.slideHint')}
-                placeholder={t('programs.slideLink')}
-                displayName={slideLabel.trim() || lessonName}
-                uploadName={lessonFileStem(lessonName, 'slides')}
-              />
-              {slideUrl ? (
-                <label className="grid gap-1 text-sm font-medium text-ink" htmlFor="lesson-slide-label">
-                  {t('programs.fileDisplayName')}
-                  <input id="lesson-slide-label" className="ui-field" value={slideLabel} onChange={(event) => setSlideLabel(event.target.value)} placeholder={lessonName} />
-                </label>
-              ) : null}
-              <label className="grid gap-1 text-sm font-medium text-ink" htmlFor="lesson-slide-body">
-                {t('programs.slideBody')}
-                <textarea id="lesson-slide-body" className="ui-field min-h-28 py-2" value={slideMarkdown} onChange={(event) => setSlideMarkdown(event.target.value)} />
-              </label>
-              <label className="grid gap-1 text-sm font-medium text-ink" htmlFor="lesson-video">
-                {t('programs.videoLink')}
-                <input id="lesson-video" className="ui-field" value={videoUrl} onChange={(event) => setVideoUrl(event.target.value)} placeholder={t('editor.youtubePrompt')} />
-                <span className="text-xs font-normal text-muted">{t('programs.videoHint')}</span>
-              </label>
+              {focusType !== 'pdf' ? pdfBlock('lesson-extra') : null}
+              {focusType !== 'slides' ? slideBlock('lesson-extra') : null}
+              {focusType !== 'video' ? videoBlock('lesson-extra') : null}
             </div>
           </details>
           <details className="rounded-2xl border border-line bg-white/60 p-3">
